@@ -92,7 +92,7 @@ A comprehensive stock analysis tool that combines technical indicators, fundamen
 ### Local Execution
 
 ```bash
-python main.py [TICKER]
+python app.py [TICKER]
 ```
 
 ### Docker Execution
@@ -105,13 +105,13 @@ docker run --rm growth-invest-plan [TICKER]
 
 ```bash
 # Analyze Apple
-python main.py AAPL
+python app.py AAPL
 
 # Analyze NVIDIA
-python main.py NVDA
+python app.py NVDA
 
 # Analyze Google
-python main.py GOOGL
+python app.py GOOGL
 ```
 
 ## Sample Output

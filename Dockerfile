@@ -13,5 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the current directory contents into the container at /app
 COPY . .
 
-# Run main.py when the container launches
-ENTRYPOINT ["python", "main.py"]
+# Run app.py when the container launches
+ENTRYPOINT ["python", "app.py"]
