@@ -11,6 +11,41 @@ import re
 # specific to windows console encoding
 sys.stdout.reconfigure(encoding='utf-8')
 
+def get_finviz_data(ticker_symbol):
+    """
+    Scrapes Finviz for fundamental data.
+    """
+    url = f"https://finviz.com/quote.ashx?t={ticker_symbol}&p=d"
+    
+    try:
+        response = requests.get(url, impersonate="chrome110", timeout=10)
+        if response.status_code != 200:
+            print(f"Failed to fetch Finviz data: {response.status_code}")
+            return {}
+            
+        soup = BeautifulSoup(response.content, 'html.parser')
+        snapshot = soup.find("table", class_="snapshot-table2")
+        
+        if not snapshot:
+            print("Finviz snapshot table not found.")
+            return {}
+            
+        data = {}
+        rows = snapshot.find_all("tr")
+        for row in rows:
+            cols = row.find_all("td")
+            # Structure is Label | Value | Label | Value ...
+            for i in range(0, len(cols), 2):
+                if i+1 < len(cols):
+                    key = cols[i].get_text(strip=True)
+                    val = cols[i+1].get_text(strip=True)
+                    data[key] = val
+                    
+        return data
+    except Exception as e:
+        print(f"Error fetching Finviz data: {e}")
+        return {}
+
 def get_marketbeat_data(ticker_symbol, last_earnings_date):
     """
     Scrapes MarketBeat for analyst ratings and calculates median MBP.
@@ -104,6 +139,7 @@ def get_stock_data(ticker_symbol):
         dict: A dictionary containing the latest metrics.
     """
     try:
+        print(f"Fetching historical data for {ticker_symbol}...")
         # Fetch historical data - need enough for EMA200
         ticker = yf.Ticker(ticker_symbol)
         hist = ticker.history(period="2y")
@@ -125,7 +161,67 @@ def get_stock_data(ticker_symbol):
         # Get MarketBeat Data
         median_mbp = None
         if last_earnings_date:
+            print(f"Fetching MarketBeat analyst ratings (post-earnings date: {last_earnings_date.date()})...")
             median_mbp = get_marketbeat_data(ticker_symbol, last_earnings_date)
+
+        # Get Finviz Data
+        print("Fetching Finviz fundamental data...")
+        finviz_data = get_finviz_data(ticker_symbol)
+
+        # Get Macrotrends Data (via yfinance for reliability)
+        print("Fetching Financials (Revenue, EPS) via yfinance...")
+        mt_data = {}
+        try:
+            # Financials (Quarterly often better for recent trends)
+            q_fin = ticker.quarterly_financials
+            if not q_fin.empty:
+                latest_q = q_fin.iloc[:, 0]
+                mt_data["Revenue"] = latest_q.get("Total Revenue", "N/A")
+                mt_data["Operating Income"] = latest_q.get("Operating Income", "N/A")
+                mt_data["Basic EPS"] = latest_q.get("Basic EPS", "N/A")
+            
+            # Next Earnings Warning
+            next_earnings = None
+            days_until_earnings = None
+            
+            # Try calendar first
+            cal = ticker.calendar
+            if cal and "Earnings Date" in cal:
+                # Calendar returns a list of usually 2 dates (range)
+                 dates = cal["Earnings Date"]
+                 if dates:
+                     next_earnings = dates[0] # Take the first one
+            
+            # Fallback to earnings_dates if calendar is empty
+            if not next_earnings:
+                ed = ticker.earnings_dates
+                if ed is not None and not ed.empty:
+                    now = pd.Timestamp.now(tz=ed.index.tz)
+                    future = ed[ed.index > now].sort_index()
+                    if not future.empty:
+                        next_earnings = future.index[0]
+            
+            if next_earnings:
+                # Ensure timezone awareness compatibility
+                # Convert to Timestamp if it's a date object
+                if not isinstance(next_earnings, pd.Timestamp):
+                    next_earnings = pd.Timestamp(next_earnings)
+                
+                # Get current time with appropriate timezone
+                if next_earnings.tz:
+                    now = pd.Timestamp.now(tz=next_earnings.tz)
+                else:
+                    now = pd.Timestamp.now()
+                    
+                delta = next_earnings - now
+                days_until_earnings = delta.days
+                mt_data["Next Earnings"] = next_earnings
+                mt_data["Days Until Earnings"] = days_until_earnings
+        
+        except Exception as e:
+            print(f"Error fetching fundamental data (Macrotrends equivalent): {e}")
+
+
 
         # Calculate True Range (TR) & ATR
         high_low = hist['High'] - hist['Low']
@@ -158,7 +254,9 @@ def get_stock_data(ticker_symbol):
             "current_price": latest['Close'], # yfinance history 'Close' is the latest price
             "timestamp": latest_date,
             "earnings_date": last_earnings_date,
-            "median_mbp": median_mbp
+            "median_mbp": median_mbp,
+            "finviz": finviz_data,
+            "macrotrends": mt_data
         }
 
     except Exception as e:
@@ -188,4 +286,41 @@ if __name__ == "__main__":
         
         if data.get('median_mbp'):
             print(f"Median MBP (Post-Earnings): ${data['median_mbp']:.2f}")
+
+        if data.get('finviz'):
+            fv = data['finviz']
+            print("\n--- Finviz Data ---")
+            print(f"Market Cap: {fv.get('Market Cap', 'N/A')}")
+            print(f"Analysts Recom: {fv.get('Recom', 'N/A')}")
+            print(f"Inst Own: {fv.get('Inst Own', 'N/A')}")
+            print(f"Avg Volume: {fv.get('Avg Volume', 'N/A')}")
+            print(f"ROE: {fv.get('ROE', 'N/A')} | ROA: {fv.get('ROA', 'N/A')}")
+            print(f"EPS Growth (This Y): {fv.get('EPS this Y', 'N/A')}")
+            print(f"EPS Growth (Next Y): {fv.get('EPS next Y', 'N/A')}")
+            print(f"EPS Growth (Next 5Y): {fv.get('EPS next 5Y', 'N/A')}")
+            print(f"P/E: {fv.get('P/E', 'N/A')} | Fwd P/E: {fv.get('Forward P/E', 'N/A')} | PEG: {fv.get('PEG', 'N/A')}")
+
+        if data.get('macrotrends'):
+            mt = data['macrotrends']
+            print("\n--- Fundamentals (Macrotrends Context) ---")
+            
+            # Format large numbers clearly
+            def fmt_num(n):
+                if isinstance(n, (int, float)):
+                    if n >= 1e9: return f"${n/1e9:.2f}B"
+                    if n >= 1e6: return f"${n/1e6:.2f}M"
+                    return f"${n:,.2f}"
+                return n
+
+            print(f"Latest Revenue (Quarterly): {fmt_num(mt.get('Revenue', 'N/A'))}")
+            print(f"Op Income (Quarterly): {fmt_num(mt.get('Operating Income', 'N/A'))}")
+            print(f"Basic EPS (Quarterly): {mt.get('Basic EPS', 'N/A')}")
+            
+            if 'Next Earnings' in mt:
+                days = mt.get('Days Until Earnings')
+                date_str = mt['Next Earnings'].date()
+                print(f"Next Earnings Date: {date_str} ({days} days left)")
+                if days is not None and days < 10:
+                     print("⚠️ WARNING: Earnings in less than 10 days! Trade with caution.")
+
 
