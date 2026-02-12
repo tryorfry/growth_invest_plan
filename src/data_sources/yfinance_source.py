@@ -23,9 +23,9 @@ class YFinanceSource(TechnicalDataSource):
     def get_source_name(self) -> str:
         return "YFinance"
     
-    def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Fetch technical and financial data from Yahoo Finance.
+        Fetch technical and financial data from Yahoo Finance asynchronously.
         
         Args:
             ticker: Stock ticker symbol
@@ -33,6 +33,14 @@ class YFinanceSource(TechnicalDataSource):
         Returns:
             Dictionary with technical indicators, financials, and earnings data
         """
+        import asyncio
+        loop = asyncio.get_running_loop()
+        
+        # Run blocking yfinance calls in a thread pool
+        return await loop.run_in_executor(None, self._fetch_sync, ticker)
+
+    def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """Synchronous fetch logic for thread execution"""
         try:
             stock = yf.Ticker(ticker)
             hist = stock.history(period=self.period)
@@ -61,26 +69,32 @@ class YFinanceSource(TechnicalDataSource):
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
         """Calculate ATR and EMAs from historical data"""
-        # True Range calculation
+        # Calculate True Range (TR) & ATR
         high_low = hist['High'] - hist['Low']
         high_close = (hist['High'] - hist['Close'].shift()).abs()
         low_close = (hist['Low'] - hist['Close'].shift()).abs()
         ranges = pd.concat([high_low, high_close, low_close], axis=1)
         true_range = ranges.max(axis=1)
         
-        # ATR (14-day)
+        # ATR 14
         atr = true_range.ewm(span=14, adjust=False).mean()
+        hist['ATR'] = atr
         
         # EMAs
         ema20 = hist['Close'].ewm(span=20, adjust=False).mean()
         ema50 = hist['Close'].ewm(span=50, adjust=False).mean()
         ema200 = hist['Close'].ewm(span=200, adjust=False).mean()
         
+        hist['EMA20'] = ema20
+        hist['EMA50'] = ema50
+        hist['EMA200'] = ema200
+        
         # Latest values
         latest = hist.iloc[-1]
         latest_date = hist.index[-1]
         
         return {
+            "history": hist,
             "atr": atr.iloc[-1],
             "ema20": ema20.iloc[-1],
             "ema50": ema50.iloc[-1],

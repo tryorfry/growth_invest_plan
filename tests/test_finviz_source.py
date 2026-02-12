@@ -65,7 +65,8 @@ class TestFinvizSource:
         
         assert result == {}
     
-    def test_fetch_success(self, finviz_source, mock_html_content):
+    @pytest.mark.asyncio
+    async def test_fetch_success(self, finviz_source, mock_html_content):
         """Test successful fetch operation"""
         with patch('curl_cffi.requests.get') as mock_get:
             mock_response = Mock()
@@ -73,33 +74,36 @@ class TestFinvizSource:
             mock_response.content = mock_html_content
             mock_get.return_value = mock_response
             
-            result = finviz_source.fetch("AAPL")
+            result = await finviz_source.fetch("AAPL")
             
             assert result is not None
             assert 'Market Cap' in result
             assert 'P/E' in result
     
-    def test_fetch_http_error(self, finviz_source):
+    @pytest.mark.asyncio
+    async def test_fetch_http_error(self, finviz_source):
         """Test fetch with HTTP error"""
         with patch('curl_cffi.requests.get') as mock_get:
             mock_response = Mock()
             mock_response.status_code = 404
             mock_get.return_value = mock_response
             
-            result = finviz_source.fetch("INVALID")
+            result = await finviz_source.fetch("INVALID")
             
             assert result is None
     
-    def test_fetch_network_exception(self, finviz_source):
+    @pytest.mark.asyncio
+    async def test_fetch_network_exception(self, finviz_source):
         """Test fetch with network exception"""
         with patch('curl_cffi.requests.get') as mock_get:
             mock_get.side_effect = Exception("Network error")
             
-            result = finviz_source.fetch("AAPL")
+            result = await finviz_source.fetch("AAPL")
             
             assert result is None
     
-    def test_url_construction(self, finviz_source):
+    @pytest.mark.asyncio
+    async def test_url_construction(self, finviz_source):
         """Test that URL is constructed correctly"""
         with patch('curl_cffi.requests.get') as mock_get:
             mock_response = Mock()
@@ -107,7 +111,7 @@ class TestFinvizSource:
             mock_response.content = b"<html></html>"
             mock_get.return_value = mock_response
             
-            finviz_source.fetch("NVDA")
+            await finviz_source.fetch("NVDA")
             
             # Verify the URL was called with correct ticker
             call_args = mock_get.call_args

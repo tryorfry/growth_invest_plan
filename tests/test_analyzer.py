@@ -1,7 +1,7 @@
 """Unit tests for Stock Analyzer"""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 import pandas as pd
 
 from src.analyzer import StockAnalyzer, StockAnalysis
@@ -14,7 +14,7 @@ class MockDataSource(DataSource):
     def __init__(self, data_to_return):
         self.data_to_return = data_to_return
     
-    def fetch(self, ticker: str, **kwargs):
+    async def fetch(self, ticker: str, **kwargs):
         return self.data_to_return
     
     def get_source_name(self):
@@ -87,14 +87,16 @@ class TestStockAnalyzer:
             "median_price_target": 200.0
         }
     
-    def test_analyzer_initialization_with_defaults(self):
+    @pytest.mark.asyncio
+    async def test_analyzer_initialization_with_defaults(self):
         """Test that analyzer initializes with default sources"""
         analyzer = StockAnalyzer()
         assert analyzer.technical_source is not None
         assert analyzer.fundamental_source is not None
         assert analyzer.analyst_source is not None
     
-    def test_analyzer_initialization_with_custom_sources(self):
+    @pytest.mark.asyncio
+    async def test_analyzer_initialization_with_custom_sources(self):
         """Test analyzer with custom data sources"""
         mock_tech = MockDataSource({})
         mock_fund = MockDataSource({})
@@ -110,15 +112,17 @@ class TestStockAnalyzer:
         assert analyzer.fundamental_source == mock_fund
         assert analyzer.analyst_source == mock_analyst
     
-    def test_analyze_returns_none_on_no_technical_data(self):
+    @pytest.mark.asyncio
+    async def test_analyze_returns_none_on_no_technical_data(self):
         """Test that analyze returns None when technical data fetch fails"""
         mock_tech = MockDataSource(None)
         analyzer = StockAnalyzer(technical_source=mock_tech)
         
-        result = analyzer.analyze("INVALID", verbose=False)
+        result = await analyzer.analyze("INVALID", verbose=False)
         assert result is None
     
-    def test_analyze_success(self, mock_technical_data, mock_fundamental_data, mock_analyst_data):
+    @pytest.mark.asyncio
+    async def test_analyze_success(self, mock_technical_data, mock_fundamental_data, mock_analyst_data):
         """Test successful analysis with all data sources"""
         mock_tech = MockDataSource(mock_technical_data)
         mock_fund = MockDataSource(mock_fundamental_data)
@@ -130,7 +134,7 @@ class TestStockAnalyzer:
             analyst_source=mock_analyst
         )
         
-        result = analyzer.analyze("AAPL", verbose=False)
+        result = await analyzer.analyze("AAPL", verbose=False)
         
         assert result is not None
         assert isinstance(result, StockAnalysis)
@@ -152,27 +156,30 @@ class TestStockAnalyzer:
         assert analysis.ema20 == 145.0
         assert analysis.revenue == 1000000000
     
-    def test_analyze_uppercase_ticker(self, mock_technical_data):
+    @pytest.mark.asyncio
+    async def test_analyze_uppercase_ticker(self, mock_technical_data):
         """Test that ticker is converted to uppercase"""
         mock_tech = MockDataSource(mock_technical_data)
         analyzer = StockAnalyzer(technical_source=mock_tech)
         
-        result = analyzer.analyze("aapl", verbose=False)
+        result = await analyzer.analyze("aapl", verbose=False)
         
         assert result.ticker == "AAPL"
     
-    def test_analyze_without_analyst_data_when_no_earnings(self):
+    @pytest.mark.asyncio
+    async def test_analyze_without_analyst_data_when_no_earnings(self):
         """Test that analyst data is not fetched when no earnings date"""
         tech_data = {"current_price": 150.0, "atr": 5.0}
         mock_tech = MockDataSource(tech_data)
-        mock_analyst = Mock()
+        mock_analyst = Mock(spec=DataSource)
+        mock_analyst.fetch = AsyncMock()  # Mock async fetch
         
         analyzer = StockAnalyzer(
             technical_source=mock_tech,
             analyst_source=mock_analyst
         )
         
-        result = analyzer.analyze("AAPL", verbose=False)
+        result = await analyzer.analyze("AAPL", verbose=False)
         
         # Analyst source should not be called
         mock_analyst.fetch.assert_not_called()

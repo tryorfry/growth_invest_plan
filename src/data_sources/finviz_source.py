@@ -16,9 +16,9 @@ class FinvizSource(FundamentalDataSource):
     def get_source_name(self) -> str:
         return "Finviz"
     
-    def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Scrape fundamental data from Finviz.
+        Scrape fundamental data from Finviz asynchronously.
         
         Args:
             ticker: Stock ticker symbol
@@ -26,6 +26,12 @@ class FinvizSource(FundamentalDataSource):
         Returns:
             Dictionary with fundamental metrics or None if fetch fails
         """
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self._fetch_sync, ticker)
+
+    def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
+        """Synchronous fetch logic for thread execution"""
         url = f"{self.BASE_URL}?t={ticker}&p=d"
         
         try:

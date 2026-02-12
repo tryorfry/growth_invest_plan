@@ -32,11 +32,12 @@ class TestYFinanceSource:
         """Test that source name is correct"""
         assert yfinance_source.get_source_name() == "YFinance"
     
-    def test_fetch_returns_none_on_empty_history(self, yfinance_source):
+    @pytest.mark.asyncio
+    async def test_fetch_returns_none_on_empty_history(self, yfinance_source):
         """Test that fetch returns None when no historical data is available"""
         with patch('yfinance.Ticker') as mock_ticker:
             mock_ticker.return_value.history.return_value = pd.DataFrame()
-            result = yfinance_source.fetch("INVALID")
+            result = await yfinance_source.fetch("INVALID")
             assert result is None
     
     def test_calculate_technical_indicators(self, yfinance_source, mock_historical_data):
@@ -111,7 +112,8 @@ class TestYFinanceSource:
         assert 'basic_eps' in result
         assert result['revenue'] == 1000000000
     
-    def test_fetch_integration(self, yfinance_source, mock_historical_data):
+    @pytest.mark.asyncio
+    async def test_fetch_integration(self, yfinance_source, mock_historical_data):
         """Integration test for complete fetch operation"""
         with patch('yfinance.Ticker') as mock_ticker_class:
             mock_ticker = Mock()
@@ -121,7 +123,7 @@ class TestYFinanceSource:
             mock_ticker.quarterly_financials = pd.DataFrame()
             mock_ticker_class.return_value = mock_ticker
             
-            result = yfinance_source.fetch("AAPL")
+            result = await yfinance_source.fetch("AAPL")
             
             assert result is not None
             assert 'atr' in result

@@ -7,6 +7,7 @@ from .data_sources.base import DataSource
 from .data_sources.yfinance_source import YFinanceSource
 from .data_sources.finviz_source import FinvizSource
 from .data_sources.marketbeat_source import MarketBeatSource
+from .data_sources.news_source import NewsSource
 
 
 @dataclass
@@ -15,6 +16,9 @@ class StockAnalysis:
     
     ticker: str
     timestamp: Any = None
+    
+    # Historical Data (for charts)
+    history: Optional[pd.DataFrame] = None
     
     # Technical indicators
     current_price: float = 0.0
@@ -43,6 +47,10 @@ class StockAnalysis:
     # Analyst targets
     median_price_target: Optional[float] = None
     
+    # News Sentiment
+    news_sentiment: Optional[float] = None
+    news_summary: Optional[str] = None
+    
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
         return self.days_until_earnings is not None and self.days_until_earnings < 10
@@ -58,7 +66,8 @@ class StockAnalyzer:
         self,
         technical_source: Optional[DataSource] = None,
         fundamental_source: Optional[DataSource] = None,
-        analyst_source: Optional[DataSource] = None
+        analyst_source: Optional[DataSource] = None,
+        news_source: Optional[DataSource] = None
     ):
         """
         Initialize the analyzer with data sources.
@@ -67,14 +76,16 @@ class StockAnalyzer:
             technical_source: Source for technical data (default: YFinance)
             fundamental_source: Source for fundamentals (default: Finviz)
             analyst_source: Source for analyst data (default: MarketBeat)
+            news_source: Source for sentiment (default: NewsSource)
         """
         self.technical_source = technical_source or YFinanceSource()
         self.fundamental_source = fundamental_source or FinvizSource()
         self.analyst_source = analyst_source or MarketBeatSource()
+        self.news_source = news_source or NewsSource()
     
-    def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
         """
-        Perform complete stock analysis.
+        Perform complete stock analysis asynchronously.
         
         Args:
             ticker: Stock ticker symbol
@@ -83,44 +94,54 @@ class StockAnalyzer:
         Returns:
             StockAnalysis object with all collected data or None if failed
         """
+        import asyncio
+        
         ticker = ticker.upper()
         analysis = StockAnalysis(ticker=ticker)
         
-        # Fetch technical data
         if verbose:
-            print(f"Fetching historical data for {ticker}...")
+            print(f"Fetching data for {ticker}...")
+            
+        # 1. Fetch Technical, Fundamental, and News data in parallel
+        # We need technical data first for earnings date, but Finviz/News are independent
+        technical_task = asyncio.create_task(self.technical_source.fetch(ticker))
+        fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
+        news_task = asyncio.create_task(self.news_source.fetch(ticker))
         
-        technical_data = self.technical_source.fetch(ticker)
+        results = await asyncio.gather(technical_task, fundamental_task, news_task)
+        technical_data, fundamental_data, news_data = results
+        
         if not technical_data:
-            print(f"Error: No data found for ticker '{ticker}'")
+            print(f"Error: No technical data found for ticker '{ticker}'")
             return None
-        
+            
         self._populate_technical_data(analysis, technical_data)
         
-        # Fetch analyst targets (requires earnings date)
-        if analysis.last_earnings_date and verbose:
-            print(f"Fetching MarketBeat analyst ratings (post-earnings date: {analysis.last_earnings_date.date()})...")
-        
+        if fundamental_data:
+            analysis.finviz_data = fundamental_data
+            
+        if news_data:
+            analysis.news_sentiment = news_data.get("news_sentiment")
+            analysis.news_summary = news_data.get("news_summary")
+            
+        # 2. Fetch Analyst Targets (Dependent on earnings date from technical data)
         if analysis.last_earnings_date:
-            analyst_data = self.analyst_source.fetch(
+            if verbose:
+                print(f"Fetching MarketBeat analyst ratings (post {analysis.last_earnings_date.date()})...")
+                
+            analyst_data = await self.analyst_source.fetch(
                 ticker, 
                 last_earnings_date=analysis.last_earnings_date
             )
+            
             if analyst_data:
                 analysis.median_price_target = analyst_data.get("median_price_target")
-        
-        # Fetch fundamental data
-        if verbose:
-            print("Fetching Finviz fundamental data...")
-        
-        fundamental_data = self.fundamental_source.fetch(ticker)
-        if fundamental_data:
-            analysis.finviz_data = fundamental_data
         
         return analysis
     
     def _populate_technical_data(self, analysis: StockAnalysis, data: Dict[str, Any]) -> None:
         """Populate analysis object with technical data"""
+        analysis.history = data.get("history")
         analysis.current_price = data.get("current_price", 0.0)
         analysis.open = data.get("open", 0.0)
         analysis.high = data.get("high", 0.0)

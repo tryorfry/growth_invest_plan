@@ -18,50 +18,27 @@ A comprehensive stock analysis tool that combines technical indicators, fundamen
 - **Growth Metrics:**
   - EPS Growth This Year
   - EPS Growth Next Year
-  - EPS Growth Next 5 Years
-- **Valuation Ratios:** P/E, Forward P/E, PEG
+## Features 🚀
 
-### 📈 Financial Data (via yfinance)
-- **Latest Quarterly Revenue**
-- **Operating Income**
-- **Basic EPS (Earnings Per Share)**
-- **Next Earnings Date** with countdown
-- **⚠️ Earnings Warning:** Alerts when earnings are less than 10 days away
+- **Comprehensive Data Collection**:
+  - **Technical Analysis**: ATR, EMAs (20, 50, 200), Price Data (via `yfinance`)
+  - **Fundamental Analysis**: Market Cap, P/E, PEG, EPS Growth, ROE/ROA (via `Finviz` scraping)
+  - **Financial Health**: Revenue, Operating Income, EPS (via `yfinance` financials)
+  - **Analyst Ratings**: Median Price Targets (via `MarketBeat` scraping)
+  - **News Sentiment**: AI-powered sentiment analysis of recent news headlines (via `TextBlob`)
 
-### 🎯 Analyst Sentiment (via MarketBeat)
-- **Median Price Target** from analyst ratings published after the most recent earnings announcement
+- **Advanced Analysis**:
+  - **Earnings Warnings**: Alerts if earnings are within 10 days.
+  - **Upside Calculation**: Compares current price to analyst targets.
+  - **Trend Analysis**: Moving averages for trend identification.
 
-## Prerequisites
-
-- Python 3.8+
-- [Git](https://git-scm.com/)
-- [Docker](https://www.docker.com/) (optional, for containerized deployment)
+- **Visualization & Export**:
+  - **Charts**: Generates candlestick charts with EMAs and price targets (`charts/`).
+  - **CSV Export**: Saves all analysis results to `analysis_results.csv`.
+  - **Batch Processing**: Analyze multiple stocks concurrently.
 
 ## Installation
 
-### Option 1: Local Python Environment
-
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/tryorfry/growth_invest_plan.git
-    cd growth_invest_plan
-    ```
-
-2.  Create a Virtual Environment:
-    ```bash
-    python -m venv .venv
-    ```
-
-3.  Activate the Virtual Environment:
-    -   **Windows (PowerShell):**
-        ```powershell
-        .venv\Scripts\Activate.ps1
-        ```
-    -   **Windows (CMD):**
-        ```cmd
-        .venv\Scripts\activate.bat
-        ```
-    -   **Windows (Git Bash):**
         ```bash
         source .venv/Scripts/activate
         ```

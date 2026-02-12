@@ -9,9 +9,9 @@ class DataSource(ABC):
     """Abstract base class for all data sources"""
     
     @abstractmethod
-    def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Fetch data for a given ticker symbol.
+        Fetch data for a given ticker symbol asynchronously.
         
         Args:
             ticker: Stock ticker symbol

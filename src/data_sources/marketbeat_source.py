@@ -21,9 +21,9 @@ class MarketBeatSource(AnalystDataSource):
     def get_source_name(self) -> str:
         return "MarketBeat"
     
-    def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
-        Fetch analyst price targets from MarketBeat.
+        Fetch analyst price targets from MarketBeat asynchronously.
         
         Args:
             ticker: Stock ticker symbol
@@ -32,8 +32,21 @@ class MarketBeatSource(AnalystDataSource):
         Returns:
             Dictionary with median price target or None
         """
+        import asyncio
+        from functools import partial
+        
+        loop = asyncio.get_running_loop()
         last_earnings_date = kwargs.get('last_earnings_date')
         
+        # Run blocking call in executor
+        # Use partial to pass kwargs if needed, but here we extract specific args
+        return await loop.run_in_executor(
+            None, 
+            partial(self._fetch_sync, ticker=ticker, last_earnings_date=last_earnings_date)
+        )
+
+    def _fetch_sync(self, ticker: str, last_earnings_date: Any) -> Optional[Dict[str, Any]]:
+        """Synchronous fetch logic for thread execution"""
         if not last_earnings_date:
             print("MarketBeat requires last_earnings_date parameter")
             return None
