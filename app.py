@@ -8,6 +8,8 @@ from src.analyzer import StockAnalyzer, StockAnalysis
 from src.formatter import AnalysisFormatter
 from src.visualization import ChartGenerator
 from src.exporter import export_to_csv
+from src.database import Database
+from src.models import Analysis
 
 # Windows console encoding fix
 if sys.platform == 'win32':
@@ -41,6 +43,7 @@ async def main():
     parser.add_argument("--file", "-f", help="File containing list of tickers (one per line)")
     parser.add_argument("--csv", "-c", help="Output CSV file path", default="analysis_results.csv")
     parser.add_argument("--charts-dir", help="Directory to save charts", default="charts")
+    parser.add_argument("--no-db", action="store_true", help="Skip database storage")
     
     args = parser.parse_args()
     
@@ -80,6 +83,12 @@ async def main():
     analyzer = StockAnalyzer()
     chart_generator = ChartGenerator(output_dir=args.charts_dir)
     
+    # Initialize database
+    db = None
+    if not args.no_db:
+        db = Database("stock_analysis.db")
+        db.init_db()
+    
     # Run analysis concurrently
     tasks = [analyze_ticker(analyzer, chart_generator, t) for t in tickers]
     results = await asyncio.gather(*tasks)
@@ -88,9 +97,59 @@ async def main():
     valid_results = [r for r in results if r is not None]
     
     if valid_results:
+        # Export to CSV
         export_to_csv(valid_results, args.csv)
+        
+        # Save to database
+        if db:
+            for analysis in valid_results:
+                save_analysis_to_db(db, analysis)
+            print(f"Saved {len(valid_results)} analyses to database")
     else:
         print("No successful analyses.")
+
+def save_analysis_to_db(db: Database, analysis: StockAnalysis):
+    """Save analysis results to database"""
+    with db.get_session() as session:
+        # Get or create stock with sector/industry
+        stock = db.get_or_create_stock(
+            session, 
+            analysis.ticker,
+            name=analysis.company_name,
+            sector=analysis.sector,
+            industry=analysis.industry
+        )
+        
+        analysis_record = Analysis(
+            stock_id=stock.id,
+            timestamp=analysis.timestamp,
+            current_price=analysis.current_price,
+            open_price=analysis.open,
+            high=analysis.high,
+            low=analysis.low,
+            close=analysis.close,
+            atr=analysis.atr,
+            ema20=analysis.ema20,
+            ema50=analysis.ema50,
+            ema200=analysis.ema200,
+            rsi=analysis.rsi,
+            macd=analysis.macd,
+            macd_signal=analysis.macd_signal,
+            bollinger_upper=analysis.bollinger_upper,
+            bollinger_lower=analysis.bollinger_lower,
+            last_earnings_date=analysis.last_earnings_date,
+            next_earnings_date=analysis.next_earnings_date,
+            days_until_earnings=analysis.days_until_earnings,
+            revenue=analysis.revenue,
+            operating_income=analysis.operating_income,
+            basic_eps=analysis.basic_eps,
+            median_price_target=analysis.median_price_target,
+            news_sentiment=analysis.news_sentiment,
+            news_summary=analysis.news_summary
+        )
+        
+        session.add(analysis_record)
+        session.commit()
 
 if __name__ == "__main__":
     asyncio.run(main())

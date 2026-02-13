@@ -17,6 +17,11 @@ class StockAnalysis:
     ticker: str
     timestamp: Any = None
     
+    # Company info
+    company_name: Optional[str] = None
+    sector: Optional[str] = None
+    industry: Optional[str] = None
+    
     # Historical Data (for charts)
     history: Optional[pd.DataFrame] = None
     
@@ -30,6 +35,11 @@ class StockAnalysis:
     ema20: float = 0.0
     ema50: float = 0.0
     ema200: float = 0.0
+    rsi: float = 0.0
+    macd: float = 0.0
+    macd_signal: float = 0.0
+    bollinger_upper: float = 0.0
+    bollinger_lower: float = 0.0
     
     # Earnings
     last_earnings_date: Any = None
@@ -151,6 +161,11 @@ class StockAnalyzer:
         analysis.ema20 = data.get("ema20", 0.0)
         analysis.ema50 = data.get("ema50", 0.0)
         analysis.ema200 = data.get("ema200", 0.0)
+        analysis.rsi = data.get("rsi", 0.0)
+        analysis.macd = data.get("macd", 0.0)
+        analysis.macd_signal = data.get("macd_signal", 0.0)
+        analysis.bollinger_upper = data.get("bollinger_upper", 0.0)
+        analysis.bollinger_lower = data.get("bollinger_lower", 0.0)
         analysis.timestamp = data.get("timestamp")
         
         # Earnings
@@ -162,3 +177,8 @@ class StockAnalyzer:
         analysis.revenue = data.get("revenue")
         analysis.operating_income = data.get("operating_income")
         analysis.basic_eps = data.get("basic_eps")
+        
+        # Company info
+        analysis.company_name = data.get("company_name")
+        analysis.sector = data.get("sector")
+        analysis.industry = data.get("industry")

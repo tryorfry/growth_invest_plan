@@ -39,6 +39,13 @@ class AnalysisFormatter:
         
         # Header
         print(f"\n--- Analysis for {analysis.ticker} ({analysis.timestamp}) ---")
+        if analysis.company_name:
+            print(f"Company: {analysis.company_name}")
+        if analysis.sector:
+            sector_info = f"Sector: {analysis.sector}"
+            if analysis.industry:
+                sector_info += f" | Industry: {analysis.industry}"
+            print(sector_info)
         print(f"Current Price: {fmt.format_number(analysis.current_price)}")
         print(f"Open: {fmt.format_number(analysis.open)} | "
               f"High: {fmt.format_number(analysis.high)} | "

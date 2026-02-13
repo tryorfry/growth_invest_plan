@@ -7,3 +7,6 @@ aiohttp
 aiofiles
 mplfinance
 textblob
+streamlit
+plotly
+sqlalchemy

@@ -57,10 +57,14 @@ class YFinanceSource(TechnicalDataSource):
             # Get financial data
             financials = self._get_financial_data(stock)
             
+            # Get company info (sector, industry)
+            company_info = self._get_company_info(stock)
+            
             return {
                 **technical,
                 **earnings,
-                **financials
+                **financials,
+                **company_info
             }
             
         except Exception as e:
@@ -68,7 +72,7 @@ class YFinanceSource(TechnicalDataSource):
             return None
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
-        """Calculate ATR and EMAs from historical data"""
+        """Calculate ATR, EMAs, RSI, MACD, and Bollinger Bands from historical data"""
         # Calculate True Range (TR) & ATR
         high_low = hist['High'] - hist['Low']
         high_close = (hist['High'] - hist['Close'].shift()).abs()
@@ -89,6 +93,30 @@ class YFinanceSource(TechnicalDataSource):
         hist['EMA50'] = ema50
         hist['EMA200'] = ema200
         
+        # RSI (Relative Strength Index) - 14 period
+        delta = hist['Close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        hist['RSI'] = rsi
+        
+        # MACD (Moving Average Convergence Divergence)
+        ema12 = hist['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = hist['Close'].ewm(span=26, adjust=False).mean()
+        macd = ema12 - ema26
+        macd_signal = macd.ewm(span=9, adjust=False).mean()
+        hist['MACD'] = macd
+        hist['MACD_Signal'] = macd_signal
+        
+        # Bollinger Bands (20 period, 2 std dev)
+        sma20 = hist['Close'].rolling(window=20).mean()
+        std20 = hist['Close'].rolling(window=20).std()
+        bollinger_upper = sma20 + (std20 * 2)
+        bollinger_lower = sma20 - (std20 * 2)
+        hist['Bollinger_Upper'] = bollinger_upper
+        hist['Bollinger_Lower'] = bollinger_lower
+        
         # Latest values
         latest = hist.iloc[-1]
         latest_date = hist.index[-1]
@@ -99,6 +127,11 @@ class YFinanceSource(TechnicalDataSource):
             "ema20": ema20.iloc[-1],
             "ema50": ema50.iloc[-1],
             "ema200": ema200.iloc[-1],
+            "rsi": rsi.iloc[-1],
+            "macd": macd.iloc[-1],
+            "macd_signal": macd_signal.iloc[-1],
+            "bollinger_upper": bollinger_upper.iloc[-1],
+            "bollinger_lower": bollinger_lower.iloc[-1],
             "open": latest['Open'],
             "high": latest['High'],
             "low": latest['Low'],
@@ -168,5 +201,20 @@ class YFinanceSource(TechnicalDataSource):
                 result["basic_eps"] = latest_q.get("Basic EPS", None)
         except Exception as e:
             print(f"Error fetching financials: {e}")
+        
+        return result
+    
+    def _get_company_info(self, stock: yf.Ticker) -> Dict[str, Any]:
+        """Extract company sector and industry information"""
+        result = {}
+        
+        try:
+            info = stock.info
+            if info:
+                result["sector"] = info.get("sector", None)
+                result["industry"] = info.get("industry", None)
+                result["company_name"] = info.get("longName", None)
+        except Exception as e:
+            print(f"Error fetching company info: {e}")
         
         return result

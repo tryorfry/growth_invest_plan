@@ -2,11 +2,32 @@
 
 A comprehensive stock analysis tool that combines technical indicators, fundamental data, and analyst sentiment to help evaluate growth investment opportunities.
 
+## 🚀 New Features
+
+### Interactive Web Dashboard
+- **Streamlit-based UI** with real-time analysis
+- **Interactive Plotly charts** with zoom, pan, and hover details
+- **Toggleable indicators** (EMAs, RSI, MACD, Bollinger Bands)
+- **Historical trend tracking** from database
+
+### Database Persistence
+- **SQLite database** for storing analysis history
+- **Track performance** over time
+- **Compare predictions** to actual results
+
+### Advanced Technical Indicators
+- **RSI** (Relative Strength Index) - Overbought/Oversold signals
+- **MACD** (Moving Average Convergence Divergence) - Trend following
+- **Bollinger Bands** - Volatility measurement
+
 ## Features
 
 ### 📊 Technical Analysis
 - **ATR (Average True Range):** 14-day volatility measurement
 - **EMAs (Exponential Moving Averages):** 20, 50, and 200-period trend indicators
+- **RSI:** Momentum oscillator (0-100 scale)
+- **MACD:** Trend strength and direction
+- **Bollinger Bands:** Price volatility bands
 - **Current Price Data:** Open, High, Low, Close with timestamps
 
 ### 💰 Fundamental Data (via Finviz)
@@ -18,109 +39,128 @@ A comprehensive stock analysis tool that combines technical indicators, fundamen
 - **Growth Metrics:**
   - EPS Growth This Year
   - EPS Growth Next Year
-## Features 🚀
+  - EPS Growth Next 5 Years
+- **Valuation:** P/E, Forward P/E, PEG Ratio
 
-- **Comprehensive Data Collection**:
-  - **Technical Analysis**: ATR, EMAs (20, 50, 200), Price Data (via `yfinance`)
-  - **Fundamental Analysis**: Market Cap, P/E, PEG, EPS Growth, ROE/ROA (via `Finviz` scraping)
-  - **Financial Health**: Revenue, Operating Income, EPS (via `yfinance` financials)
-  - **Analyst Ratings**: Median Price Targets (via `MarketBeat` scraping)
-  - **News Sentiment**: AI-powered sentiment analysis of recent news headlines (via `TextBlob`)
+### 📰 News Sentiment Analysis
+- AI-powered sentiment analysis of recent headlines
+- Sentiment score and summary
 
-- **Advanced Analysis**:
-  - **Earnings Warnings**: Alerts if earnings are within 10 days.
-  - **Upside Calculation**: Compares current price to analyst targets.
-  - **Trend Analysis**: Moving averages for trend identification.
-
-- **Visualization & Export**:
-  - **Charts**: Generates candlestick charts with EMAs and price targets (`charts/`).
-  - **CSV Export**: Saves all analysis results to `analysis_results.csv`.
-  - **Batch Processing**: Analyze multiple stocks concurrently.
+### 📈 Analyst Targets
+- Median price targets from MarketBeat (post-earnings)
+- Upside/downside calculation
 
 ## Installation
 
-        ```bash
-        source .venv/Scripts/activate
-        ```
-    -   **macOS/Linux:**
-        ```bash
-        source .venv/bin/activate
-        ```
+### Prerequisites
+- Python 3.10-3.13 (3.14 not supported due to dependency constraints)
+- Git (optional)
 
-4.  Install Dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+### Setup
 
-### Option 2: Docker
+1. **Clone or Download** the repository
 
-1.  Build the Docker image:
-    ```bash
-    docker build -t growth-invest-plan .
-    ```
+2. **Create Virtual Environment:**
+   ```bash
+   python -m venv .venv
+   ```
 
-2.  Run the container:
-    ```bash
-    docker run --rm growth-invest-plan AAPL
-    ```
+3. **Activate Virtual Environment:**
+   - **Windows (PowerShell):**
+     ```bash
+     .venv\Scripts\Activate.ps1
+     ```
+   - **Windows (CMD):**
+     ```bash
+     .venv\Scripts\activate.bat
+     ```
+   - **macOS/Linux:**
+     ```bash
+     source .venv/bin/activate
+     ```
+
+4. **Install Dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-### Local Execution
+### Web Dashboard (Recommended)
 
+Start the interactive dashboard:
 ```bash
-python app.py [TICKER]
+streamlit run src/dashboard.py
 ```
 
-### Docker Execution
+The dashboard will open in your browser at `http://localhost:8501`
+
+**Features:**
+- Enter ticker symbol in sidebar
+- Click "Analyze" to fetch data
+- Toggle indicators (EMAs, RSI, MACD, Bollinger Bands)
+- View interactive charts with zoom/pan
+- Explore fundamental data tables
+- Track historical analyses
+
+### Command Line Interface
+
+Analyze stocks from the terminal:
 
 ```bash
-docker run --rm growth-invest-plan [TICKER]
-```
-
-### Examples
-
-```bash
-# Analyze Apple
+# Single stock
 python app.py AAPL
 
-# Analyze NVIDIA
-python app.py NVDA
+# Multiple stocks
+python app.py AAPL NVDA GOOGL
 
-# Analyze Google
-python app.py GOOGL
+# From file (one ticker per line)
+python app.py --file tickers.txt
+
+# Skip database storage
+python app.py AAPL --no-db
+
+# Custom CSV output
+python app.py AAPL --csv my_results.csv
 ```
+
+**Output:**
+- Console analysis summary
+- Static chart images in `charts/` directory
+- CSV export with all metrics
+- Database storage (unless `--no-db` flag used)
 
 ## Sample Output
 
 ```
---- Analysis for NVDA (2026-02-11 00:00:00-05:00) ---
-Current Price: 191.10
-Open: 192.42 | High: 193.26 | Low: 188.77 | Close: 191.10
+--- Analysis for AAPL (2026-02-13 00:00:00-05:00) ---
+Current Price: 259.45
+Open: 262.01 | High: 262.23 | Low: 258.80 | Close: 259.45
 ------------------------------
-ATR (14):   6.89
-EMA 20:     185.54
-EMA 50:     185.02
-EMA 200:    170.98
-Last Earnings: 2025-11-19
-Median MBP (Post-Earnings): $275.00
+ATR (14):   6.78
+EMA 20:     266.00
+EMA 50:     265.21
+EMA 200:    248.33
+RSI:        45.32
+MACD:       -2.15
+Last Earnings: 2026-01-29
 
 --- Finviz Data ---
-Market Cap: 4648.83B
-Analysts Recom: 1.35
-Inst Own: 68.38%
-Avg Volume: 180.68M
-ROE: 107.36% | ROA: 77.15%
-EPS Growth (This Y): 56.58%
-EPS Growth (Next Y): 65.43%
-EPS Growth (Next 5Y): 49.53%
-P/E: 47.38 | Fwd P/E: 24.70 | PEG: 0.50
+Market Cap: 3828.99B
+Analysts Recom: 2.02
+Inst Own: 65.82%
+Avg Volume: 48.51M
+ROE: 152.02% | ROA: 32.56%
+EPS Growth (This Y): 13.28%
+EPS Growth (Next Y): 9.83%
+EPS Growth (Next 5Y): 11.17%
+P/E: 33.00 | Fwd P/E: 28.10 | PEG: 2.52
 
---- Fundamentals (Macrotrends Context) ---
-Latest Revenue (Quarterly): $57.01B
-Op Income (Quarterly): $36.01B
-Basic EPS (Quarterly): 1.31
-Next Earnings Date: 2026-02-26 (13 days left)
+--- Fundamentals ---
+Latest Revenue (Quarterly): $143.76B
+Op Income (Quarterly): $50.85B
+Basic EPS (Quarterly): 2.85
+Next Earnings Date: 2026-05-01 (76 days left)
 ```
 
 ## Data Sources
@@ -128,15 +168,104 @@ Next Earnings Date: 2026-02-26 (13 days left)
 - **yfinance:** Historical price data, technical indicators, financial statements, earnings dates
 - **Finviz:** Fundamental metrics, analyst recommendations, growth projections
 - **MarketBeat:** Post-earnings analyst price targets
+- **TextBlob:** News sentiment analysis
+
+## Database
+
+Analysis results are automatically saved to `stock_analysis.db` (SQLite).
+
+**Schema:**
+- `stocks` - Ticker symbols and company info
+- `analyses` - Historical analysis snapshots with all indicators
+- `news` - News articles with sentiment scores
+
+**Query historical data:**
+```python
+from src.database import Database
+
+db = Database()
+with db.get_session() as session:
+    # Your queries here
+    pass
+```
 
 ## Dependencies
 
+Core libraries:
 - `pandas` - Data manipulation
 - `yfinance` - Yahoo Finance API wrapper
-- `curl_cffi` - HTTP client with browser impersonation (bypasses bot protection)
+- `curl_cffi` - HTTP client with browser impersonation
 - `beautifulsoup4` - HTML parsing for web scraping
-- `lxml` - XML/HTML parser
+- `streamlit` - Web dashboard framework
+- `plotly` - Interactive charting
+- `sqlalchemy` - Database ORM
+- `textblob` - Sentiment analysis
+
+See [`requirements.txt`](requirements.txt) for complete list.
+
+## Project Structure
+
+```
+growth_invest_plan/
+├── src/
+│   ├── analyzer.py              # Main analysis facade
+│   ├── dashboard.py             # Streamlit web app
+│   ├── database.py              # Database connection
+│   ├── models.py                # SQLAlchemy models
+│   ├── formatter.py             # Console output formatting
+│   ├── exporter.py              # CSV export
+│   ├── visualization.py         # Static chart generator (mplfinance)
+│   ├── visualization_plotly.py  # Interactive charts (Plotly)
+│   └── data_sources/
+│       ├── base.py              # Abstract base classes
+│       ├── yfinance_source.py   # Technical data + indicators
+│       ├── finviz_source.py     # Fundamental data
+│       ├── marketbeat_source.py # Analyst targets
+│       └── news_source.py       # News sentiment
+├── tests/                       # Unit tests
+├── charts/                      # Generated chart images
+├── app.py                       # CLI entry point
+├── stock_analysis.db            # SQLite database (auto-created)
+├── requirements.txt             # Python dependencies
+└── README.md                    # This file
+```
+
+## Development
+
+### Running Tests
+```bash
+pytest
+```
+
+### With Coverage
+```bash
+pytest --cov=src --cov-report=html
+```
+
+### Code Style
+The project follows PEP 8 guidelines with type hints throughout.
+
+## Docker Support
+
+Build and run with Docker:
+
+```bash
+# Build
+docker build -t growth-invest-plan .
+
+# Run CLI
+docker run --rm growth-invest-plan AAPL
+
+# Note: Dashboard mode not supported in Docker (requires browser)
+```
 
 ## License
 
 MIT
+
+## Contributing
+
+Contributions welcome! Please ensure:
+- Type hints on all functions
+- Unit tests for new features
+- Documentation updates
