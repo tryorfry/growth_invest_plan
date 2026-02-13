@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # CLI Application
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: growth-invest-plan:cli
+    volumes:
+      - ./charts:/app/charts
+      - ./stock_analysis.db:/app/stock_analysis.db
+      - ./analysis_results.csv:/app/analysis_results.csv
+    command: [ "AAPL", "NVDA" ]
+
+  # Streamlit Dashboard
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    image: growth-invest-plan:dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./stock_analysis.db:/app/stock_analysis.db
+      - ./charts:/app/charts
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+    restart: unless-stopped

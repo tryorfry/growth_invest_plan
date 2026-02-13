@@ -124,6 +124,52 @@ python app.py AAPL --no-db
 python app.py AAPL --csv my_results.csv
 ```
 
+### Docker Usage
+
+#### Using Docker Compose (Recommended)
+
+Run both CLI and dashboard with a single command:
+
+```bash
+# Start the dashboard
+docker-compose up dashboard
+
+# Run CLI analysis
+docker-compose run cli AAPL NVDA
+
+# Stop all services
+docker-compose down
+```
+
+#### Dashboard Only
+
+```bash
+# Build the dashboard image
+docker build -f Dockerfile.dashboard -t growth-invest-plan:dashboard .
+
+# Run the dashboard
+docker run -p 8501:8501 growth-invest-plan:dashboard
+
+# Access at http://localhost:8501
+```
+
+#### CLI Only
+
+```bash
+# Build the CLI image
+docker build -t growth-invest-plan .
+
+# Run analysis
+docker run growth-invest-plan AAPL NVDA
+```
+
+**Note:** To persist data between runs, mount volumes:
+```bash
+docker run -v $(pwd)/stock_analysis.db:/app/stock_analysis.db \
+           -v $(pwd)/charts:/app/charts \
+           growth-invest-plan AAPL
+```
+
 **Output:**
 - Console analysis summary
 - Static chart images in `charts/` directory
