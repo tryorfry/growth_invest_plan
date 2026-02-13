@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+import pandas as pd
 
 from .data_sources.base import DataSource
 from .data_sources.yfinance_source import YFinanceSource
