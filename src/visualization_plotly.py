@@ -16,7 +16,9 @@ class PlotlyChartGenerator:
         self, 
         analysis: StockAnalysis,
         show_ema: bool = True,
-        show_bollinger: bool = False
+        show_bollinger: bool = False,
+        show_support_resistance: bool = False,
+        show_trade_setup: bool = False
     ) -> Optional[go.Figure]:
         """
         Generate an interactive candlestick chart with technical indicators.
@@ -25,6 +27,8 @@ class PlotlyChartGenerator:
             analysis: StockAnalysis object containing historical data
             show_ema: Whether to show EMA lines
             show_bollinger: Whether to show Bollinger Bands
+            show_support_resistance: Whether to show Support/Resistance levels
+            show_trade_setup: Whether to show Trade Setup (Entry/Stop)
             
         Returns:
             Plotly Figure object or None if no data
@@ -108,7 +112,59 @@ class PlotlyChartGenerator:
                 annotation_text=f"Target: ${analysis.median_price_target:.2f}",
                 row=1, col=1
             )
+            
+        # Support and Resistance
+        if show_support_resistance:
+            # Support levels
+            for level in getattr(analysis, 'support_levels', []):
+                fig.add_hline(
+                    y=level,
+                    line_dash="dot",
+                    line_color="green",
+                    line_width=1,
+                    opacity=0.7,
+                    annotation_text=f"Support: ${level:.2f}",
+                    annotation_position="bottom right",
+                    row=1, col=1
+                )
+            
+            # Resistance levels
+            for level in getattr(analysis, 'resistance_levels', []):
+                fig.add_hline(
+                    y=level,
+                    line_dash="dot",
+                    line_color="red",
+                    line_width=1,
+                    opacity=0.7,
+                    annotation_text=f"Resistance: ${level:.2f}",
+                    annotation_position="top right",
+                    row=1, col=1
+                )
         
+        # Trade Setup (Entry & Stop Loss)
+        if show_trade_setup:
+            if getattr(analysis, 'suggested_entry', None):
+                fig.add_hline(
+                    y=analysis.suggested_entry,
+                    line_dash="solid",
+                    line_color="blue",
+                    line_width=2,
+                    annotation_text=f"ENTRY: ${analysis.suggested_entry:.2f}",
+                    annotation_position="right",
+                    row=1, col=1
+                )
+                
+            if getattr(analysis, 'suggested_stop_loss', None):
+                fig.add_hline(
+                    y=analysis.suggested_stop_loss,
+                    line_dash="solid",
+                    line_color="red",
+                    line_width=2,
+                    annotation_text=f"STOP: ${analysis.suggested_stop_loss:.2f} (ATR)",
+                    annotation_position="right",
+                    row=1, col=1
+                )
+
         # Volume bars
         colors = ['red' if row['Close'] < row['Open'] else 'green' for _, row in df.iterrows()]
         fig.add_trace(

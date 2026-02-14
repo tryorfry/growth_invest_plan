@@ -195,6 +195,8 @@ def main():
         show_rsi = st.checkbox("Show RSI", value=True)
         show_macd = st.checkbox("Show MACD", value=True)
         show_bollinger = st.checkbox("Show Bollinger Bands", value=False)
+        show_support_resistance = st.checkbox("Show Support/Resistance", value=True)
+        show_trade_setup = st.checkbox("Show Trade Setup (Entry/Stop)", value=True)
         
         st.divider()
         st.caption("Data sources: Yahoo Finance, Finviz, MarketBeat")
@@ -237,6 +239,11 @@ def main():
                         st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
                     else:
                         st.metric("Sentiment", "N/A")
+                
+                # Trend Badge
+                if hasattr(analysis, 'market_trend') and analysis.market_trend:
+                    trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
+                    st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
                 
                 # OHLC Details
                 st.subheader("📊 Price Details")
@@ -289,7 +296,9 @@ def main():
                 fig = chart_gen.generate_candlestick_chart(
                     analysis,
                     show_ema=show_ema,
-                    show_bollinger=show_bollinger
+                    show_bollinger=show_bollinger,
+                    show_support_resistance=show_support_resistance,
+                    show_trade_setup=show_trade_setup
                 )
                 st.plotly_chart(fig, width='stretch')
                 
