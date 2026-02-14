@@ -37,8 +37,9 @@ graph TD
         MS --> YF
         
         PM --> DB[Database Wrapper]
-        DB --> Postgres[(Cloud PostgreSQL / Supabase)]
         DB --> SQLite[(Local SQLite)]
+        DB --> LocalPG[(Local PostgreSQL - Docker)]
+        DB --> RemotePG[(Remote PostgreSQL - Supabase)]
     end
     
     subgraph "External Providers"

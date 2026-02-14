@@ -1,16 +1,34 @@
 services:
+  # Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: growth-invest-db
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=stock_analysis
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   # CLI Application
   cli:
     build:
       context: .
       dockerfile: Dockerfile
     image: growth-invest-plan:cli
+    depends_on:
+      - db
     volumes:
       - ./charts:/app/charts
       - ./exports:/app/exports
       - ./stock_analysis.db:/app/stock_analysis.db
       - ./analysis_results.csv:/app/analysis_results.csv
       - ./.env:/app/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
     command: [ "AAPL", "NVDA" ]
 
   # Streamlit Dashboard
@@ -19,6 +37,8 @@ services:
       context: .
       dockerfile: Dockerfile.dashboard
     image: growth-invest-plan:dashboard
+    depends_on:
+      - db
     ports:
       - "8501:8501"
     volumes:
@@ -29,4 +49,8 @@ services:
     environment:
       - STREAMLIT_SERVER_PORT=8501
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
     restart: unless-stopped
+
+volumes:
+  postgres_data:
