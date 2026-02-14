@@ -16,18 +16,29 @@ class Database:
         Initialize database connection.
         
         Args:
-            db_path: Path to SQLite database file
+            db_path: Default path to SQLite database file if env var not set
         """
-        self.db_path = db_path
-        self.engine = create_engine(f'sqlite:///{db_path}', echo=False)
+        # Prioritize environment variable for Cloud deployment (Supabase/Postgres)
+        self.db_url = os.getenv("DATABASE_URL")
+        
+        if not self.db_url:
+            self.db_url = f'sqlite:///{db_path}'
+        
+        # SQLAlchemy 1.4+ requires 'postgresql://' instead of 'postgres://'
+        if self.db_url.startswith("postgres://"):
+            self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
+            
+        self.engine = create_engine(self.db_url, echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
         
     def init_db(self):
         """Create all tables if they don't exist and handle schema updates"""
         Base.metadata.create_all(self.engine)
         
-        # Simple migration: Add new columns if they don't exist
-        from sqlalchemy import text
+        # Schema migration logic
+        from sqlalchemy import text, inspect
+        inspector = inspect(self.engine)
+        
         new_cols = [
             ("analyses", "analyst_source", "VARCHAR(50)"),
             ("analyses", "analysis_timestamp", "DATETIME"),
@@ -39,17 +50,25 @@ class Database:
             ("analyses", "earnings_growth", "FLOAT")
         ]
         
+        # Check existing columns to avoid redundant ALTER TABLE calls
+        existing_cols = {col['name'] for col in inspector.get_columns('analyses')}
+        
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
-                try:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
-                    conn.commit()
-                    print(f"Added column {col} to {table}")
-                except Exception:
-                    # Column likely already exists
-                    pass
+                if col not in existing_cols:
+                    try:
+                        # Normalize type for Postgres if needed (e.g., DATETIME -> TIMESTAMP)
+                        sql_type = col_type
+                        if "postgresql" in self.db_url and col_type == "DATETIME":
+                            sql_type = "TIMESTAMP"
+                            
+                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {sql_type}"))
+                        conn.commit()
+                        print(f"Added column {col} to {table}")
+                    except Exception as e:
+                        print(f"Error adding column {col}: {e}")
                     
-        print(f"Database initialized at: {self.db_path}")
+        print(f"Database initialized at: {self.db_url.split('@')[-1] if '@' in self.db_url else self.db_url}")
         
     @contextmanager
     def get_session(self) -> Generator[Session, None, None]:
