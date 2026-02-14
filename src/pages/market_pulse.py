@@ -98,7 +98,8 @@ def render_market_pulse_page():
     
     # Re-fetch historical macro if needed or use existing
     hist_10y = MacroSource.fetch_historical_macro('10Y_Yield')
-    if hist_10y is not None and not hist_10y.empty:
+    
+    if isinstance(hist_10y, pd.DataFrame) and not hist_10y.empty:
         st.line_chart(hist_10y['Close'], use_container_width=True)
     
     st.divider()
