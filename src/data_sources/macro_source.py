@@ -32,7 +32,7 @@ class MacroSource:
     }
     
     @staticmethod
-    async def fetch_macro_data() -> Dict[str, Any]:
+    def fetch_macro_data() -> Dict[str, Any]:
         """Fetch current macro indicators and recent trends"""
         data = {}
         
@@ -68,7 +68,7 @@ class MacroSource:
             return {}
 
     @staticmethod
-    async def fetch_sector_data() -> Dict[str, float]:
+    def fetch_sector_data() -> Dict[str, float]:
         """Fetch daily performance for all major sectors"""
         sector_perf = {}
         try:
@@ -86,7 +86,7 @@ class MacroSource:
             return {}
 
     @staticmethod
-    async def fetch_historical_macro(key: str, period: str = '1y') -> Optional[pd.DataFrame]:
+    def fetch_historical_macro(key: str, period: str = '1y') -> Optional[pd.DataFrame]:
         """Fetch historical data for a specific macro indicator"""
         ticker = MacroSource.TICKERS.get(key)
         if not ticker:

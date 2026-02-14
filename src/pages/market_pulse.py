@@ -1,7 +1,6 @@
 """Market Pulse page for global metrics"""
 
 import streamlit as st
-import asyncio
 import pandas as pd
 from src.data_sources.macro_source import MacroSource
 
@@ -11,7 +10,7 @@ def render_market_pulse_page():
     
     # Fetch Data
     with st.spinner("Fetching global market data..."):
-        macro_data = asyncio.run(MacroSource.fetch_macro_data())
+        macro_data = MacroSource.fetch_macro_data()
     
     if not macro_data:
         st.error("Could not fetch market pulse data. Please check your internet connection.")
@@ -66,7 +65,7 @@ def render_market_pulse_page():
     st.subheader("📊 Sector Performance Heatmap (1D)")
     
     with st.spinner("Calculating sector trends..."):
-        sector_data = asyncio.run(MacroSource.fetch_sector_data())
+        sector_data = MacroSource.fetch_sector_data()
         
     if sector_data:
         # Prepare data for plotting
@@ -98,7 +97,7 @@ def render_market_pulse_page():
     st.subheader("📈 Yield Trend (1 Year)")
     
     # Re-fetch historical macro if needed or use existing
-    hist_10y = asyncio.run(MacroSource.fetch_historical_macro('10Y_Yield'))
+    hist_10y = MacroSource.fetch_historical_macro('10Y_Yield')
     if hist_10y is not None and not hist_10y.empty:
         st.line_chart(hist_10y['Close'], use_container_width=True)
     
