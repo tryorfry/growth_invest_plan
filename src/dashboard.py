@@ -113,6 +113,7 @@ def main():
             "Navigation",
             options=[
                 "🏠 Home",
+                "🌍 Market Pulse",
                 "📋 Watchlist",
                 "🔔 Alerts",
                 "🔬 Advanced Analytics",
@@ -123,7 +124,12 @@ def main():
         st.divider()
     
     # Route to pages
-    if page == "📋 Watchlist":
+    if page == "🌍 Market Pulse":
+        from src.pages.market_pulse import render_market_pulse_page
+        render_market_pulse_page()
+        return
+
+    elif page == "📋 Watchlist":
         from src.pages.watchlist import render_watchlist_page
         render_watchlist_page()
         return
@@ -308,9 +314,24 @@ def main():
                         st.write(f"EPS Next Y: {analysis.finviz_data.get('EPS next Y', 'N/A')}")
                         st.write(f"EPS Next 5Y: {analysis.finviz_data.get('EPS next 5Y', 'N/A')}")
                 
+                # AI Analyst Summary
+                st.divider()
+                st.subheader("🤖 AI Analyst Breakdown")
+                
+                # Check for API Key
+                if not os.getenv("GEMINI_API_KEY"):
+                    st.warning("To enable AI Thesis, please set `GEMINI_API_KEY` in your environment secrets.")
+                else:
+                    if st.button("🧠 Generate AI Investment Thesis", type="secondary"):
+                        from src.ai_analyst import AIAnalyst
+                        ai_analyst = AIAnalyst()
+                        with st.spinner("AI is analyzing all metrics..."):
+                            thesis = asyncio.run(ai_analyst.generate_thesis(analysis))
+                            st.markdown(thesis)
+                
                 # News Summary
                 if analysis.news_summary:
-                    st.subheader("📰 News Summary")
+                    st.subheader("📰 Sentiment Analysis & News")
                     st.info(analysis.news_summary)
                 
                 # Historical Trend
