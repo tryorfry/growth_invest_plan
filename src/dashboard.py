@@ -52,7 +52,8 @@ def init_chart_generator():
 
 def save_analysis_to_db(db: Database, analysis: StockAnalysis):
     """Save analysis results to database"""
-    with db.get_session() as session:
+    session = db.SessionLocal()
+    try:
         # Get or create stock
         stock = db.get_or_create_stock(session, analysis.ticker)
         
@@ -99,6 +100,8 @@ def save_analysis_to_db(db: Database, analysis: StockAnalysis):
         
         session.add(analysis_record)
         session.commit()
+    finally:
+        session.close()
 
 def _safe_float(value):
     """Safely convert string to float"""
@@ -110,7 +113,8 @@ def _safe_float(value):
 
 def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
     """Load historical analyses for a ticker"""
-    with db.get_session() as session:
+    session = db.SessionLocal()
+    try:
         stock = session.query(Stock).filter(Stock.ticker == ticker).first()
         if not stock:
             return None
@@ -137,6 +141,8 @@ def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
             })
         
         return pd.DataFrame(data).sort_values('Date')
+    finally:
+        session.close()
 
 
 async def analyze_stock(ticker: str):
@@ -147,12 +153,56 @@ async def analyze_stock(ticker: str):
 
 def main():
     """Main dashboard application"""
-    st.title("📊 Growth Investment Analyzer")
-    st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
     
     # Initialize resources
     db = init_database()
     chart_gen = init_chart_generator()
+    
+    # Store in session state
+    if 'db' not in st.session_state:
+        st.session_state['db'] = db
+    
+    # Sidebar navigation
+    with st.sidebar:
+        st.title("📊 Stock Analyzer")
+        
+        page = st.radio(
+            "Navigation",
+            options=[
+                "🏠 Home",
+                "📋 Watchlist",
+                "🔔 Alerts",
+                "🔬 Advanced Analytics",
+                "📈 Comparison"
+            ]
+        )
+        
+        st.divider()
+    
+    # Route to pages
+    if page == "📋 Watchlist":
+        from src.pages.watchlist import render_watchlist_page
+        render_watchlist_page()
+        return
+    
+    elif page == "🔔 Alerts":
+        from src.pages.alerts import render_alerts_page
+        render_alerts_page()
+        return
+    
+    elif page == "🔬 Advanced Analytics":
+        from src.pages.advanced_analytics import render_advanced_analytics_page
+        render_advanced_analytics_page()
+        return
+    
+    elif page == "📈 Comparison":
+        from src.pages.comparison import render_comparison_page
+        render_comparison_page()
+        return
+    
+    # Home page (original dashboard)
+    st.title("📊 Growth Investment Analyzer")
+    st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
     
     # Sidebar
     with st.sidebar:

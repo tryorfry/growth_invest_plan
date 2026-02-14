@@ -10,3 +10,7 @@ textblob
 streamlit
 plotly
 sqlalchemy
+openpyxl
+xlsxwriter
+schedule
+python-dotenv

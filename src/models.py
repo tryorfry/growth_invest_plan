@@ -112,3 +112,88 @@ class News(Base):
     
     def __repr__(self):
         return f"<News(stock_id={self.stock_id}, headline='{self.headline[:50]}...', sentiment={self.sentiment_score})>"
+
+
+class Watchlist(Base):
+    """User watchlist for tracking stocks"""
+    __tablename__ = 'watchlists'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    items = relationship("WatchlistItem", back_populates="watchlist", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Watchlist(name='{self.name}', items={len(self.items)})>"
+
+
+class WatchlistItem(Base):
+    """Individual stock in a watchlist"""
+    __tablename__ = 'watchlist_items'
+    
+    id = Column(Integer, primary_key=True)
+    watchlist_id = Column(Integer, ForeignKey('watchlists.id'), nullable=False)
+    stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
+    added_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text)
+    
+    # Relationships
+    watchlist = relationship("Watchlist", back_populates="items")
+    stock = relationship("Stock")
+    
+    # Unique constraint: one stock per watchlist
+    __table_args__ = (
+        Index('ix_watchlist_stock', 'watchlist_id', 'stock_id', unique=True),
+    )
+    
+    def __repr__(self):
+        return f"<WatchlistItem(watchlist_id={self.watchlist_id}, stock_id={self.stock_id})>"
+
+
+class Alert(Base):
+    """Alert configuration for stock conditions"""
+    __tablename__ = 'alerts'
+    
+    id = Column(Integer, primary_key=True)
+    stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
+    alert_type = Column(String(50), nullable=False)  # price, rsi, macd, volume, earnings
+    condition = Column(String(50), nullable=False)  # above, below, crosses_above, crosses_below
+    threshold = Column(Float)  # threshold value
+    is_active = Column(Integer, default=1)  # 1=active, 0=inactive
+    email_enabled = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_triggered = Column(DateTime)
+    
+    # Relationships
+    stock = relationship("Stock")
+    history = relationship("AlertHistory", back_populates="alert", cascade="all, delete-orphan")
+    
+    # Index for active alerts
+    __table_args__ = (
+        Index('ix_active_alerts', 'is_active', 'stock_id'),
+    )
+    
+    def __repr__(self):
+        return f"<Alert(stock_id={self.stock_id}, type='{self.alert_type}', condition='{self.condition}', threshold={self.threshold})>"
+
+
+class AlertHistory(Base):
+    """History of triggered alerts"""
+    __tablename__ = 'alert_history'
+    
+    id = Column(Integer, primary_key=True)
+    alert_id = Column(Integer, ForeignKey('alerts.id'), nullable=False)
+    triggered_at = Column(DateTime, default=datetime.utcnow, index=True)
+    value = Column(Float)  # actual value that triggered the alert
+    message = Column(Text)
+    notification_sent = Column(Integer, default=0)  # 0=not sent, 1=sent
+    
+    # Relationships
+    alert = relationship("Alert", back_populates="history")
+    
+    def __repr__(self):
+        return f"<AlertHistory(alert_id={self.alert_id}, triggered_at='{self.triggered_at}', value={self.value})>"

@@ -8,6 +8,7 @@ from .data_sources.base import DataSource
 from .data_sources.yfinance_source import YFinanceSource
 from .data_sources.finviz_source import FinvizSource
 from .data_sources.marketbeat_source import MarketBeatSource
+from .data_sources.yfinance_analyst_source import YFinanceAnalystSource
 from .data_sources.news_source import NewsSource
 
 
@@ -61,6 +62,21 @@ class StockAnalysis:
     # News Sentiment
     news_sentiment: Optional[float] = None
     news_summary: Optional[str] = None
+    
+    # Options data
+    implied_volatility: Optional[float] = None
+    put_call_ratio: Optional[float] = None
+    
+    # Insider trading
+    insider_ownership_pct: Optional[float] = None
+    net_insider_activity: Optional[float] = None
+    
+    # Short interest
+    short_percent_of_float: Optional[float] = None
+    short_ratio: Optional[float] = None  # Days to cover
+    
+    # Candlestick patterns
+    recent_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
@@ -137,13 +153,27 @@ class StockAnalyzer:
             
         # 2. Fetch Analyst Targets (Dependent on earnings date from technical data)
         if analysis.last_earnings_date:
+            analyst_data = None
+            
+            # Try primary analyst source (default: MarketBeat)
             if verbose:
-                print(f"Fetching MarketBeat analyst ratings (post {analysis.last_earnings_date.date()})...")
+                print(f"Fetching analyst ratings (post {analysis.last_earnings_date.date()}) from {self.analyst_source.get_source_name()}...")
                 
             analyst_data = await self.analyst_source.fetch(
                 ticker, 
                 last_earnings_date=analysis.last_earnings_date
             )
+            
+            # Fallback to YFinance if primary fails and isn't already YFinance
+            if not analyst_data and not isinstance(self.analyst_source, YFinanceAnalystSource):
+                if verbose:
+                    print(f"Primary analyst source failed, falling back to YFinance...")
+                
+                yf_source = YFinanceAnalystSource()
+                analyst_data = await yf_source.fetch(
+                    ticker,
+                    last_earnings_date=analysis.last_earnings_date
+                )
             
             if analyst_data:
                 analysis.median_price_target = analyst_data.get("median_price_target")

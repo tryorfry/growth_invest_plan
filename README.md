@@ -4,6 +4,38 @@ A comprehensive stock analysis tool that combines technical indicators, fundamen
 
 ## 🚀 New Features
 
+### 🔔 Alert System
+- **Price Alerts:** Get notified when stocks hit target prices
+- **Technical Alerts:** RSI overbought/oversold, MACD crossovers
+- **Volume Alerts:** Unusual trading activity detection
+- **Earnings Alerts:** Notifications for upcoming earnings
+- **Email Notifications:** Gmail integration for instant alerts
+
+### 📋 Watchlist Management
+- **Create Multiple Watchlists:** Organize stocks by strategy or sector
+- **Track Performance:** Monitor watchlist stocks in real-time
+- **Add Notes:** Document your investment thesis
+- **Quick Access:** View all watchlist stocks in dashboard
+
+### 📊 Excel Export
+- **Multi-Sheet Workbooks:** Separate sheets for each stock
+- **Formatted Reports:** Professional styling and layout
+- **Summary Tables:** Compare multiple stocks at a glance
+- **Export Watchlists:** Save watchlist data to Excel
+
+### 🔬 Advanced Analytics
+- **Options Data:** Implied volatility, put/call ratio
+- **Insider Trading:** Track insider buys/sells and ownership
+- **Short Interest:** Short float %, days to cover, trends
+- **Correlation Analysis:** See how stocks move together
+
+### 📈 Enhanced Visualizations
+- **Comparison Charts:** Overlay multiple stocks (normalized or absolute)
+- **Correlation Heatmaps:** Visualize stock relationships
+- **Performance Tables:** Compare returns across timeframes
+- **Sector Heatmaps:** See sector performance at a glance
+- **Pattern Recognition:** Detect candlestick patterns (Doji, Hammer, Engulfing, etc.)
+
 ### Interactive Web Dashboard
 - **Streamlit-based UI** with real-time analysis
 - **Interactive Plotly charts** with zoom, pan, and hover details
@@ -140,6 +172,110 @@ docker-compose run cli AAPL NVDA
 # Stop all services
 docker-compose down
 ```
+
+## Advanced Features Usage
+
+### Email Alerts Setup
+
+1. **Configure Gmail App Password:**
+   - Go to Google Account → Security → 2-Step Verification → App Passwords
+   - Generate an app password for "Mail"
+   - Update `.env` file with your credentials
+
+2. **Create Alerts:**
+```python
+from src.database import Database
+from src.alerts.alert_engine import AlertEngine
+
+db = Database()
+alert_engine = AlertEngine(use_email=True)
+
+# Price alert
+alert_engine.create_alert(
+    db.get_session(), 
+    ticker='AAPL', 
+    alert_type='price', 
+    condition='above', 
+    threshold=300.0
+)
+
+# RSI alert (overbought)
+alert_engine.create_alert(
+    db.get_session(),
+    ticker='NVDA',
+    alert_type='rsi',
+    condition='above',
+    threshold=70.0
+)
+```
+
+3. **Check Alerts:**
+```bash
+# Run test script
+python test_features.py
+```
+
+### Watchlist Management
+
+```python
+from src.database import Database
+from src.watchlist import WatchlistManager
+
+db = Database()
+wm = WatchlistManager(db.get_session())
+
+# Create watchlist
+watchlist = wm.create_watchlist("Growth Stocks", "High-growth tech stocks")
+
+# Add stocks
+wm.add_stock_to_watchlist(watchlist.id, "AAPL", "Strong fundamentals")
+wm.add_stock_to_watchlist(watchlist.id, "NVDA", "AI leader")
+
+# Get stocks
+stocks = wm.get_watchlist_stocks(watchlist.id)
+```
+
+### Excel Export
+
+```python
+from src.analyzer import StockAnalyzer
+from src.exporters.excel_exporter import ExcelExporter
+
+analyzer = StockAnalyzer()
+analyses = []
+
+for ticker in ['AAPL', 'NVDA', 'GOOGL']:
+    analysis = await analyzer.analyze(ticker)
+    analyses.append(analysis)
+
+exporter = ExcelExporter()
+filename = exporter.export_analysis(analyses, "my_analysis.xlsx")
+```
+
+### Advanced Analytics
+
+```python
+from src.data_sources.options_source import OptionsSource
+from src.data_sources.insider_source import InsiderSource
+from src.data_sources.short_interest_source import ShortInterestSource
+
+# Options data
+options = OptionsSource()
+data = options.fetch_options_data('AAPL')
+print(f"IV: {data['implied_volatility']:.2%}")
+print(f"Put/Call: {data['put_call_ratio']:.2f}")
+
+# Insider trading
+insider = InsiderSource()
+data = await insider.fetch_insider_data('AAPL')
+print(f"Insider Ownership: {data['insider_ownership_pct']:.2f}%")
+
+# Short interest
+short = ShortInterestSource()
+data = short.fetch_short_interest('AAPL')
+print(f"Short Float: {data['short_percent_of_float']:.2f}%")
+```
+
 
 #### Dashboard Only
 

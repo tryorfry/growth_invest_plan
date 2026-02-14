@@ -1,13 +1,19 @@
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Virtual Environment
-.venv/
-venv/
+*.so
+.Python
 env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Environment variables
+.env
 
 # IDE
 .vscode/
