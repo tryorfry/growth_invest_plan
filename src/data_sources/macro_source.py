@@ -84,3 +84,18 @@ class MacroSource:
         except Exception as e:
             print(f"Error fetching sector data: {e}")
             return {}
+
+    @staticmethod
+    async def fetch_historical_macro(key: str, period: str = '1y') -> Optional[pd.DataFrame]:
+        """Fetch historical data for a specific macro indicator"""
+        ticker = MacroSource.TICKERS.get(key)
+        if not ticker:
+            return None
+            
+        try:
+            t = yf.Ticker(ticker)
+            hist = t.history(period=period)
+            return hist if not hist.empty else None
+        except Exception as e:
+            print(f"Error fetching historical macro data for {key}: {e}")
+            return None
