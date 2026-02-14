@@ -22,3 +22,7 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Database
+stock_analysis.db
+*.db
