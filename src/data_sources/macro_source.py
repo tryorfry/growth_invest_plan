@@ -87,7 +87,13 @@ class MacroSource:
 
     @staticmethod
     def fetch_historical_macro(key: str, period: str = '1y') -> Optional[pd.DataFrame]:
-        """Fetch historical data for a specific macro indicator"""
+        """
+        Fetch historical data for a specific macro indicator.
+        
+        Args:
+            key: The macro key (e.g., '10Y_Yield')
+            period: The history period to fetch (default '1y')
+        """
         ticker = MacroSource.TICKERS.get(key)
         if not ticker:
             return None
