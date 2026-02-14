@@ -314,23 +314,9 @@ def main():
                         st.write(f"EPS Next Y: {analysis.finviz_data.get('EPS next Y', 'N/A')}")
                         st.write(f"EPS Next 5Y: {analysis.finviz_data.get('EPS next 5Y', 'N/A')}")
                 
-                # AI Analyst Summary
-                st.divider()
-                st.subheader("🤖 AI Analyst Breakdown")
-                
-                # Check for API Key
-                if not os.getenv("GEMINI_API_KEY"):
-                    st.warning("To enable AI Thesis, please set `GEMINI_API_KEY` in your environment secrets.")
-                else:
-                    if st.button("🧠 Generate AI Investment Thesis", type="secondary"):
-                        from src.ai_analyst import AIAnalyst
-                        ai_analyst = AIAnalyst()
-                        with st.spinner("AI is analyzing all metrics..."):
-                            thesis = asyncio.run(ai_analyst.generate_thesis(analysis))
-                            st.markdown(thesis)
-                
-                # News Summary
+                # Sentiment Analysis Summary
                 if analysis.news_summary:
+                    st.divider()
                     st.subheader("📰 Sentiment Analysis & News")
                     st.info(analysis.news_summary)
                 

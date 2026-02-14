@@ -16,7 +16,6 @@ xlsxwriter
 schedule
 python-dotenv
 psycopg2-binary
-google-generativeai
 pytest
 pytest-asyncio
 pytest-cov
