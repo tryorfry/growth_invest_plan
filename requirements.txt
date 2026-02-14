@@ -7,7 +7,8 @@ aiohttp
 aiofiles
 mplfinance
 textblob
-streamlit
+streamlit>=1.35.0
+altair<5
 plotly
 sqlalchemy
 openpyxl
