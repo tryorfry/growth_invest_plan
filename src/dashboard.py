@@ -258,6 +258,14 @@ def main():
                     trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
                     st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
                 
+                # Debug / Detailed Trade Setup
+                with st.expander("🛠️ Detailed Trade Setup (Debug)"):
+                    st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
+                    st.write(f"Support Levels: {getattr(analysis, 'support_levels', [])}")
+                    st.write(f"Resistance Levels: {getattr(analysis, 'resistance_levels', [])}")
+                    st.write(f"Suggested Entry: {getattr(analysis, 'suggested_entry', 'N/A')}")
+                    st.write(f"Suggested Stop Loss: {getattr(analysis, 'suggested_stop_loss', 'N/A')}")
+
                 # OHLC Details
                 st.subheader("📊 Price Details")
                 col1, col2, col3, col4 = st.columns(4)
