@@ -97,15 +97,10 @@ def render_market_pulse_page():
     st.subheader("📈 Yield Trend (1 Year)")
     
     # Re-fetch historical macro if needed or use existing
-    print(f"DEBUG: Available MacroSource methods: {dir(MacroSource)}")
+    hist_10y = MacroSource.fetch_historical_macro('10Y_Yield')
     
-    if hasattr(MacroSource, 'fetch_historical_macro'):
-        hist_10y = MacroSource.fetch_historical_macro('10Y_Yield')
-        
-        if isinstance(hist_10y, pd.DataFrame) and not hist_10y.empty:
-            st.line_chart(hist_10y['Close'])
-    else:
-        st.error("DEBUG: fetch_historical_macro method missing from MacroSource class.")
+    if isinstance(hist_10y, pd.DataFrame) and not hist_10y.empty:
+        st.line_chart(hist_10y['Close'])
     
     st.divider()
     st.caption("Data provided by Yahoo Finance. Yields represent daily closing rates.")
