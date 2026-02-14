@@ -5,6 +5,7 @@ import pandas as pd
 from src.database import Database
 from src.watchlist import WatchlistManager
 from src.analyzer import StockAnalyzer
+from src.utils import save_analysis
 import asyncio
 
 
@@ -119,7 +120,13 @@ def render_watchlist_page():
                             st.text(row['Sector'])
                         with col4:
                             st.caption(row['Notes'])
+                        
+                        # Links and Actions
                         with col5:
+                            yfin_url = f"https://finance.yahoo.com/quote/{row['Ticker']}"
+                            finviz_url = f"https://finviz.com/quote.ashx?t={row['Ticker']}"
+                            st.markdown(f"[YF]({yfin_url})|[FV]({finviz_url})")
+                            
                             if st.button("🗑️", key=f"del_{row['Ticker']}"):
                                 wm.remove_stock_from_watchlist(selected_id, row['Ticker'])
                                 st.success(f"Removed {row['Ticker']}")
@@ -139,7 +146,10 @@ def render_watchlist_page():
                             try:
                                 analysis = asyncio.run(analyzer.analyze(ticker))
                                 if analysis:
-                                    col1, col2, col3, col4 = st.columns(4)
+                                    # Save to database
+                                    save_analysis(db, analysis)
+                                    
+                                    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
                                     with col1:
                                         st.metric("Price", f"${analysis.current_price:.2f}")
                                     with col2:
@@ -148,6 +158,10 @@ def render_watchlist_page():
                                         st.metric("P/E", analysis.finviz_data.get('P/E', 'N/A'))
                                     with col4:
                                         st.metric("Market Cap", analysis.finviz_data.get('Market Cap', 'N/A'))
+                                    with col5:
+                                        yfin_url = f"https://finance.yahoo.com/quote/{ticker}"
+                                        finviz_url = f"https://finviz.com/quote.ashx?t={ticker}"
+                                        st.markdown(f"**Links:**\n[YFinance]({yfin_url})\n[Finviz]({finviz_url})")
                             except Exception as e:
                                 st.error(f"Error analyzing {ticker}: {e}")
             else:

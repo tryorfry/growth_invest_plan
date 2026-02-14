@@ -74,3 +74,16 @@ class Database:
             if sector and not stock.sector:
                 stock.sector = sector
         return stock
+
+    def get_all_tickers(self) -> list[str]:
+        """Get all unique tickers from the database"""
+        from .models import Stock
+        session = self.SessionLocal()
+        try:
+            tickers = session.query(Stock.ticker).filter(Stock.ticker != None).order_by(Stock.ticker).all()
+            return [str(t[0]) for t in tickers if t[0]]
+        except Exception as e:
+            print(f"Error fetching tickers: {e}")
+            return []
+        finally:
+            session.close()

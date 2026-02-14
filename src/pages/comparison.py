@@ -13,9 +13,25 @@ def render_comparison_page():
     # Ticker input
     st.subheader("Select Stocks to Compare")
     
+    # Sidebar integration for history
+    db = st.session_state.get('db')
+    db_tickers = []
+    if db:
+        db_tickers = db.get_all_tickers()
+        
+    with st.sidebar:
+        st.divider()
+        st.subheader("Search History")
+        if db_tickers:
+            st.info("💡 Use the dropdowns below or select from history to compare.")
+            hist_selection = st.selectbox("Quick Select from History", options=["-- Select --"] + db_tickers, key="comp_hist")
+        else:
+            st.info("No analysis history found.")
+
     col1, col2, col3 = st.columns(3)
     with col1:
-        ticker1 = st.text_input("Ticker 1", value="AAPL").upper()
+        val1 = hist_selection if hist_selection != "-- Select --" else "AAPL"
+        ticker1 = st.text_input("Ticker 1", value=val1).upper()
     with col2:
         ticker2 = st.text_input("Ticker 2", value="NVDA").upper()
     with col3:
@@ -47,6 +63,20 @@ def render_comparison_page():
             if len(analyses) < 2:
                 st.error("Need at least 2 successful analyses to compare")
                 return
+            
+            # Display Quick Info for each stock
+            st.subheader("Stock Info & Links")
+            info_cols = st.columns(len(analyses))
+            for i, analysis in enumerate(analyses):
+                with info_cols[i]:
+                    st.markdown(f"**{analysis.ticker}**")
+                    timestamp_str = analysis.timestamp.strftime('%Y-%m-%d %H:%M') if analysis.timestamp else "N/A"
+                    st.caption(f"🕒 {timestamp_str}")
+                    yfin_url = f"https://finance.yahoo.com/quote/{analysis.ticker}"
+                    finviz_url = f"https://finviz.com/quote.ashx?t={analysis.ticker}"
+                    st.markdown(f"[YFinance]({yfin_url}) | [Finviz]({finviz_url})")
+            
+            st.divider()
             
             # Display comparison chart
             st.subheader("Price Comparison")

@@ -9,6 +9,7 @@ from src.data_sources.insider_source import InsiderSource
 from src.data_sources.short_interest_source import ShortInterestSource
 from src.pattern_recognition import PatternRecognition
 from src.visualization_advanced import AdvancedVisualizations
+from src.utils import render_ticker_header, save_analysis
 
 
 def render_candlestick_icon(pattern_type: str):
@@ -61,12 +62,31 @@ def render_advanced_analytics_page():
     """Render the advanced analytics page"""
     st.title("🔬 Advanced Analytics")
     
+    # Sidebar integration for history
+    with st.sidebar:
+        st.divider()
+        st.subheader("Search History")
+        db = st.session_state.get('db')
+        default_ticker = "AAPL"
+        if db:
+            db_tickers = db.get_all_tickers()
+            if db_tickers:
+                selected_history = st.selectbox(
+                    "Recent Tickers",
+                    options=["Enter New..."] + db_tickers,
+                    index=0,
+                    key="adv_history"
+                )
+                if selected_history != "Enter New...":
+                    default_ticker = selected_history
+
     # Ticker input
     col1, col2 = st.columns([3, 1])
     with col1:
-        ticker = st.text_input("Enter Stock Ticker", value="AAPL").upper()
+        ticker = st.text_input("Enter Stock Ticker", value=default_ticker).upper()
     with col2:
-        analyze_btn = st.button("Analyze", type="primary")
+        st.write("") # Alignment
+        analyze_btn = st.button("Analyze", type="primary", use_container_width=True)
     
     if analyze_btn and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
@@ -80,6 +100,14 @@ def render_advanced_analytics_page():
             analysis = asyncio.run(analyzer.analyze(ticker))
             
             if analysis:
+                # Save to database
+                db = st.session_state.get('db')
+                if db:
+                    save_analysis(db, analysis)
+                
+                # Render shared header
+                render_ticker_header(analysis)
+                
                 # Display tabs
                 tab1, tab2, tab3, tab4 = st.tabs([
                     "📊 Options Data",
@@ -267,13 +295,13 @@ def render_advanced_analytics_page():
                             table_html += '<th style="padding: 12px;">Price</th></tr></thead><tbody>'
                             
                             for p in patterns:
-                                icon_svg = render_candlestick_icon(p['pattern'])
+                                icon_svg = render_candlestick_icon(p["pattern"])
                                 row_html = f'<tr style="border-bottom: 1px solid #444;">'
                                 row_html += f'<td style="padding: 5px;">{icon_svg}</td>'
-                                row_html += f'<td style="padding: 12px; vertical-align: middle;">{p['date'].strftime('%Y-%m-%d')}</td>'
-                                row_html += f'<td style="padding: 12px; vertical-align: middle;"><strong style="color: #64b5f6;">{p['pattern']}</strong></td>'
-                                row_html += f'<td style="padding: 12px; vertical-align: middle;">{p['signal']}</td>'
-                                row_html += f'<td style="padding: 12px; vertical-align: middle;">${p['price']:.2f}</td></tr>'
+                                row_html += f'<td style="padding: 12px; vertical-align: middle;">{p["date"].strftime("%Y-%m-%d")}</td>'
+                                row_html += f'<td style="padding: 12px; vertical-align: middle;"><strong style="color: #64b5f6;">{p["pattern"]}</strong></td>'
+                                row_html += f'<td style="padding: 12px; vertical-align: middle;">{p["signal"]}</td>'
+                                row_html += f'<td style="padding: 12px; vertical-align: middle;">${p["price"]:.2f}</td></tr>'
                                 table_html += row_html
                             
                             table_html += '</tbody></table></div>'

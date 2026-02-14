@@ -19,6 +19,7 @@ from src.analyzer import StockAnalyzer, StockAnalysis
 from src.database import Database
 from src.models import Stock, Analysis
 from src.visualization_plotly import PlotlyChartGenerator
+from src.utils import save_analysis, render_ticker_header
 
 
 # Page configuration
@@ -50,65 +51,7 @@ def init_chart_generator():
     return PlotlyChartGenerator()
 
 
-def save_analysis_to_db(db: Database, analysis: StockAnalysis):
-    """Save analysis results to database"""
-    session = db.SessionLocal()
-    try:
-        # Get or create stock
-        stock = db.get_or_create_stock(session, analysis.ticker)
-        
-        # Create analysis record
-        analysis_record = Analysis(
-            stock_id=stock.id,
-            timestamp=analysis.timestamp,
-            current_price=analysis.current_price,
-            open_price=analysis.open,
-            high=analysis.high,
-            low=analysis.low,
-            close=analysis.close,
-            atr=analysis.atr,
-            ema20=analysis.ema20,
-            ema50=analysis.ema50,
-            ema200=analysis.ema200,
-            rsi=analysis.rsi,
-            macd=analysis.macd,
-            macd_signal=analysis.macd_signal,
-            bollinger_upper=analysis.bollinger_upper,
-            bollinger_lower=analysis.bollinger_lower,
-            last_earnings_date=analysis.last_earnings_date,
-            next_earnings_date=analysis.next_earnings_date,
-            days_until_earnings=analysis.days_until_earnings,
-            revenue=analysis.revenue,
-            operating_income=analysis.operating_income,
-            basic_eps=analysis.basic_eps,
-            median_price_target=analysis.median_price_target,
-            news_sentiment=analysis.news_sentiment,
-            news_summary=analysis.news_summary
-        )
-        
-        # Add Finviz data
-        if analysis.finviz_data:
-            analysis_record.market_cap = analysis.finviz_data.get("Market Cap")
-            analysis_record.pe_ratio = _safe_float(analysis.finviz_data.get("P/E"))
-            analysis_record.peg_ratio = _safe_float(analysis.finviz_data.get("PEG"))
-            analysis_record.analyst_recom = _safe_float(analysis.finviz_data.get("Recom"))
-            analysis_record.institutional_ownership = _safe_float(analysis.finviz_data.get("Inst Own", "").replace("%", ""))
-            analysis_record.roe = _safe_float(analysis.finviz_data.get("ROE", "").replace("%", ""))
-            analysis_record.roa = _safe_float(analysis.finviz_data.get("ROA", "").replace("%", ""))
-            analysis_record.eps_growth_this_year = _safe_float(analysis.finviz_data.get("EPS this Y", "").replace("%", ""))
-            analysis_record.eps_growth_next_year = _safe_float(analysis.finviz_data.get("EPS next Y", "").replace("%", ""))
-        
-        session.add(analysis_record)
-        session.commit()
-    finally:
-        session.close()
-
-def _safe_float(value):
-    """Safely convert string to float"""
-    try:
-        return float(value) if value else None
-    except (ValueError, TypeError):
-        return None
+# Removed save_analysis_to_db and _safe_float - now in src.utils
 
 
 def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
@@ -207,7 +150,22 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("⚙️ Settings")
-        ticker = st.text_input("Stock Ticker", value="AAPL", max_chars=10).upper()
+        
+        # Ticker History Dropdown
+        db_tickers = db.get_all_tickers()
+        if db_tickers:
+            selected_history = st.selectbox(
+                "Search History",
+                options=["Enter New..."] + db_tickers,
+                index=0,
+                help="Select a previously analyzed stock"
+            )
+            # Pre-fill ticker input if something is selected from history
+            default_ticker = selected_history if selected_history != "Enter New..." else "AAPL"
+        else:
+            default_ticker = "AAPL"
+            
+        ticker = st.text_input("Stock Ticker", value=default_ticker, max_chars=10).upper()
         
         analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True)
         
@@ -231,19 +189,10 @@ def main():
             
             if analysis:
                 # Save to database
-                save_analysis_to_db(db, analysis)
+                save_analysis(db, analysis)
                 
-                # Display company info header
-                if analysis.company_name or analysis.sector:
-                    st.markdown(f"### {analysis.company_name or analysis.ticker}")
-                    info_parts = []
-                    if analysis.sector:
-                        info_parts.append(f"**Sector:** {analysis.sector}")
-                    if analysis.industry:
-                        info_parts.append(f"**Industry:** {analysis.industry}")
-                    if info_parts:
-                        st.markdown(" | ".join(info_parts))
-                    st.divider()
+                # Display header with name, timestamp, and links
+                render_ticker_header(analysis)
                 
                 # Earnings Warning (if applicable)
                 if analysis.has_earnings_warning():
