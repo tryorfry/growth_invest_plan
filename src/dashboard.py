@@ -211,6 +211,7 @@ def main():
         with st.expander("🔧 System"):
             if st.button("Clear Cache & Reload", type="secondary"):
                 st.cache_resource.clear()
+                st.cache_data.clear()
                 st.rerun()
     
     # Main content
