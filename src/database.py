@@ -69,7 +69,12 @@ class Database:
             ("analyses", "total_debt", "FLOAT"),
             ("analyses", "total_cash", "FLOAT"),
             ("analyses", "shares_outstanding", "INTEGER"),
-            ("analyses", "earnings_growth", "FLOAT")
+            ("analyses", "earnings_growth", "FLOAT"),
+            
+            # Sentiment and targets
+            ("analyses", "news_sentiment", "FLOAT"),
+            ("analyses", "news_summary", "TEXT"),
+            ("analyses", "median_price_target", "FLOAT")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
