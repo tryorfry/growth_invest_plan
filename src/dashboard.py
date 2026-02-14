@@ -114,6 +114,8 @@ def main():
             options=[
                 "🏠 Home",
                 "🌍 Market Pulse",
+                "💼 Portfolio",
+                "🧪 Backtester",
                 "📋 Watchlist",
                 "🔔 Alerts",
                 "🔬 Advanced Analytics",
@@ -127,6 +129,16 @@ def main():
     if page == "🌍 Market Pulse":
         from src.pages.market_pulse import render_market_pulse_page
         render_market_pulse_page()
+        return
+
+    elif page == "💼 Portfolio":
+        from src.pages.portfolio_tracker import render_portfolio_tracker_page
+        render_portfolio_tracker_page()
+        return
+
+    elif page == "🧪 Backtester":
+        from src.pages.backtest import render_backtesting_page
+        render_backtesting_page()
         return
 
     elif page == "📋 Watchlist":

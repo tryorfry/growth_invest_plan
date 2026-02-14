@@ -207,3 +207,42 @@ class AlertHistory(Base):
     
     def __repr__(self):
         return f"<AlertHistory(alert_id={self.alert_id}, triggered_at='{self.triggered_at}', value={self.value})>"
+
+
+class Portfolio(Base):
+    """Investment portfolio container"""
+    __tablename__ = 'portfolios'
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    currency = Column(String(10), default="USD")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    transactions = relationship("Transaction", back_populates="portfolio", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<Portfolio(name='{self.name}')>"
+
+
+class Transaction(Base):
+    """Individual trade record"""
+    __tablename__ = 'transactions'
+    
+    id = Column(Integer, primary_key=True)
+    portfolio_id = Column(Integer, ForeignKey('portfolios.id'), nullable=False)
+    stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
+    type = Column(String(10), nullable=False)  # BUY, SELL, DIVIDEND
+    quantity = Column(Float, nullable=False)
+    price = Column(Float, nullable=False)
+    fees = Column(Float, default=0.0)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+    notes = Column(Text)
+    
+    # Relationships
+    portfolio = relationship("Portfolio", back_populates="transactions")
+    stock = relationship("Stock")
+    
+    def __repr__(self):
+        return f"<Transaction(type='{self.type}', price={self.price}, qty={self.quantity})>"

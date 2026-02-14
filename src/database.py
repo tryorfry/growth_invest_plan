@@ -130,3 +130,15 @@ class Database:
             return []
         finally:
             session.close()
+
+    def get_all_portfolios(self) -> list:
+        """Get all portfolios from the database"""
+        from .models import Portfolio
+        session = self.SessionLocal()
+        try:
+            return session.query(Portfolio).order_by(Portfolio.name).all()
+        except Exception as e:
+            print(f"Error fetching portfolios: {e}")
+            return []
+        finally:
+            session.close()
