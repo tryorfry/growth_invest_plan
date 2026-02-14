@@ -61,6 +61,14 @@ class Database:
             ("analyses", "eps_growth_this_year", "FLOAT"),
             ("analyses", "eps_growth_next_year", "FLOAT"),
             
+            # Analysis earnings & core financials
+            ("analyses", "last_earnings_date", "DATETIME"),
+            ("analyses", "next_earnings_date", "DATETIME"),
+            ("analyses", "days_until_earnings", "INTEGER"),
+            ("analyses", "revenue", "FLOAT"),
+            ("analyses", "operating_income", "FLOAT"),
+            ("analyses", "basic_eps", "FLOAT"),
+            
             # Analysis extended metrics
             ("analyses", "analyst_source", "VARCHAR(50)"),
             ("analyses", "analysis_timestamp", "DATETIME"),
