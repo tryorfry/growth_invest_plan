@@ -27,7 +27,12 @@ st.set_page_config(
     page_title="Growth Investment Analyzer",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "Growth Investment Analyzer - Your personal AI-powered stock assistant."
+    }
 )
 
 # Initialize database
@@ -199,7 +204,14 @@ def main():
         show_trade_setup = st.checkbox("Show Trade Setup (Entry/Stop)", value=True)
         
         st.divider()
+        st.divider()
         st.caption("Data sources: Yahoo Finance, Finviz, MarketBeat")
+        
+        st.divider()
+        with st.expander("🔧 System"):
+            if st.button("Clear Cache & Reload", type="secondary"):
+                st.cache_resource.clear()
+                st.rerun()
     
     # Main content
     if analyze_button and ticker:
