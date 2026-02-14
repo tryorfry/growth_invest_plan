@@ -74,3 +74,7 @@ graph TD
 - **Environment Secrets**: Sensitive URLs and API keys are stored in environment variables, never in code.
 - **Database Access**: All connections go through a centralized `Database` class with session management to prevent leaks.
 - **Public API Safety**: No direct exposure of high-cost or high-risk APIs (like AI) to unauthenticated public triggers.
+
+## ⚙️ Reliability & Migration
+- **Auto-Migration Engine**: The `Database.init_db` method automatically detects schema changes.
+- **Backward Compatibility**: New fundamental and technical metrics are dynamically added to existing tables during application startup, ensuring the app never crashes due to missing columns on cloud or local servers.
