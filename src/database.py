@@ -40,6 +40,28 @@ class Database:
         inspector = inspect(self.engine)
         
         new_cols = [
+            # Stock updates
+            ("stocks", "sector", "VARCHAR(100)"),
+            
+            # Analysis technicals
+            ("analyses", "rsi", "FLOAT"),
+            ("analyses", "macd", "FLOAT"),
+            ("analyses", "macd_signal", "FLOAT"),
+            ("analyses", "bollinger_upper", "FLOAT"),
+            ("analyses", "bollinger_lower", "FLOAT"),
+            
+            # Analysis fundamentals
+            ("analyses", "market_cap", "VARCHAR(50)"),
+            ("analyses", "pe_ratio", "FLOAT"),
+            ("analyses", "peg_ratio", "FLOAT"),
+            ("analyses", "analyst_recom", "FLOAT"),
+            ("analyses", "institutional_ownership", "FLOAT"),
+            ("analyses", "roe", "FLOAT"),
+            ("analyses", "roa", "FLOAT"),
+            ("analyses", "eps_growth_this_year", "FLOAT"),
+            ("analyses", "eps_growth_next_year", "FLOAT"),
+            
+            # Analysis extended metrics
             ("analyses", "analyst_source", "VARCHAR(50)"),
             ("analyses", "analysis_timestamp", "DATETIME"),
             ("analyses", "book_value", "FLOAT"),
@@ -51,11 +73,14 @@ class Database:
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
-        existing_cols = {col['name'] for col in inspector.get_columns('analyses')}
+        # We need to check columns for both 'stocks' and 'analyses'
+        existing_cols_analyses = {col['name'] for col in inspector.get_columns('analyses')}
+        existing_cols_stocks = {col['name'] for col in inspector.get_columns('stocks')}
         
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
-                if col not in existing_cols:
+                existing = existing_cols_stocks if table == 'stocks' else existing_cols_analyses
+                if col not in existing:
                     try:
                         # Normalize type for Postgres if needed (e.g., DATETIME -> TIMESTAMP)
                         sql_type = col_type
