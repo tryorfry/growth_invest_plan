@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
+from datetime import datetime
 import pandas as pd
 
 from .data_sources.base import DataSource
@@ -18,6 +19,7 @@ class StockAnalysis:
     
     ticker: str
     timestamp: Any = None
+    analysis_timestamp: Any = None  # Actual time of analysis
     
     # Company info
     company_name: Optional[str] = None
@@ -58,6 +60,15 @@ class StockAnalysis:
     
     # Analyst targets
     median_price_target: Optional[float] = None
+    analyst_source: Optional[str] = None
+    
+    # Valuation data
+    book_value: Optional[float] = None
+    free_cash_flow: Optional[float] = None
+    total_debt: Optional[float] = None
+    total_cash: Optional[float] = None
+    shares_outstanding: Optional[int] = None
+    earnings_growth: Optional[float] = None
     
     # News Sentiment
     news_sentiment: Optional[float] = None
@@ -124,7 +135,10 @@ class StockAnalyzer:
         import asyncio
         
         ticker = ticker.upper()
-        analysis = StockAnalysis(ticker=ticker)
+        analysis = StockAnalysis(
+            ticker=ticker,
+            analysis_timestamp=datetime.now()
+        )
         
         if verbose:
             print(f"Fetching data for {ticker}...")
@@ -164,19 +178,23 @@ class StockAnalyzer:
                 last_earnings_date=analysis.last_earnings_date
             )
             
-            # Fallback to YFinance if primary fails and isn't already YFinance
-            if not analyst_data and not isinstance(self.analyst_source, YFinanceAnalystSource):
-                if verbose:
-                    print(f"Primary analyst source failed, falling back to YFinance...")
-                
-                yf_source = YFinanceAnalystSource()
-                analyst_data = await yf_source.fetch(
-                    ticker,
-                    last_earnings_date=analysis.last_earnings_date
-                )
-            
             if analyst_data:
                 analysis.median_price_target = analyst_data.get("median_price_target")
+                analysis.analyst_source = self.analyst_source.get_source_name()
+            else:
+                # Fallback to YFinance if primary fails and isn't already YFinance
+                if not isinstance(self.analyst_source, YFinanceAnalystSource):
+                    if verbose:
+                        print(f"Primary analyst source failed, falling back to YFinance...")
+                    
+                    yf_source = YFinanceAnalystSource()
+                    analyst_data = await yf_source.fetch(
+                        ticker,
+                        last_earnings_date=analysis.last_earnings_date
+                    )
+                    if analyst_data:
+                        analysis.median_price_target = analyst_data.get("median_price_target")
+                        analysis.analyst_source = "YFinance (Fallback)"
         
         return analysis
     
@@ -213,3 +231,11 @@ class StockAnalyzer:
         analysis.company_name = data.get("company_name")
         analysis.sector = data.get("sector")
         analysis.industry = data.get("industry")
+        
+        # Valuation data
+        analysis.book_value = data.get("book_value")
+        analysis.free_cash_flow = data.get("free_cash_flow")
+        analysis.total_debt = data.get("total_debt")
+        analysis.total_cash = data.get("total_cash")
+        analysis.shares_outstanding = data.get("shares_outstanding")
+        analysis.earnings_growth = data.get("earnings_growth")

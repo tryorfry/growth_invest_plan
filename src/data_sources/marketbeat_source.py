@@ -15,7 +15,7 @@ class MarketBeatSource(AnalystDataSource):
     """Scrapes analyst price targets from MarketBeat"""
     
     BASE_URL = "https://www.marketbeat.com/stocks"
-    EXCHANGES = ["NASDAQ", "NYSE"]
+    EXCHANGES = ["NASDAQ", "NYSE", "AMEX", "OTCMKTS"]
     TIMEOUT = 10
     
     def get_source_name(self) -> str:
@@ -24,13 +24,6 @@ class MarketBeatSource(AnalystDataSource):
     async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
         Fetch analyst price targets from MarketBeat asynchronously.
-        
-        Args:
-            ticker: Stock ticker symbol
-            **kwargs: Must include 'last_earnings_date' (pd.Timestamp)
-            
-        Returns:
-            Dictionary with median price target or None
         """
         import asyncio
         from functools import partial
@@ -38,43 +31,37 @@ class MarketBeatSource(AnalystDataSource):
         loop = asyncio.get_running_loop()
         last_earnings_date = kwargs.get('last_earnings_date')
         
-        # Run blocking call in executor
-        # Use partial to pass kwargs if needed, but here we extract specific args
         return await loop.run_in_executor(
             None, 
             partial(self._fetch_sync, ticker=ticker, last_earnings_date=last_earnings_date)
         )
 
     def _fetch_sync(self, ticker: str, last_earnings_date: Any) -> Optional[Dict[str, Any]]:
-        """Synchronous fetch logic for thread execution"""
+        """Synchronous fetch logic with multi-exchange fallback"""
         if not last_earnings_date:
-            print("MarketBeat requires last_earnings_date parameter")
             return None
         
-        # Try different exchanges
+        # 1. Try direct ticker first (MarketBeat often redirects)
+        direct_url = f"https://www.marketbeat.com/stocks/{ticker}/price-target/"
+        try:
+            response = requests.get(direct_url, impersonate="chrome110", timeout=self.TIMEOUT)
+            if response.status_code == 200:
+                result = self._parse_price_targets(response.content, last_earnings_date)
+                if result: return {"median_price_target": r} if (r := result) else None
+        except: pass
+
+        # 2. Try with exchanges
         for exchange in self.EXCHANGES:
             url = f"{self.BASE_URL}/{exchange}/{ticker}/price-target/"
-            
             try:
                 response = requests.get(url, impersonate="chrome110", timeout=self.TIMEOUT)
-                
                 if response.status_code == 200:
-                    median_target = self._parse_price_targets(
-                        response.content, 
-                        last_earnings_date
-                    )
-                    
+                    median_target = self._parse_price_targets(response.content, last_earnings_date)
                     if median_target is not None:
                         return {"median_price_target": median_target}
-                        
-                elif response.status_code == 404:
-                    continue  # Try next exchange
-                    
             except Exception as e:
-                print(f"Error fetching MarketBeat data: {e}")
-                return None
+                print(f"Error fetching MarketBeat ({exchange}/{ticker}): {e}")
         
-        print(f"Could not find MarketBeat page for {ticker}")
         return None
     
     def _parse_price_targets(

@@ -214,6 +214,14 @@ class YFinanceSource(TechnicalDataSource):
                 result["sector"] = info.get("sector", None)
                 result["industry"] = info.get("industry", None)
                 result["company_name"] = info.get("longName", None)
+                
+                # Valuation fields
+                result["book_value"] = info.get("bookValue")
+                result["free_cash_flow"] = info.get("freeCashflow")
+                result["total_debt"] = info.get("totalDebt")
+                result["total_cash"] = info.get("totalCash")
+                result["shares_outstanding"] = info.get("sharesOutstanding")
+                result["earnings_growth"] = info.get("earningsGrowth")
         except Exception as e:
             print(f"Error fetching company info: {e}")
         

@@ -23,8 +23,32 @@ class Database:
         self.SessionLocal = sessionmaker(bind=self.engine)
         
     def init_db(self):
-        """Create all tables if they don't exist"""
+        """Create all tables if they don't exist and handle schema updates"""
         Base.metadata.create_all(self.engine)
+        
+        # Simple migration: Add new columns if they don't exist
+        from sqlalchemy import text
+        new_cols = [
+            ("analyses", "analyst_source", "VARCHAR(50)"),
+            ("analyses", "analysis_timestamp", "DATETIME"),
+            ("analyses", "book_value", "FLOAT"),
+            ("analyses", "free_cash_flow", "FLOAT"),
+            ("analyses", "total_debt", "FLOAT"),
+            ("analyses", "total_cash", "FLOAT"),
+            ("analyses", "shares_outstanding", "INTEGER"),
+            ("analyses", "earnings_growth", "FLOAT")
+        ]
+        
+        with self.engine.connect() as conn:
+            for table, col, col_type in new_cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                    print(f"Added column {col} to {table}")
+                except Exception:
+                    # Column likely already exists
+                    pass
+                    
         print(f"Database initialized at: {self.db_path}")
         
     @contextmanager

@@ -70,8 +70,8 @@ def render_comparison_page():
             for i, analysis in enumerate(analyses):
                 with info_cols[i]:
                     st.markdown(f"**{analysis.ticker}**")
-                    timestamp_str = analysis.timestamp.strftime('%Y-%m-%d %H:%M') if analysis.timestamp else "N/A"
-                    st.caption(f"🕒 {timestamp_str}")
+                    analysis_time = analysis.analysis_timestamp.strftime('%Y-%m-%d %H:%M') if analysis.analysis_timestamp else "N/A"
+                    st.caption(f"🕒 Analyzed: {analysis_time}")
                     yfin_url = f"https://finance.yahoo.com/quote/{analysis.ticker}"
                     finviz_url = f"https://finviz.com/quote.ashx?t={analysis.ticker}"
                     st.markdown(f"[YFinance]({yfin_url}) | [Finviz]({finviz_url})")

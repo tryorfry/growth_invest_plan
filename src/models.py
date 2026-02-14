@@ -33,6 +33,7 @@ class Analysis(Base):
     id = Column(Integer, primary_key=True)
     stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
+    analysis_timestamp = Column(DateTime)  # Actual time of analysis
     
     # Price data
     current_price = Column(Float)
@@ -75,6 +76,15 @@ class Analysis(Base):
     
     # Analyst targets
     median_price_target = Column(Float)
+    analyst_source = Column(String(50))  # Track source (MarketBeat/YFinance)
+    
+    # Valuation data
+    book_value = Column(Float)
+    free_cash_flow = Column(Float)
+    total_debt = Column(Float)
+    total_cash = Column(Float)
+    shares_outstanding = Column(Integer)
+    earnings_growth = Column(Float)
     
     # Sentiment
     news_sentiment = Column(Float)

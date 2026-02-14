@@ -17,6 +17,7 @@ def save_analysis(db: Database, analysis: StockAnalysis):
         analysis_record = Analysis(
             stock_id=stock.id,
             timestamp=analysis.timestamp,
+            analysis_timestamp=analysis.analysis_timestamp,
             current_price=analysis.current_price,
             open_price=analysis.open,
             high=analysis.high,
@@ -38,6 +39,13 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             operating_income=analysis.operating_income,
             basic_eps=analysis.basic_eps,
             median_price_target=analysis.median_price_target,
+            analyst_source=analysis.analyst_source,
+            book_value=analysis.book_value,
+            free_cash_flow=analysis.free_cash_flow,
+            total_debt=analysis.total_debt,
+            total_cash=analysis.total_cash,
+            shares_outstanding=analysis.shares_outstanding,
+            earnings_growth=analysis.earnings_growth,
             news_sentiment=analysis.news_sentiment,
             news_summary=analysis.news_summary
         )
@@ -72,9 +80,6 @@ def render_ticker_header(analysis: StockAnalysis):
     """Render a consistent header for detailed analysis views"""
     st.markdown(f"## {analysis.company_name or analysis.ticker} ({analysis.ticker})")
     
-    # Collection status and timestamp
-    timestamp_str = analysis.timestamp.strftime('%Y-%m-%d %H:%M:%S') if analysis.timestamp else "N/A"
-    
     col1, col2 = st.columns([2, 1])
     with col1:
         info_parts = []
@@ -85,9 +90,14 @@ def render_ticker_header(analysis: StockAnalysis):
         
         if info_parts:
             st.markdown(" | ".join(info_parts))
-            
-        st.markdown(f"🕒 **Data Collected:** {timestamp_str}")
         
+        # Dual Timestamps
+        market_date = analysis.timestamp.strftime('%Y-%m-%d') if analysis.timestamp else "N/A"
+        analysis_time = analysis.analysis_timestamp.strftime('%Y-%m-%d %H:%M:%S') if analysis.analysis_timestamp else "N/A"
+        
+        st.markdown(f"✅ **Market Data Date:** {market_date} | 🕒 **Analysis Performed:** {analysis_time}")
+        st.caption("Market data reflects the last trading close. Analysis time is when the data was fetched.")
+            
     with col2:
         st.markdown("**Quick Research Links:**")
         yfin_url = f"https://finance.yahoo.com/quote/{analysis.ticker}"

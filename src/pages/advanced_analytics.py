@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import asyncio
+from datetime import datetime
 from src.analyzer import StockAnalyzer
 from src.data_sources.options_source import OptionsSource
 from src.data_sources.insider_source import InsiderSource
@@ -10,6 +11,8 @@ from src.data_sources.short_interest_source import ShortInterestSource
 from src.pattern_recognition import PatternRecognition
 from src.visualization_advanced import AdvancedVisualizations
 from src.utils import render_ticker_header, save_analysis
+from src.valuations import ValuationCalculator
+from src.reporting import ReportGenerator
 
 
 def render_candlestick_icon(pattern_type: str):
@@ -109,11 +112,12 @@ def render_advanced_analytics_page():
                 render_ticker_header(analysis)
                 
                 # Display tabs
-                tab1, tab2, tab3, tab4 = st.tabs([
+                tab1, tab2, tab3, tab4, tab5 = st.tabs([
                     "📊 Options Data",
                     "👔 Insider Trading",
                     "📉 Short Interest",
-                    "🕯️ Patterns"
+                    "🕯️ Patterns",
+                    "💰 Valuations"
                 ])
                 
                 # Tab 1: Options Data
@@ -319,6 +323,61 @@ def render_advanced_analytics_page():
                         """)
                     else:
                         st.error("No historical data available for pattern recognition")
+                
+                # Tab 5: Valuations
+                with tab5:
+                    st.subheader("Intrinsic Value Estimates")
+                    
+                    calc = ValuationCalculator()
+                    graham = calc.calculate_graham_number(analysis)
+                    dcf = calc.calculate_dcf(analysis)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Graham Number", f"${graham:.2f}" if graham else "N/A", help="sqrt(22.5 * EPS * Book Value)")
+                        if graham and analysis.current_price:
+                            upside = (graham / analysis.current_price) - 1
+                            st.caption(f"Upside/Downside: {upside:+.1%}")
+                            
+                    with col2:
+                        intrinsic = dcf.get('intrinsic_value') if dcf else None
+                        st.metric("DCF Intrinsic Value", f"${intrinsic:.2f}" if intrinsic else "N/A", help="5-year projected FCF with 10% discount rate")
+                        if intrinsic and analysis.current_price:
+                            upside = (intrinsic / analysis.current_price) - 1
+                            st.caption(f"Upside/Downside: {upside:+.1%}")
+                    
+                    st.divider()
+                    
+                    if dcf:
+                        st.write("**DCF Assumptions:**")
+                        st.write(f"- Growth Rate: {dcf['growth_rate_used']:.1%}")
+                        st.write(f"- Discount Rate: {dcf['discount_rate_used']:.1%}")
+                        
+                        # Project FCF chart
+                        st.write("**Projected Free Cash Flow (5 Years):**")
+                        fcf_df = pd.DataFrame({
+                            'Year': [f"Year {i+1}" for i in range(len(dcf['projected_fcf']))],
+                            'FCF ($)': dcf['projected_fcf']
+                        })
+                        st.line_chart(fcf_df.set_index('Year'))
+                    
+                    st.divider()
+                    st.subheader("Data Transparency")
+                    if analysis.analyst_source:
+                        st.info(f"📍 **Analyst Target Source:** {analysis.analyst_source}")
+                    else:
+                        st.warning("No analyst source metadata available.")
+
+                    # Professional Export
+                    st.subheader("📑 Professional Reporting")
+                    excel_data = ReportGenerator.generate_excel_report(analysis, dcf)
+                    st.download_button(
+                        label="📥 Download Detailed Excel Analysis",
+                        data=excel_data,
+                        file_name=f"{analysis.ticker}_analysis_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
             else:
                 st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
 
