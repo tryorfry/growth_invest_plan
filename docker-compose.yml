@@ -52,5 +52,22 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
     restart: unless-stopped
 
+  # Hourly Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: growth-invest-plan:scheduler
+    depends_on:
+      - db
+    volumes:
+      - ./stock_analysis.db:/app/stock_analysis.db
+      - ./charts:/app/charts
+      - ./.env:/app/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
+    command: ["python", "src/scheduler.py"]
+    restart: unless-stopped
+
 volumes:
   postgres_data:

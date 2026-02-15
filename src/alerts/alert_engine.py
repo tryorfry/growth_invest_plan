@@ -57,22 +57,32 @@ class AlertEngine:
         # Check if condition is met
         is_triggered = False
         
-        if alert.condition == 'above':
-            is_triggered = current_value > alert.threshold
-        elif alert.condition == 'below':
-            is_triggered = current_value < alert.threshold
-        elif alert.condition == 'crosses_above':
-            # Check if crossed above since last check
-            is_triggered = self._check_crossover(alert, current_value, alert.threshold, 'above', session)
-        elif alert.condition == 'crosses_below':
-            # Check if crossed below since last check
-            is_triggered = self._check_crossover(alert, current_value, alert.threshold, 'below', session)
+        try:
+            if alert.condition == 'above':
+                is_triggered = current_value > alert.threshold
+            elif alert.condition == 'below':
+                is_triggered = current_value < alert.threshold
+            elif alert.condition == 'crosses_above':
+                # Check if crossed above since last check
+                is_triggered = self._check_crossover(alert, current_value, alert.threshold, 'above', session)
+            elif alert.condition == 'crosses_below':
+                # Check if crossed below since last check
+                is_triggered = self._check_crossover(alert, current_value, alert.threshold, 'below', session)
+        except Exception as e:
+            print(f"Error evaluating alert {alert.id}: {e}")
+            return None
         
         if is_triggered:
+            # Check cooldown to prevent spamming (e.g., max 1 email per hour for simple above/below)
+            if alert.condition in ['above', 'below'] and alert.last_triggered:
+                time_since_last = datetime.now() - alert.last_triggered
+                if time_since_last < timedelta(hours=1):
+                    return None
+
             return self._trigger_alert(alert, current_value, analysis, session)
         
         return None
-    
+
     def _get_alert_value(self, alert_type: str, analysis: StockAnalysis) -> Optional[float]:
         """Get the current value for the alert type"""
         value_map = {
@@ -91,15 +101,15 @@ class AlertEngine:
             AlertHistory.alert_id == alert.id
         ).order_by(AlertHistory.triggered_at.desc()).first()
         
+        # If no previous history, we can't determine a "crossover" event accurately 
+        # unless we compare with previous price point from analysis history.
+        # For simplicity in this v1, if no history, we default to False to avoid false positives on first run.
         if not last_history:
-            # No previous trigger, check if currently on the right side
-            if direction == 'above':
-                return current_value > threshold
-            else:
-                return current_value < threshold
+            return False
+        
+        last_value = last_history.value
         
         # Check if crossed
-        last_value = last_history.value
         if direction == 'above':
             return last_value <= threshold and current_value > threshold
         else:
@@ -175,12 +185,12 @@ class AlertEngine:
         
         if alert.alert_type == 'rsi':
             if value > 70:
-                message += "⚠️ Stock is OVERBOUGHT\n"
+                message += "[WARNING] Stock is OVERBOUGHT\n"
             elif value < 30:
-                message += "⚠️ Stock is OVERSOLD\n"
+                message += "[WARNING] Stock is OVERSOLD\n"
         
         if alert.alert_type == 'earnings' and value < 7:
-            message += "⚠️ Earnings announcement is approaching soon!\n"
+            message += "[WARNING] Earnings announcement is approaching soon!\n"
         
         return message
     

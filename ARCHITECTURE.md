@@ -28,7 +28,11 @@ graph TD
         
         PT --> PM[PortfolioManager]
         
+        PT --> PM[PortfolioManager]
+        
         BT --> BE[BacktestEngine]
+
+        Scheduler[Hourly Scheduler] --> SA
     end
     
     subgraph "Data Access Layer"
@@ -71,6 +75,14 @@ graph TD
 4. **Comparison**: Results are benchmarked against a static "Buy & Hold" strategy and visualized.
 
 ## 🛡️ Security Boundaries
+
+### 4. Background Scheduling
+1. **Trigger**: Hourly timer (via Docker service or Streamlit background thread).
+2. **Fetching**: `Scheduler` retrieves all unique tickers from the `Stock` table.
+3. **Execution**: Calls `StockAnalyzer.analyze()` for each ticker sequentially.
+4. **Update**: Fresh data is persisted to the database, ready for the next user visit.
+
+
 - **Environment Secrets**: Sensitive URLs and API keys are stored in environment variables, never in code.
 - **Database Access**: All connections go through a centralized `Database` class with session management to prevent leaks.
 - **Public API Safety**: No direct exposure of high-cost or high-risk APIs (like AI) to unauthenticated public triggers.

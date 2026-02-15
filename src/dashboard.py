@@ -55,6 +55,14 @@ def init_chart_generator():
     """Initialize Plotly chart generator"""
     return PlotlyChartGenerator()
 
+# Initialize scheduler (for Streamlit Cloud support)
+@st.cache_resource
+def init_scheduler():
+    """Start the background scheduler thread"""
+    from src.scheduler import start_scheduler_thread
+    start_scheduler_thread()
+    return True
+
 
 # Removed save_analysis_to_db and _safe_float - now in src.utils
 
@@ -105,6 +113,7 @@ def main():
     # Initialize resources
     db = init_database()
     chart_gen = init_chart_generator()
+    init_scheduler()  # Start background scheduler
     
     # Store in session state
     if 'db' not in st.session_state:

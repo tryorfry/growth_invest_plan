@@ -116,7 +116,7 @@ class ConsoleNotifier:
     def send_alert(self, subject: str, message: str, ticker: str = None) -> bool:
         """Print alert to console"""
         print(f"\n{'='*60}")
-        print(f"🔔 ALERT: {subject}")
+        print(f" ALERT: {subject}")
         print(f"{'='*60}")
         print(f"Ticker: {ticker or 'N/A'}")
         print(f"Message: {message}")
