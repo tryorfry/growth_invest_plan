@@ -52,7 +52,11 @@ class YFinanceSource(TechnicalDataSource):
             technical = self._calculate_technical_indicators(hist)
             
             # Get earnings dates
-            earnings = self._get_earnings_dates(stock)
+            try:
+                earnings = self._get_earnings_dates(stock)
+            except Exception as e:
+                print(f"Error fetching earnings dates: {e}")
+                earnings = {}
             
             # Get financial data
             financials = self._get_financial_data(stock)

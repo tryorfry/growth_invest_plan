@@ -330,17 +330,17 @@ def main():
                     show_support_resistance=show_support_resistance,
                     show_trade_setup=show_trade_setup
                 )
-                st.plotly_chart(fig, width='stretch')
+                st.plotly_chart(fig, use_container_width=True)
                 
                 # RSI Chart
                 if show_rsi and analysis.history is not None:
                     fig_rsi = chart_gen.generate_rsi_chart(analysis)
-                    st.plotly_chart(fig_rsi, width='stretch')
+                    st.plotly_chart(fig_rsi, use_container_width=True)
                 
                 # MACD Chart
                 if show_macd and analysis.history is not None:
                     fig_macd = chart_gen.generate_macd_chart(analysis)
-                    st.plotly_chart(fig_macd, width='stretch')
+                    st.plotly_chart(fig_macd, use_container_width=True)
                 
                 # Fundamental Data
                 st.subheader("💰 Fundamental Data")

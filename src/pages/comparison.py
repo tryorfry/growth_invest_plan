@@ -82,7 +82,7 @@ def render_comparison_page():
             st.subheader("Price Comparison")
             fig = viz.create_comparison_chart(analyses, normalize=normalize)
             if fig:
-                st.plotly_chart(fig, width='stretch')
+                st.plotly_chart(fig, use_container_width=True)
             
             # Performance table
             st.subheader("Performance Metrics")
@@ -95,7 +95,7 @@ def render_comparison_page():
                 st.subheader("Correlation Matrix")
                 corr_fig = viz.create_correlation_heatmap(analyses)
                 if corr_fig:
-                    st.plotly_chart(corr_fig, width='stretch')
+                    st.plotly_chart(corr_fig, use_container_width=True)
                     
                     st.info("""
                     **Correlation Interpretation:**
@@ -109,7 +109,7 @@ def render_comparison_page():
                 st.subheader("Sector Performance")
                 sector_fig = viz.create_sector_heatmap(analyses)
                 if sector_fig:
-                    st.plotly_chart(sector_fig, width='stretch')
+                    st.plotly_chart(sector_fig, use_container_width=True)
 
 
 if __name__ == "__main__":
