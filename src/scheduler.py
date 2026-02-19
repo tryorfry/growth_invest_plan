@@ -70,7 +70,10 @@ async def run_analysis_cycle():
 
 def job():
     """Wrapper to run the async analysis cycle"""
-    asyncio.run(run_analysis_cycle())
+    try:
+        asyncio.run(run_analysis_cycle())
+    except Exception as e:
+        logger.error(f"Job execution failed: {e}")
 
 def main():
     logger.info("Scheduler started. Running hourly stock analysis.")
@@ -80,11 +83,18 @@ def main():
     
     # Run immediately on startup
     logger.info("Running initial analysis...")
-    job()
+    try:
+        job()
+    except Exception as e:
+        logger.error(f"Initial analysis failed: {e}")
     
     while True:
-        schedule.run_pending()
-        time.sleep(60)
+        try:
+            schedule.run_pending()
+            time.sleep(60)
+        except Exception as e:
+            logger.error(f"Scheduler crashed in main loop: {e}")
+            time.sleep(60) # Prevent tight loop if persistent error occurs
 
 def start_scheduler_thread():
     """Start the scheduler in a background thread"""
