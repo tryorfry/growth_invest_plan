@@ -9,6 +9,7 @@ from src.database import Database
 from src.models import Stock
 from src.analyzer import StockAnalyzer
 from src.alerts.alert_engine import AlertEngine
+from src.utils import save_analysis
 
 # Configure logging
 logging.basicConfig(
@@ -34,8 +35,15 @@ async def analyze_ticker(analyzer, alert_engine, ticker):
         if analysis:
             logger.info(f"Successfully analyzed {ticker}")
             
-            # Check alerts
+            # Save analysis to database for historical tracking
             db = Database()
+            try:
+                save_analysis(db, analysis)
+                logger.info(f"Saved analysis for {ticker} to database")
+            except Exception as e:
+                logger.error(f"Failed to save analysis for {ticker}: {e}")
+            
+            # Check alerts
             with db.get_session() as session:
                 triggered = alert_engine.check_alerts(session, analysis)
                 if triggered:
