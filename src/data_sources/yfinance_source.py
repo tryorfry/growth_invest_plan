@@ -40,40 +40,36 @@ class YFinanceSource(TechnicalDataSource):
         return await loop.run_in_executor(None, self._fetch_sync, ticker)
 
     def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
-        """Synchronous fetch logic for thread execution"""
+        # Synchronous fetch logic for thread execution
+        # Let exceptions bubble up to be handled by the caller or UI
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period=self.period)
+        
+        if hist.empty:
+            raise ValueError(f"No price data found for {ticker}")
+        
+        # Calculate technical indicators
+        technical = self._calculate_technical_indicators(hist)
+        
+        # Get earnings dates
         try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=self.period)
-            
-            if hist.empty:
-                return None
-            
-            # Calculate technical indicators
-            technical = self._calculate_technical_indicators(hist)
-            
-            # Get earnings dates
-            try:
-                earnings = self._get_earnings_dates(stock)
-            except Exception as e:
-                print(f"Error fetching earnings dates: {e}")
-                earnings = {}
-            
-            # Get financial data
-            financials = self._get_financial_data(stock)
-            
-            # Get company info (sector, industry)
-            company_info = self._get_company_info(stock)
-            
-            return {
-                **technical,
-                **earnings,
-                **financials,
-                **company_info
-            }
-            
+            earnings = self._get_earnings_dates(stock)
         except Exception as e:
-            print(f"Error fetching YFinance data: {e}")
-            return None
+            print(f"Error fetching earnings dates: {e}")
+            earnings = {}
+        
+        # Get financial data
+        financials = self._get_financial_data(stock)
+        
+        # Get company info (sector, industry)
+        company_info = self._get_company_info(stock)
+            
+        return {
+            **technical,
+            **earnings,
+            **financials,
+            **company_info
+        }
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
         """Calculate ATR, EMAs, RSI, MACD, and Bollinger Bands from historical data"""

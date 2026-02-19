@@ -161,21 +161,32 @@ class StockAnalyzer:
         fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
         news_task = asyncio.create_task(self.news_source.fetch(ticker))
         
-        results = await asyncio.gather(technical_task, fundamental_task, news_task)
+        # Allow individual tasks to fail without cancelling others
+        results = await asyncio.gather(technical_task, fundamental_task, news_task, return_exceptions=True)
         technical_data, fundamental_data, news_data = results
         
+        # Check for critical technical data failure
+        if isinstance(technical_data, Exception):
+            print(f"Critical Error: Technical data fetch failed: {technical_data}")
+            raise technical_data
+            
         if not technical_data:
             print(f"Error: No technical data found for ticker '{ticker}'")
             return None
             
         self._populate_technical_data(analysis, technical_data)
         
+        # Handle non-critical failures
+        if isinstance(fundamental_data, Exception):
+            print(f"Warning: Fundamental data fetch failed: {fundamental_data}")
+            fundamental_data = None
+            
         if fundamental_data:
             analysis.finviz_data = fundamental_data
             
-        if news_data:
-            analysis.news_sentiment = news_data.get("news_sentiment")
-            analysis.news_summary = news_data.get("news_summary")
+        if isinstance(news_data, Exception):
+            print(f"Warning: News fetch failed: {news_data}")
+            news_data = None
             
         if news_data:
             analysis.news_sentiment = news_data.get("news_sentiment")

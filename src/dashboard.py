@@ -226,161 +226,166 @@ def main():
     # Main content
     if analyze_button and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
-            # Run async analysis
-            analysis = asyncio.run(analyze_stock(ticker))
-            
-            if analysis:
-                # Save to database
-                save_analysis(db, analysis)
+            try:
+                # Run async analysis
+                analysis = asyncio.run(analyze_stock(ticker))
                 
-                # Display header with name, timestamp, and links
-                render_ticker_header(analysis)
-                
-                # Earnings Warning (if applicable)
-                if analysis.has_earnings_warning():
-                    st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()}) - Trade with caution!")
-                
-                # Key Metrics Row
-                col1, col2, col3, col4, col5 = st.columns(5)
-                
-                with col1:
-                    st.metric("Current Price", f"${analysis.current_price:.2f}")
-                with col2:
-                    if analysis.median_price_target:
-                        upside = ((analysis.median_price_target - analysis.current_price) / analysis.current_price) * 100
-                        st.metric("Price Target", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
-                    else:
-                        st.metric("Price Target", "N/A")
-                with col3:
-                    st.metric("RSI (14)", f"{analysis.rsi:.1f}")
-                with col4:
-                    st.metric("ATR (14)", f"{analysis.atr:.2f}")
-                with col5:
-                    if analysis.news_sentiment:
-                        sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
-                        st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
-                    else:
-                        st.metric("Sentiment", "N/A")
-                
-                # Trend Badge
-                if hasattr(analysis, 'market_trend') and analysis.market_trend:
-                    trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
-                    st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
-                
-                # Debug / Detailed Trade Setup
-                with st.expander("🛠️ Detailed Trade Setup (Debug)"):
-                    st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
-                    st.write(f"Support Levels: {getattr(analysis, 'support_levels', [])}")
-                    st.write(f"Resistance Levels: {getattr(analysis, 'resistance_levels', [])}")
-                    st.write(f"Suggested Entry: {getattr(analysis, 'suggested_entry', 'N/A')}")
-                    st.write(f"Suggested Stop Loss: {getattr(analysis, 'suggested_stop_loss', 'N/A')}")
-
-                # OHLC Details
-                st.subheader("📊 Price Details")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Open", f"${analysis.open:.2f}")
-                with col2:
-                    st.metric("High", f"${analysis.high:.2f}")
-                with col3:
-                    st.metric("Low", f"${analysis.low:.2f}")
-                with col4:
-                    st.metric("Close", f"${analysis.close:.2f}")
-                
-                # Earnings & Financials
-                if analysis.next_earnings_date or analysis.revenue:
-                    st.subheader("💼 Earnings & Financials")
-                    col1, col2, col3, col4 = st.columns(4)
+                if analysis:
+                    # Save to database
+                    save_analysis(db, analysis)
+                    
+                    # Display header with name, timestamp, and links
+                    render_ticker_header(analysis)
+                    
+                    # Earnings Warning (if applicable)
+                    if analysis.has_earnings_warning():
+                        st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()}) - Trade with caution!")
+                    
+                    # Key Metrics Row
+                    col1, col2, col3, col4, col5 = st.columns(5)
                     
                     with col1:
-                        if analysis.next_earnings_date:
-                            st.write(f"**Next Earnings:** {analysis.next_earnings_date.date()}")
-                            st.write(f"*({analysis.days_until_earnings} days)*")
-                        else:
-                            st.write("**Next Earnings:** N/A")
-                    
+                        st.metric("Current Price", f"${analysis.current_price:.2f}")
                     with col2:
-                        if analysis.revenue:
-                            revenue_b = analysis.revenue / 1e9
-                            st.write(f"**Revenue (Q):** ${revenue_b:.2f}B")
+                        if analysis.median_price_target:
+                            upside = ((analysis.median_price_target - analysis.current_price) / analysis.current_price) * 100
+                            st.metric("Price Target", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
                         else:
-                            st.write("**Revenue (Q):** N/A")
-                    
+                            st.metric("Price Target", "N/A")
                     with col3:
-                        if analysis.operating_income:
-                            op_income_b = analysis.operating_income / 1e9
-                            st.write(f"**Op Income (Q):** ${op_income_b:.2f}B")
-                        else:
-                            st.write("**Op Income (Q):** N/A")
-                    
+                        st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        if analysis.basic_eps:
-                            st.write(f"**EPS (Q):** ${analysis.basic_eps:.2f}")
+                        st.metric("ATR (14)", f"{analysis.atr:.2f}")
+                    with col5:
+                        if analysis.news_sentiment:
+                            sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
+                            st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
                         else:
-                            st.write("**EPS (Q):** N/A")
-                
-                # Technical Indicators
-                st.subheader("📈 Technical Indicators")
-                
-                # Generate interactive chart
-                fig = chart_gen.generate_candlestick_chart(
-                    analysis,
-                    show_ema=show_ema,
-                    show_bollinger=show_bollinger,
-                    show_support_resistance=show_support_resistance,
-                    show_trade_setup=show_trade_setup
-                )
-                st.plotly_chart(fig, use_container_width=True)
-                
-                # RSI Chart
-                if show_rsi and analysis.history is not None:
-                    fig_rsi = chart_gen.generate_rsi_chart(analysis)
-                    st.plotly_chart(fig_rsi, use_container_width=True)
-                
-                # MACD Chart
-                if show_macd and analysis.history is not None:
-                    fig_macd = chart_gen.generate_macd_chart(analysis)
-                    st.plotly_chart(fig_macd, use_container_width=True)
-                
-                # Fundamental Data
-                st.subheader("💰 Fundamental Data")
-                if analysis.finviz_data:
-                    col1, col2, col3 = st.columns(3)
+                            st.metric("Sentiment", "N/A")
                     
+                    # Trend Badge
+                    if hasattr(analysis, 'market_trend') and analysis.market_trend:
+                        trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
+                        st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
+                    
+                    # Debug / Detailed Trade Setup
+                    with st.expander("🛠️ Detailed Trade Setup (Debug)"):
+                        st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
+                        st.write(f"Support Levels: {getattr(analysis, 'support_levels', [])}")
+                        st.write(f"Resistance Levels: {getattr(analysis, 'resistance_levels', [])}")
+                        st.write(f"Suggested Entry: {getattr(analysis, 'suggested_entry', 'N/A')}")
+                        st.write(f"Suggested Stop Loss: {getattr(analysis, 'suggested_stop_loss', 'N/A')}")
+
+                    # OHLC Details
+                    st.subheader("📊 Price Details")
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
-                        st.write("**Valuation**")
-                        st.write(f"Market Cap: {analysis.finviz_data.get('Market Cap', 'N/A')}")
-                        st.write(f"P/E: {analysis.finviz_data.get('P/E', 'N/A')}")
-                        st.write(f"PEG: {analysis.finviz_data.get('PEG', 'N/A')}")
-                    
+                        st.metric("Open", f"${analysis.open:.2f}")
                     with col2:
-                        st.write("**Profitability**")
-                        st.write(f"ROE: {analysis.finviz_data.get('ROE', 'N/A')}")
-                        st.write(f"ROA: {analysis.finviz_data.get('ROA', 'N/A')}")
-                        st.write(f"Inst Own: {analysis.finviz_data.get('Inst Own', 'N/A')}")
-                    
+                        st.metric("High", f"${analysis.high:.2f}")
                     with col3:
-                        st.write("**Growth**")
-                        st.write(f"EPS This Y: {analysis.finviz_data.get('EPS this Y', 'N/A')}")
-                        st.write(f"EPS Next Y: {analysis.finviz_data.get('EPS next Y', 'N/A')}")
-                        st.write(f"EPS Next 5Y: {analysis.finviz_data.get('EPS next 5Y', 'N/A')}")
-                
-                # Sentiment Analysis Summary
-                if analysis.news_summary:
-                    st.divider()
-                    st.subheader("📰 Sentiment Analysis & News")
-                    st.info(analysis.news_summary)
-                
-                # Historical Trend
-                st.subheader("📊 Historical Analysis")
-                hist_df = load_historical_analyses(db, ticker)
-                if hist_df is not None and len(hist_df) > 1:
-                    st.line_chart(hist_df.set_index('Date')[['Price', 'RSI']])
+                        st.metric("Low", f"${analysis.low:.2f}")
+                    with col4:
+                        st.metric("Close", f"${analysis.close:.2f}")
+                    
+                    # Earnings & Financials
+                    if analysis.next_earnings_date or analysis.revenue:
+                        st.subheader("💼 Earnings & Financials")
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            if analysis.next_earnings_date:
+                                st.write(f"**Next Earnings:** {analysis.next_earnings_date.date()}")
+                                st.write(f"*({analysis.days_until_earnings} days)*")
+                            else:
+                                st.write("**Next Earnings:** N/A")
+                        
+                        with col2:
+                            if analysis.revenue:
+                                revenue_b = analysis.revenue / 1e9
+                                st.write(f"**Revenue (Q):** ${revenue_b:.2f}B")
+                            else:
+                                st.write("**Revenue (Q):** N/A")
+                        
+                        with col3:
+                            if analysis.operating_income:
+                                op_income_b = analysis.operating_income / 1e9
+                                st.write(f"**Op Income (Q):** ${op_income_b:.2f}B")
+                            else:
+                                st.write("**Op Income (Q):** N/A")
+                        
+                        with col4:
+                            if analysis.basic_eps:
+                                st.write(f"**EPS (Q):** ${analysis.basic_eps:.2f}")
+                            else:
+                                st.write("**EPS (Q):** N/A")
+                    
+                    # Technical Indicators
+                    st.subheader("📈 Technical Indicators")
+                    
+                    # Generate interactive chart
+                    fig = chart_gen.generate_candlestick_chart(
+                        analysis,
+                        show_ema=show_ema,
+                        show_bollinger=show_bollinger,
+                        show_support_resistance=show_support_resistance,
+                        show_trade_setup=show_trade_setup
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                    
+                    # RSI Chart
+                    if show_rsi and analysis.history is not None:
+                        fig_rsi = chart_gen.generate_rsi_chart(analysis)
+                        st.plotly_chart(fig_rsi, use_container_width=True)
+                    
+                    # MACD Chart
+                    if show_macd and analysis.history is not None:
+                        fig_macd = chart_gen.generate_macd_chart(analysis)
+                        st.plotly_chart(fig_macd, use_container_width=True)
+                    
+                    # Fundamental Data
+                    st.subheader("💰 Fundamental Data")
+                    if analysis.finviz_data:
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.write("**Valuation**")
+                            st.write(f"Market Cap: {analysis.finviz_data.get('Market Cap', 'N/A')}")
+                            st.write(f"P/E: {analysis.finviz_data.get('P/E', 'N/A')}")
+                            st.write(f"PEG: {analysis.finviz_data.get('PEG', 'N/A')}")
+                        
+                        with col2:
+                            st.write("**Profitability**")
+                            st.write(f"ROE: {analysis.finviz_data.get('ROE', 'N/A')}")
+                            st.write(f"ROA: {analysis.finviz_data.get('ROA', 'N/A')}")
+                            st.write(f"Inst Own: {analysis.finviz_data.get('Inst Own', 'N/A')}")
+                        
+                        with col3:
+                            st.write("**Growth**")
+                            st.write(f"EPS This Y: {analysis.finviz_data.get('EPS this Y', 'N/A')}")
+                            st.write(f"EPS Next Y: {analysis.finviz_data.get('EPS next Y', 'N/A')}")
+                            st.write(f"EPS Next 5Y: {analysis.finviz_data.get('EPS next 5Y', 'N/A')}")
+                    
+                    # Sentiment Analysis Summary
+                    if analysis.news_summary:
+                        st.divider()
+                        st.subheader("📰 Sentiment Analysis & News")
+                        st.info(analysis.news_summary)
+                    
+                    # Historical Trend
+                    st.subheader("📊 Historical Analysis")
+                    hist_df = load_historical_analyses(db, ticker)
+                    if hist_df is not None and len(hist_df) > 1:
+                        st.line_chart(hist_df.set_index('Date')[['Price', 'RSI']])
+                    else:
+                        st.info("Run multiple analyses over time to see historical trends")
+                    
                 else:
-                    st.info("Run multiple analyses over time to see historical trends")
-                
-            else:
-                st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
+                    st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
+
+            except Exception as e:
+                st.error(f"An error occurred while analyzing {ticker}: {e}")
+                st.expander("Detailed Error Trace").write(e)
     
     else:
         st.info("👈 Enter a ticker symbol and click 'Analyze' to get started")
