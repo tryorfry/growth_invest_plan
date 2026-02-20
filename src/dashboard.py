@@ -126,30 +126,31 @@ def render_checklist(analysis: StockAnalysis):
     st.divider()
     st.subheader("✅ Investment Checklist")
     
-    def _lbl(text: str, passed: bool) -> str:
-        return text if passed else f"⚠️ {text}"
+    def _chk(text: str, passed: bool):
+        icon = "✅" if passed else "⚠️"
+        st.markdown(f"{icon} **{text}**")
 
     # 1. Market Cap >= 2B
     mc_str = analysis.finviz_data.get('Market Cap', '')
     mc_val = _safe_float_parse(mc_str)
     mc_pass = mc_val is not None and mc_val >= 2_000_000_000
-    st.checkbox(_lbl(f"Market Cap >= 2 B? ({mc_str})", mc_pass), value=mc_pass, disabled=True)
+    _chk(f"Market Cap >= 2 B? ({mc_str})", mc_pass)
     
     # 2. Country == USA
     country = getattr(analysis, 'country', None)
     country_pass = country in ['United States', 'USA'] if country else False
-    st.checkbox(_lbl(f"Country of ticker listed is USA? ({country or 'N/A'})", country_pass), value=country_pass, disabled=True)
+    _chk(f"Country of ticker listed is USA? ({country or 'N/A'})", country_pass)
     
     # 3. Analyst recommendation Buy or Better
     rec = getattr(analysis, 'analyst_recommendation', '')
     rec_pass = rec in ['buy', 'strong_buy'] if rec else False
-    st.checkbox(_lbl(f"Analyst recommendation Buy or Better? ({rec or 'N/A'})", rec_pass), value=rec_pass, disabled=True)
+    _chk(f"Analyst recommendation Buy or Better? ({rec or 'N/A'})", rec_pass)
     
     # 4. Average volume >= 1M
     vol = getattr(analysis, 'average_volume', 0)
     vol_pass = vol is not None and vol >= 1_000_000
     vol_str = f"{int(vol):,}" if vol else "N/A"
-    st.checkbox(_lbl(f"Average volume >= 1 million? ({vol_str})", vol_pass), value=vol_pass, disabled=True)
+    _chk(f"Average volume >= 1 million? ({vol_str})", vol_pass)
     
     # 5. ROE
     roe_str = analysis.finviz_data.get('ROE', '')
@@ -157,8 +158,8 @@ def render_checklist(analysis: StockAnalysis):
     c1, c2 = st.columns(2)
     roe_good = roe_val is not None and roe_val >= 15
     roe_vgood = roe_val is not None and roe_val >= 20
-    c1.checkbox(_lbl(f"ROE >= 15% (Good) ({roe_str})", roe_good), value=roe_good, disabled=True)
-    c2.checkbox(_lbl(f"ROE >= 20% (Very Good) ({roe_str})", roe_vgood), value=roe_vgood, disabled=True)
+    with c1: _chk(f"ROE >= 15% (Good) ({roe_str})", roe_good)
+    with c2: _chk(f"ROE >= 20% (Very Good) ({roe_str})", roe_vgood)
     
     # 6. ROA
     roa_str = analysis.finviz_data.get('ROA', '')
@@ -166,8 +167,8 @@ def render_checklist(analysis: StockAnalysis):
     c1, c2 = st.columns(2)
     roa_good = roa_val is not None and roa_val >= 10
     roa_vgood = roa_val is not None and roa_val >= 20
-    c1.checkbox(_lbl(f"ROA >= 10% (Good) ({roa_str})", roa_good), value=roa_good, disabled=True)
-    c2.checkbox(_lbl(f"ROA >= 20% (Very Good) ({roa_str})", roe_vgood), value=roe_vgood, disabled=True)
+    with c1: _chk(f"ROA >= 10% (Good) ({roa_str})", roa_good)
+    with c2: _chk(f"ROA >= 20% (Very Good) ({roa_str})", roe_vgood)
     
     # 7. EPS Growth
     eps_y_str = analysis.finviz_data.get('EPS this Y', '')
@@ -180,20 +181,20 @@ def render_checklist(analysis: StockAnalysis):
     c1, c2 = st.columns(2)
     eps_y_good = eps_y_val is not None and eps_y_val >= 10
     eps_y_vgood = eps_y_val is not None and eps_y_val >= 20
-    c1.checkbox(_lbl(f"EPS growth this year >= 10% (Good) ({eps_y_str})", eps_y_good), value=eps_y_good, disabled=True)
-    c2.checkbox(_lbl(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", eps_y_vgood), value=eps_y_vgood, disabled=True)
+    with c1: _chk(f"EPS growth this year >= 10% (Good) ({eps_y_str})", eps_y_good)
+    with c2: _chk(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", eps_y_vgood)
     
     c1, c2 = st.columns(2)
     eps_ny_good = eps_ny_val is not None and eps_ny_val >= 10
     eps_ny_vgood = eps_ny_val is not None and eps_ny_val >= 20
-    c1.checkbox(_lbl(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", eps_ny_good), value=eps_ny_good, disabled=True)
-    c2.checkbox(_lbl(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", eps_ny_vgood), value=eps_ny_vgood, disabled=True)
+    with c1: _chk(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", eps_ny_good)
+    with c2: _chk(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", eps_ny_vgood)
     
     c1, c2 = st.columns(2)
     eps_5y_good = eps_5y_val is not None and eps_5y_val >= 8
     eps_5y_vgood = eps_5y_val is not None and eps_5y_val >= 15
-    c1.checkbox(_lbl(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", eps_5y_good), value=eps_5y_good, disabled=True)
-    c2.checkbox(_lbl(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", eps_5y_vgood), value=eps_5y_vgood, disabled=True)
+    with c1: _chk(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", eps_5y_good)
+    with c2: _chk(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", eps_5y_vgood)
     
     # 8. Revenue & Earnings YoY
     rev_g = getattr(analysis, 'revenue_growth_yoy', None)
@@ -208,9 +209,9 @@ def render_checklist(analysis: StockAnalysis):
     op_g_pass = op_g is not None and op_g >= 0.05
     eps_g_pass = eps_g is not None and eps_g >= 0.10
     
-    st.checkbox(_lbl(f"Revenue YoY growth >= 5%? ({rev_g_str})", rev_g_pass), value=rev_g_pass, disabled=True)
-    st.checkbox(_lbl(f"Operating income YoY growth >= 5%? ({op_g_str})", op_g_pass), value=op_g_pass, disabled=True)
-    st.checkbox(_lbl(f"EPS (Diluted) YoY growth >= 10%? ({eps_g_str})", eps_g_pass), value=eps_g_pass, disabled=True)
+    _chk(f"Revenue YoY growth >= 5%? ({rev_g_str})", rev_g_pass)
+    _chk(f"Operating income YoY growth >= 5%? ({op_g_str})", op_g_pass)
+    _chk(f"EPS (Diluted) YoY growth >= 10%? ({eps_g_str})", eps_g_pass)
     
     # 9. PE or PEG
     pe_str = analysis.finviz_data.get('P/E', '')
@@ -225,7 +226,7 @@ def render_checklist(analysis: StockAnalysis):
     pe_pass = pe_val is not None and pe_val <= 30
     peg_pass = peg_val is not None and peg_val <= 2
     
-    st.checkbox(_lbl(f"P/E <= 30 ({pe_str}) OR PEG <= 2 ({peg_str})", pe_pass or peg_pass), value=(pe_pass or peg_pass), disabled=True)
+    _chk(f"P/E <= 30 ({pe_str}) OR PEG <= 2 ({peg_str})", pe_pass or peg_pass)
     
     # 10. Extras
     action = getattr(analysis, 'marketbeat_action_recent', None)
@@ -413,12 +414,23 @@ def main():
                     render_checklist(analysis)
                     
                     # Debug / Detailed Trade Setup
-                    with st.expander("🛠️ Detailed Trade Setup (Debug)"):
+                    with st.expander("🛠️ Detailed Trade Setup Insights"):
+                        st.markdown("**(Extracted automatically by indicators)**")
                         st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
-                        st.write(f"Support Levels: {getattr(analysis, 'support_levels', [])}")
-                        st.write(f"Resistance Levels: {getattr(analysis, 'resistance_levels', [])}")
-                        st.write(f"Suggested Entry: {getattr(analysis, 'suggested_entry', 'N/A')}")
-                        st.write(f"Suggested Stop Loss: {getattr(analysis, 'suggested_stop_loss', 'N/A')}")
+                        
+                        raw_support = getattr(analysis, "support_levels", [])
+                        support_str = ", ".join([f"${float(x):.2f}" for x in raw_support]) if raw_support else "None"
+                        st.write(f"Support Levels: {support_str}")
+                        
+                        raw_resist = getattr(analysis, "resistance_levels", [])
+                        resist_str = ", ".join([f"${float(x):.2f}" for x in raw_resist]) if raw_resist else "None"
+                        st.write(f"Resistance Levels: {resist_str}")
+                        
+                        raw_entry = getattr(analysis, "suggested_entry", None)
+                        st.write(f"Suggested Entry: ${float(raw_entry):.2f}" if raw_entry is not None else "Suggested Entry: N/A")
+                        
+                        raw_stop = getattr(analysis, "suggested_stop_loss", None)
+                        st.write(f"Suggested Stop Loss: ${float(raw_stop):.2f}" if raw_stop is not None else "Suggested Stop Loss: N/A")
 
                     # OHLC Details
                     st.subheader("📊 Price Details")
