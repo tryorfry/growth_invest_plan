@@ -155,46 +155,40 @@ def render_checklist(analysis: StockAnalysis):
     # 5. ROE
     roe_str = analysis.finviz_data.get('ROE', '')
     roe_val = _safe_float_parse(roe_str)
-    c1, c2 = st.columns(2)
     roe_good = roe_val is not None and roe_val >= 15
     roe_vgood = roe_val is not None and roe_val >= 20
-    with c1: _chk(f"ROE >= 15% (Good) ({roe_str})", roe_good)
-    with c2: _chk(f"ROE >= 20% (Very Good) ({roe_str})", roe_vgood)
+    roe_badge = " ⭐ (Very Good)" if roe_vgood else ""
+    _chk(f"ROE >= 15%{roe_badge} ({roe_str})", roe_good)
     
     # 6. ROA
     roa_str = analysis.finviz_data.get('ROA', '')
     roa_val = _safe_float_parse(roa_str)
-    c1, c2 = st.columns(2)
     roa_good = roa_val is not None and roa_val >= 10
     roa_vgood = roa_val is not None and roa_val >= 20
-    with c1: _chk(f"ROA >= 10% (Good) ({roa_str})", roa_good)
-    with c2: _chk(f"ROA >= 20% (Very Good) ({roa_str})", roe_vgood)
+    roa_badge = " ⭐ (Very Good)" if roa_vgood else ""
+    _chk(f"ROA >= 10%{roa_badge} ({roa_str})", roa_good)
     
     # 7. EPS Growth
     eps_y_str = analysis.finviz_data.get('EPS this Y', '')
     eps_y_val = _safe_float_parse(eps_y_str)
-    eps_ny_str = analysis.finviz_data.get('EPS next Y', '')
-    eps_ny_val = _safe_float_parse(eps_ny_str)
-    eps_5y_str = analysis.finviz_data.get('EPS next 5Y', '')
-    eps_5y_val = _safe_float_parse(eps_5y_str)
-    
-    c1, c2 = st.columns(2)
     eps_y_good = eps_y_val is not None and eps_y_val >= 10
     eps_y_vgood = eps_y_val is not None and eps_y_val >= 20
-    with c1: _chk(f"EPS growth this year >= 10% (Good) ({eps_y_str})", eps_y_good)
-    with c2: _chk(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", eps_y_vgood)
+    eps_y_badge = " ⭐ (Very Good)" if eps_y_vgood else ""
+    _chk(f"EPS growth this year >= 10%{eps_y_badge} ({eps_y_str})", eps_y_good)
     
-    c1, c2 = st.columns(2)
+    eps_ny_str = analysis.finviz_data.get('EPS next Y', '')
+    eps_ny_val = _safe_float_parse(eps_ny_str)
     eps_ny_good = eps_ny_val is not None and eps_ny_val >= 10
     eps_ny_vgood = eps_ny_val is not None and eps_ny_val >= 20
-    with c1: _chk(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", eps_ny_good)
-    with c2: _chk(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", eps_ny_vgood)
+    eps_ny_badge = " ⭐ (Very Good)" if eps_ny_vgood else ""
+    _chk(f"EPS growth next year >= 10%{eps_ny_badge} ({eps_ny_str})", eps_ny_good)
     
-    c1, c2 = st.columns(2)
+    eps_5y_str = analysis.finviz_data.get('EPS next 5Y', '')
+    eps_5y_val = _safe_float_parse(eps_5y_str)
     eps_5y_good = eps_5y_val is not None and eps_5y_val >= 8
     eps_5y_vgood = eps_5y_val is not None and eps_5y_val >= 15
-    with c1: _chk(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", eps_5y_good)
-    with c2: _chk(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", eps_5y_vgood)
+    eps_5y_badge = " ⭐ (Very Good)" if eps_5y_vgood else ""
+    _chk(f"EPS growth 5 year >= 8%{eps_5y_badge} ({eps_5y_str})", eps_5y_good)
     
     # 8. Revenue & Earnings YoY
     rev_g = getattr(analysis, 'revenue_growth_yoy', None)
