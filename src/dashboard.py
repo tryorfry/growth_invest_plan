@@ -145,7 +145,8 @@ def render_checklist(analysis: StockAnalysis):
     # 4. Average volume >= 1M
     vol = getattr(analysis, 'average_volume', 0)
     vol_pass = vol is not None and vol >= 1_000_000
-    st.checkbox(f"Average volume >= 1 million? ({vol or 'N/A':,})", value=vol_pass, disabled=True)
+    vol_str = f"{int(vol):,}" if vol else "N/A"
+    st.checkbox(f"Average volume >= 1 million? ({vol_str})", value=vol_pass, disabled=True)
     
     # 5. ROE
     roe_str = analysis.finviz_data.get('ROE', '')
