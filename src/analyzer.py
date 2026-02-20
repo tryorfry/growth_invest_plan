@@ -140,7 +140,7 @@ class StockAnalyzer:
         """
         self.technical_source = technical_source or YFinanceSource()
         self.fundamental_source = fundamental_source or FinvizSource()
-        self.analyst_source = analyst_source or MarketBeatSource()
+        self.analyst_source = analyst_source or YFinanceAnalystSource()
         self.news_source = news_source or NewsSource()
     
     async def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
@@ -178,7 +178,7 @@ class StockAnalyzer:
         # Check for critical technical data failure
         if isinstance(technical_data, Exception):
             print(f"Critical Error: Technical data fetch failed: {technical_data}")
-            raise technical_data
+            return None
             
         if not technical_data:
             print(f"Error: No technical data found for ticker '{ticker}'")
@@ -189,14 +189,14 @@ class StockAnalyzer:
         # Handle non-critical failures
         if isinstance(fundamental_data, Exception):
             print(f"Warning: Fundamental data fetch failed: {fundamental_data}")
-            fundamental_data = None
+            fundamental_data = {}
             
         if fundamental_data:
             analysis.finviz_data = fundamental_data
             
         if isinstance(news_data, Exception):
             print(f"Warning: News fetch failed: {news_data}")
-            news_data = None
+            news_data = {}
             
         if news_data:
             analysis.news_sentiment = news_data.get("news_sentiment")
