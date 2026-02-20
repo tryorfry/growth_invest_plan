@@ -126,27 +126,30 @@ def render_checklist(analysis: StockAnalysis):
     st.divider()
     st.subheader("✅ Investment Checklist")
     
+    def _lbl(text: str, passed: bool) -> str:
+        return text if passed else f"⚠️ {text}"
+
     # 1. Market Cap >= 2B
     mc_str = analysis.finviz_data.get('Market Cap', '')
     mc_val = _safe_float_parse(mc_str)
     mc_pass = mc_val is not None and mc_val >= 2_000_000_000
-    st.checkbox(f"Market Cap >= 2 B? ({mc_str})", value=mc_pass, disabled=True)
+    st.checkbox(_lbl(f"Market Cap >= 2 B? ({mc_str})", mc_pass), value=mc_pass, disabled=True)
     
     # 2. Country == USA
     country = getattr(analysis, 'country', None)
     country_pass = country in ['United States', 'USA'] if country else False
-    st.checkbox(f"Country of ticker listed is USA? ({country or 'N/A'})", value=country_pass, disabled=True)
+    st.checkbox(_lbl(f"Country of ticker listed is USA? ({country or 'N/A'})", country_pass), value=country_pass, disabled=True)
     
     # 3. Analyst recommendation Buy or Better
     rec = getattr(analysis, 'analyst_recommendation', '')
     rec_pass = rec in ['buy', 'strong_buy'] if rec else False
-    st.checkbox(f"Analyst recommendation Buy or Better? ({rec or 'N/A'})", value=rec_pass, disabled=True)
+    st.checkbox(_lbl(f"Analyst recommendation Buy or Better? ({rec or 'N/A'})", rec_pass), value=rec_pass, disabled=True)
     
     # 4. Average volume >= 1M
     vol = getattr(analysis, 'average_volume', 0)
     vol_pass = vol is not None and vol >= 1_000_000
     vol_str = f"{int(vol):,}" if vol else "N/A"
-    st.checkbox(f"Average volume >= 1 million? ({vol_str})", value=vol_pass, disabled=True)
+    st.checkbox(_lbl(f"Average volume >= 1 million? ({vol_str})", vol_pass), value=vol_pass, disabled=True)
     
     # 5. ROE
     roe_str = analysis.finviz_data.get('ROE', '')
@@ -154,8 +157,8 @@ def render_checklist(analysis: StockAnalysis):
     c1, c2 = st.columns(2)
     roe_good = roe_val is not None and roe_val >= 15
     roe_vgood = roe_val is not None and roe_val >= 20
-    c1.checkbox(f"ROE >= 15% (Good) ({roe_str})", value=roe_good, disabled=True)
-    c2.checkbox(f"ROE >= 20% (Very Good) ({roe_str})", value=roe_vgood, disabled=True)
+    c1.checkbox(_lbl(f"ROE >= 15% (Good) ({roe_str})", roe_good), value=roe_good, disabled=True)
+    c2.checkbox(_lbl(f"ROE >= 20% (Very Good) ({roe_str})", roe_vgood), value=roe_vgood, disabled=True)
     
     # 6. ROA
     roa_str = analysis.finviz_data.get('ROA', '')
@@ -163,8 +166,8 @@ def render_checklist(analysis: StockAnalysis):
     c1, c2 = st.columns(2)
     roa_good = roa_val is not None and roa_val >= 10
     roa_vgood = roa_val is not None and roa_val >= 20
-    c1.checkbox(f"ROA >= 10% (Good) ({roa_str})", value=roa_good, disabled=True)
-    c2.checkbox(f"ROA >= 20% (Very Good) ({roa_str})", value=roa_vgood, disabled=True)
+    c1.checkbox(_lbl(f"ROA >= 10% (Good) ({roa_str})", roa_good), value=roa_good, disabled=True)
+    c2.checkbox(_lbl(f"ROA >= 20% (Very Good) ({roa_str})", roe_vgood), value=roe_vgood, disabled=True)
     
     # 7. EPS Growth
     eps_y_str = analysis.finviz_data.get('EPS this Y', '')
@@ -175,16 +178,22 @@ def render_checklist(analysis: StockAnalysis):
     eps_5y_val = _safe_float_parse(eps_5y_str)
     
     c1, c2 = st.columns(2)
-    c1.checkbox(f"EPS growth this year >= 10% (Good) ({eps_y_str})", value=(eps_y_val is not None and eps_y_val >= 10), disabled=True)
-    c2.checkbox(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", value=(eps_y_val is not None and eps_y_val >= 20), disabled=True)
+    eps_y_good = eps_y_val is not None and eps_y_val >= 10
+    eps_y_vgood = eps_y_val is not None and eps_y_val >= 20
+    c1.checkbox(_lbl(f"EPS growth this year >= 10% (Good) ({eps_y_str})", eps_y_good), value=eps_y_good, disabled=True)
+    c2.checkbox(_lbl(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", eps_y_vgood), value=eps_y_vgood, disabled=True)
     
     c1, c2 = st.columns(2)
-    c1.checkbox(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", value=(eps_ny_val is not None and eps_ny_val >= 10), disabled=True)
-    c2.checkbox(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", value=(eps_ny_val is not None and eps_ny_val >= 20), disabled=True)
+    eps_ny_good = eps_ny_val is not None and eps_ny_val >= 10
+    eps_ny_vgood = eps_ny_val is not None and eps_ny_val >= 20
+    c1.checkbox(_lbl(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", eps_ny_good), value=eps_ny_good, disabled=True)
+    c2.checkbox(_lbl(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", eps_ny_vgood), value=eps_ny_vgood, disabled=True)
     
     c1, c2 = st.columns(2)
-    c1.checkbox(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", value=(eps_5y_val is not None and eps_5y_val >= 8), disabled=True)
-    c2.checkbox(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", value=(eps_5y_val is not None and eps_5y_val >= 15), disabled=True)
+    eps_5y_good = eps_5y_val is not None and eps_5y_val >= 8
+    eps_5y_vgood = eps_5y_val is not None and eps_5y_val >= 15
+    c1.checkbox(_lbl(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", eps_5y_good), value=eps_5y_good, disabled=True)
+    c2.checkbox(_lbl(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", eps_5y_vgood), value=eps_5y_vgood, disabled=True)
     
     # 8. Revenue & Earnings YoY
     rev_g = getattr(analysis, 'revenue_growth_yoy', None)
@@ -195,9 +204,13 @@ def render_checklist(analysis: StockAnalysis):
     op_g_str = f"{op_g*100:.2f}%" if op_g is not None else "N/A"
     eps_g_str = f"{eps_g*100:.2f}%" if eps_g is not None else "N/A"
     
-    st.checkbox(f"Revenue YoY growth >= 5%? ({rev_g_str})", value=(rev_g is not None and rev_g >= 0.05), disabled=True)
-    st.checkbox(f"Operating income YoY growth >= 5%? ({op_g_str})", value=(op_g is not None and op_g >= 0.05), disabled=True)
-    st.checkbox(f"EPS (Diluted) YoY growth >= 10%? ({eps_g_str})", value=(eps_g is not None and eps_g >= 0.10), disabled=True)
+    rev_g_pass = rev_g is not None and rev_g >= 0.05
+    op_g_pass = op_g is not None and op_g >= 0.05
+    eps_g_pass = eps_g is not None and eps_g >= 0.10
+    
+    st.checkbox(_lbl(f"Revenue YoY growth >= 5%? ({rev_g_str})", rev_g_pass), value=rev_g_pass, disabled=True)
+    st.checkbox(_lbl(f"Operating income YoY growth >= 5%? ({op_g_str})", op_g_pass), value=op_g_pass, disabled=True)
+    st.checkbox(_lbl(f"EPS (Diluted) YoY growth >= 10%? ({eps_g_str})", eps_g_pass), value=eps_g_pass, disabled=True)
     
     # 9. PE or PEG
     pe_str = analysis.finviz_data.get('P/E', '')
@@ -212,7 +225,7 @@ def render_checklist(analysis: StockAnalysis):
     pe_pass = pe_val is not None and pe_val <= 30
     peg_pass = peg_val is not None and peg_val <= 2
     
-    st.checkbox(f"P/E <= 30 ({pe_str}) OR PEG <= 2 ({peg_str})", value=(pe_pass or peg_pass), disabled=True)
+    st.checkbox(_lbl(f"P/E <= 30 ({pe_str}) OR PEG <= 2 ({peg_str})", pe_pass or peg_pass), value=(pe_pass or peg_pass), disabled=True)
     
     # 10. Extras
     action = getattr(analysis, 'marketbeat_action_recent', None)
