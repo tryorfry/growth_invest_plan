@@ -199,6 +199,25 @@ class YFinanceSource(TechnicalDataSource):
                 result["revenue"] = latest_q.get("Total Revenue", None)
                 result["operating_income"] = latest_q.get("Operating Income", None)
                 result["basic_eps"] = latest_q.get("Basic EPS", None)
+                
+                # YoY growth (needs at least 5 quarters to compare latest with 1 year ago)
+                if q_fin.shape[1] >= 5:
+                    yoy_q = q_fin.iloc[:, 4]
+                    
+                    rev_now = latest_q.get("Total Revenue")
+                    rev_yoy = yoy_q.get("Total Revenue")
+                    if rev_now is not None and rev_yoy is not None and rev_yoy != 0:
+                        result["revenue_growth_yoy"] = (rev_now - rev_yoy) / abs(rev_yoy)
+                        
+                    op_now = latest_q.get("Operating Income")
+                    op_yoy = yoy_q.get("Operating Income")
+                    if op_now is not None and op_yoy is not None and op_yoy != 0:
+                        result["op_income_growth_yoy"] = (op_now - op_yoy) / abs(op_yoy)
+                        
+                    eps_now = latest_q.get("Basic EPS")
+                    eps_yoy = yoy_q.get("Basic EPS")
+                    if eps_now is not None and eps_yoy is not None and eps_yoy != 0:
+                        result["eps_growth_yoy"] = (eps_now - eps_yoy) / abs(eps_yoy)
         except Exception as e:
             print(f"Error fetching financials: {e}")
         
@@ -214,6 +233,11 @@ class YFinanceSource(TechnicalDataSource):
                 result["sector"] = info.get("sector", None)
                 result["industry"] = info.get("industry", None)
                 result["company_name"] = info.get("longName", None)
+                
+                # Checklist fields
+                result["country"] = info.get("country", None)
+                result["average_volume"] = info.get("averageVolume", None)
+                result["analyst_recommendation"] = info.get("recommendationKey", None)
                 
                 # Valuation fields
                 result["book_value"] = info.get("bookValue")

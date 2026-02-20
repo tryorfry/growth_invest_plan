@@ -46,8 +46,8 @@ class MarketBeatSource(AnalystDataSource):
         try:
             response = requests.get(direct_url, impersonate="chrome110", timeout=self.TIMEOUT)
             if response.status_code == 200:
-                result = self._parse_price_targets(response.content, last_earnings_date)
-                if result: return {"median_price_target": r} if (r := result) else None
+                result = self._parse_analyst_data(response.content, last_earnings_date)
+                if result: return result
         except: pass
 
         # 2. Try with exchanges
@@ -56,31 +56,31 @@ class MarketBeatSource(AnalystDataSource):
             try:
                 response = requests.get(url, impersonate="chrome110", timeout=self.TIMEOUT)
                 if response.status_code == 200:
-                    median_target = self._parse_price_targets(response.content, last_earnings_date)
-                    if median_target is not None:
-                        return {"median_price_target": median_target}
+                    result = self._parse_analyst_data(response.content, last_earnings_date)
+                    if result: return result
             except Exception as e:
                 print(f"Error fetching MarketBeat ({exchange}/{ticker}): {e}")
         
         return None
     
-    def _parse_price_targets(
+    def _parse_analyst_data(
         self, 
         html_content: bytes, 
         last_earnings_date: pd.Timestamp
-    ) -> Optional[float]:
+    ) -> Optional[Dict[str, Any]]:
         """
-        Parse price targets from MarketBeat table.
+        Parse analyst data from MarketBeat table.
         
         Args:
             html_content: Raw HTML content
             last_earnings_date: Filter ratings after this date
             
         Returns:
-            Median price target or None
+            Dictionary with median_price_target and recent_action, or None
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         price_targets = []
+        recent_action = None
         
         # Find the ratings table
         rating_table = self._find_ratings_table(soup)
@@ -104,6 +104,12 @@ class MarketBeatSource(AnalystDataSource):
                 if rating_date < last_earnings_date:
                     continue
                 
+                # Capture the most recent action (column 1)
+                if recent_action is None:
+                    action_str = cols[1].get_text(strip=True)
+                    if action_str:
+                        recent_action = action_str
+                
                 # Parse price target (column 5)
                 price_target_str = cols[5].get_text(strip=True)
                 if not price_target_str:
@@ -119,7 +125,13 @@ class MarketBeatSource(AnalystDataSource):
             except (ValueError, IndexError):
                 continue
         
-        return statistics.median(price_targets) if price_targets else None
+        result = {}
+        if price_targets:
+            result["median_price_target"] = statistics.median(price_targets)
+        if recent_action:
+            result["recent_action"] = recent_action
+            
+        return result if result else None
     
     def _find_ratings_table(self, soup: BeautifulSoup) -> Optional[Any]:
         """Find the table containing price target and rating columns"""

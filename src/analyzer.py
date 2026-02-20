@@ -58,6 +58,16 @@ class StockAnalysis:
     # Finviz fundamentals
     finviz_data: Dict[str, str] = field(default_factory=dict)
     
+    # Checklist fields
+    country: Optional[str] = None
+    average_volume: Optional[int] = None
+    analyst_recommendation: Optional[str] = None
+    revenue_growth_yoy: Optional[float] = None
+    op_income_growth_yoy: Optional[float] = None
+    eps_growth_yoy: Optional[float] = None
+    marketbeat_action_recent: Optional[str] = None
+    max_buy_price: Optional[float] = None
+    
     # Analyst targets
     median_price_target: Optional[float] = None
     analyst_source: Optional[str] = None
@@ -212,6 +222,7 @@ class StockAnalyzer:
             
             if analyst_data:
                 analysis.median_price_target = analyst_data.get("median_price_target")
+                analysis.marketbeat_action_recent = analyst_data.get("recent_action")
                 analysis.analyst_source = self.analyst_source.get_source_name()
             else:
                 # Fallback to YFinance if primary fails and isn't already YFinance
@@ -227,6 +238,9 @@ class StockAnalyzer:
                     if analyst_data:
                         analysis.median_price_target = analyst_data.get("median_price_target")
                         analysis.analyst_source = "YFinance (Fallback)"
+                        
+        if analysis.median_price_target:
+            analysis.max_buy_price = analysis.median_price_target / 1.15
         
         return analysis
     
@@ -263,6 +277,14 @@ class StockAnalyzer:
         analysis.company_name = data.get("company_name")
         analysis.sector = data.get("sector")
         analysis.industry = data.get("industry")
+        
+        # Checklist fields
+        analysis.country = data.get("country")
+        analysis.average_volume = data.get("average_volume")
+        analysis.analyst_recommendation = data.get("analyst_recommendation")
+        analysis.revenue_growth_yoy = data.get("revenue_growth_yoy")
+        analysis.op_income_growth_yoy = data.get("op_income_growth_yoy")
+        analysis.eps_growth_yoy = data.get("eps_growth_yoy")
         
         # Valuation data
         analysis.book_value = data.get("book_value")

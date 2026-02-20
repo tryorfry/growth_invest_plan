@@ -107,6 +107,133 @@ async def analyze_stock(ticker: str):
     return await analyzer.analyze(ticker, verbose=False)
 
 
+def _safe_float_parse(val_str: str) -> Optional[float]:
+    """Helper to parse finviz strings to float"""
+    if not val_str or val_str == '-' or val_str == 'N/A':
+        return None
+    try:
+        clean_str = val_str.replace('%', '').replace(',', '')
+        if 'B' in clean_str:
+            return float(clean_str.replace('B', '')) * 1e9
+        if 'M' in clean_str:
+            return float(clean_str.replace('M', '')) * 1e6
+        return float(clean_str)
+    except ValueError:
+        return None
+
+def render_checklist(analysis: StockAnalysis):
+    """Render the Investment Checklist in the dashboard"""
+    st.divider()
+    st.subheader("✅ Investment Checklist")
+    
+    # 1. Market Cap >= 2B
+    mc_str = analysis.finviz_data.get('Market Cap', '')
+    mc_val = _safe_float_parse(mc_str)
+    mc_pass = mc_val is not None and mc_val >= 2_000_000_000
+    st.checkbox(f"Market Cap >= 2 B? ({mc_str})", value=mc_pass, disabled=True)
+    
+    # 2. Country == USA
+    country = getattr(analysis, 'country', None)
+    country_pass = country in ['United States', 'USA'] if country else False
+    st.checkbox(f"Country of ticker listed is USA? ({country or 'N/A'})", value=country_pass, disabled=True)
+    
+    # 3. Analyst recommendation Buy or Better
+    rec = getattr(analysis, 'analyst_recommendation', '')
+    rec_pass = rec in ['buy', 'strong_buy'] if rec else False
+    st.checkbox(f"Analyst recommendation Buy or Better? ({rec or 'N/A'})", value=rec_pass, disabled=True)
+    
+    # 4. Average volume >= 1M
+    vol = getattr(analysis, 'average_volume', 0)
+    vol_pass = vol is not None and vol >= 1_000_000
+    st.checkbox(f"Average volume >= 1 million? ({vol or 'N/A':,})", value=vol_pass, disabled=True)
+    
+    # 5. ROE
+    roe_str = analysis.finviz_data.get('ROE', '')
+    roe_val = _safe_float_parse(roe_str)
+    c1, c2 = st.columns(2)
+    roe_good = roe_val is not None and roe_val >= 15
+    roe_vgood = roe_val is not None and roe_val >= 20
+    c1.checkbox(f"ROE >= 15% (Good) ({roe_str})", value=roe_good, disabled=True)
+    c2.checkbox(f"ROE >= 20% (Very Good) ({roe_str})", value=roe_vgood, disabled=True)
+    
+    # 6. ROA
+    roa_str = analysis.finviz_data.get('ROA', '')
+    roa_val = _safe_float_parse(roa_str)
+    c1, c2 = st.columns(2)
+    roa_good = roa_val is not None and roa_val >= 10
+    roa_vgood = roa_val is not None and roa_val >= 20
+    c1.checkbox(f"ROA >= 10% (Good) ({roa_str})", value=roa_good, disabled=True)
+    c2.checkbox(f"ROA >= 20% (Very Good) ({roa_str})", value=roa_vgood, disabled=True)
+    
+    # 7. EPS Growth
+    eps_y_str = analysis.finviz_data.get('EPS this Y', '')
+    eps_y_val = _safe_float_parse(eps_y_str)
+    eps_ny_str = analysis.finviz_data.get('EPS next Y', '')
+    eps_ny_val = _safe_float_parse(eps_ny_str)
+    eps_5y_str = analysis.finviz_data.get('EPS next 5Y', '')
+    eps_5y_val = _safe_float_parse(eps_5y_str)
+    
+    c1, c2 = st.columns(2)
+    c1.checkbox(f"EPS growth this year >= 10% (Good) ({eps_y_str})", value=(eps_y_val is not None and eps_y_val >= 10), disabled=True)
+    c2.checkbox(f"EPS growth this year >= 20% (Very Good) ({eps_y_str})", value=(eps_y_val is not None and eps_y_val >= 20), disabled=True)
+    
+    c1, c2 = st.columns(2)
+    c1.checkbox(f"EPS growth next year >= 10% (Good) ({eps_ny_str})", value=(eps_ny_val is not None and eps_ny_val >= 10), disabled=True)
+    c2.checkbox(f"EPS growth next year >= 20% (Very Good) ({eps_ny_str})", value=(eps_ny_val is not None and eps_ny_val >= 20), disabled=True)
+    
+    c1, c2 = st.columns(2)
+    c1.checkbox(f"EPS growth 5 year >= 8% (Good) ({eps_5y_str})", value=(eps_5y_val is not None and eps_5y_val >= 8), disabled=True)
+    c2.checkbox(f"EPS growth 5 year >= 15% (Very Good) ({eps_5y_str})", value=(eps_5y_val is not None and eps_5y_val >= 15), disabled=True)
+    
+    # 8. Revenue & Earnings YoY
+    rev_g = getattr(analysis, 'revenue_growth_yoy', None)
+    op_g = getattr(analysis, 'op_income_growth_yoy', None)
+    eps_g = getattr(analysis, 'eps_growth_yoy', None)
+    
+    rev_g_str = f"{rev_g*100:.2f}%" if rev_g is not None else "N/A"
+    op_g_str = f"{op_g*100:.2f}%" if op_g is not None else "N/A"
+    eps_g_str = f"{eps_g*100:.2f}%" if eps_g is not None else "N/A"
+    
+    st.checkbox(f"Revenue YoY growth >= 5%? ({rev_g_str})", value=(rev_g is not None and rev_g >= 0.05), disabled=True)
+    st.checkbox(f"Operating income YoY growth >= 5%? ({op_g_str})", value=(op_g is not None and op_g >= 0.05), disabled=True)
+    st.checkbox(f"EPS (Diluted) YoY growth >= 10%? ({eps_g_str})", value=(eps_g is not None and eps_g >= 0.10), disabled=True)
+    
+    # 9. PE or PEG
+    pe_str = analysis.finviz_data.get('P/E', '')
+    pe_val = _safe_float_parse(pe_str)
+    peg_str = analysis.finviz_data.get('PEG', '')
+    peg_val = _safe_float_parse(peg_str)
+    
+    if peg_val is None and pe_val is not None and eps_5y_val is not None and eps_5y_val > 0:
+        peg_val = pe_val / eps_5y_val
+        peg_str = f"{peg_val:.2f} (calc)"
+        
+    pe_pass = pe_val is not None and pe_val <= 30
+    peg_pass = peg_val is not None and peg_val <= 2
+    
+    st.checkbox(f"P/E <= 30 ({pe_str}) OR PEG <= 2 ({peg_str})", value=(pe_pass or peg_pass), disabled=True)
+    
+    # 10. Extras
+    action = getattr(analysis, 'marketbeat_action_recent', None)
+    next_earn = getattr(analysis, 'next_earnings_date', None)
+    max_buy = getattr(analysis, 'max_buy_price', None)
+    
+    st.markdown("---")
+    st.markdown(f"**🟢 Recent Analyst Upgrade/Downgrade:** {action or 'N/A'}")
+    
+    if next_earn:
+        # Check if next_earn is a timestamp
+        if hasattr(next_earn, 'date'):
+            st.markdown(f"**📅 Next Quarter Earnings Date:** {next_earn.date()}")
+        elif isinstance(next_earn, str):
+            st.markdown(f"**📅 Next Quarter Earnings Date:** {next_earn}")
+    else:
+        st.markdown(f"**📅 Next Quarter Earnings Date:** N/A")
+        
+    st.markdown(f"**💵 Max Buy Price (Median Target / 1.15):** ${max_buy:.2f}" if max_buy else "**💵 Max Buy Price:** N/A")
+    st.divider()
+
+
 def main():
     """Main dashboard application"""
     
@@ -267,6 +394,9 @@ def main():
                     if hasattr(analysis, 'market_trend') and analysis.market_trend:
                         trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
                         st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
+                        
+                    # Show Investment Checklist
+                    render_checklist(analysis)
                     
                     # Debug / Detailed Trade Setup
                     with st.expander("🛠️ Detailed Trade Setup (Debug)"):

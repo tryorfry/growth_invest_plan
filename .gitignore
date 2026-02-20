@@ -26,3 +26,4 @@ Thumbs.db
 # Database
 stock_analysis.db
 *.db
+test_venv/
