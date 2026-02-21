@@ -114,6 +114,7 @@ class StockAnalysis:
     market_trend: Optional[str] = "Sideways" # Uptrend, Downtrend, Sideways
     suggested_entry: Optional[float] = None
     suggested_stop_loss: Optional[float] = None
+    setup_notes: List[str] = field(default_factory=list)
     
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
@@ -393,25 +394,16 @@ class StockAnalyzer:
 
     def _calculate_trade_setup(self, analysis: StockAnalysis) -> None:
         """
-        Determine market trend and calculate smart entry/exit points.
-        Trend Logic:
-            - Uptrend: Price > EMA50 > EMA200
-            - Downtrend: Price < EMA50 < EMA200
-            - Sideways: Everything else
-            
-        Entry Logic:
-            - 0.2% to 1.0% above nearest support.
-            - Round to "odd" decimals (.13, .17, .77) to avoiding piling with the crowd.
-            - Formula: Support * (1 + 0.005) -> Round logic
-            
-        Stop Loss:
-            - Support - 1.0 * ATR
+        Determine market trend and calculate smart entry/exit points with Risk Management.
+        Entry is rejected if there is poor Risk/Reward or if buying into a Resistance ceiling.
         """
-        # 1. Determine Trend
         price = analysis.current_price
         ema50 = analysis.ema50
         ema200 = analysis.ema200
+        atr = analysis.atr
+        notes = []
         
+        # 1. Determine Trend
         if price > ema50 and ema50 > ema200:
             analysis.market_trend = "Uptrend"
         elif price < ema50 and ema50 < ema200:
@@ -419,18 +411,59 @@ class StockAnalyzer:
         else:
             analysis.market_trend = "Sideways"
             
-        # 2. Find nearest support level below current price
-        valid_supports = [s for s in analysis.support_levels if s < price]
-        nearest_support = valid_supports[-1] if valid_supports else None
+        # Compile all support and resistance points (Statistical + HVNs)
+        all_supports = sorted(analysis.support_levels + analysis.volume_profile_hvns)
+        all_resistances = sorted(analysis.resistance_levels + analysis.volume_profile_hvns)
         
-        if nearest_support and analysis.atr > 0:
-            # Entry Calculation (0.5% buffer above support)
-            raw_entry = nearest_support * 1.005
-            analysis.suggested_entry = self._apply_smart_rounding(raw_entry)
+        valid_supports = [s for s in all_supports if s < price]
+        valid_resistances = [r for r in all_resistances if r > price]
+        
+        nearest_support = valid_supports[-1] if valid_supports else None
+        nearest_resistance = valid_resistances[0] if valid_resistances else None
+        
+        # 3. Check for structural overextension
+        if valid_supports and analysis.volume_profile_hvns:
+            highest_hvn_support = max([h for h in analysis.volume_profile_hvns if h < price], default=None)
+            if highest_hvn_support and (price - highest_hvn_support) / highest_hvn_support > 0.20:
+                notes.append(f"⚠️ Warning: Price is >20% overextended from highest HVN base (${highest_hvn_support:.2f}).")
+        
+        if not nearest_support or atr <= 0:
+            notes.append("❌ Rejected: Insufficient support data or volatility.")
+            analysis.setup_notes = notes
+            return
             
-            # Stop Loss Calculation (Support - 1 ATR)
-            raw_stop = nearest_support - analysis.atr
-            analysis.suggested_stop_loss = round(raw_stop, 2)
+        # Calculate raw entry and stop
+        raw_entry = nearest_support * 1.005 # 0.5% buffer above nearest floor
+        entry = self._apply_smart_rounding(raw_entry)
+        
+        stop_loss = round(nearest_support - atr, 2)
+        risk = entry - stop_loss
+        
+        # 4. Ceiling Check & Risk/Reward Filter
+        if nearest_resistance:
+            reward = nearest_resistance - entry
+            
+            # Ceiling Check
+            if (nearest_resistance - price) / price < 0.015:
+                notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
+                analysis.setup_notes = notes
+                return
+                
+            # Risk/Reward Filter
+            rr_ratio = reward / risk if risk > 0 else 0
+            if rr_ratio < 1.5:
+                notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 1.5+")
+                analysis.setup_notes = notes
+                return
+            else:
+                notes.append(f"✅ Setup Valid: Risk/Reward Ratio is {rr_ratio:.2f} (Target: ${nearest_resistance:.2f})")
+        else:
+            notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
+            
+        # If we made it here, the setup passed all risk tests
+        analysis.suggested_entry = entry
+        analysis.suggested_stop_loss = stop_loss
+        analysis.setup_notes = notes
             
     def _apply_smart_rounding(self, price: float) -> float:
         """

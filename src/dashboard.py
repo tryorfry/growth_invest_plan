@@ -414,7 +414,7 @@ def main():
                             """
                             **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema. This filters out the noise of simple fractals to provide institutional-grade support and resistance levels.
                             
-                            **Suggested Entry:** Calculated as **0.5%** above the nearest Support level. A rounding adjustment is applied to odd cents (like .17 or .77) to avoid institutional piling.
+                            **Suggested Entry (Risk/Reward Verified):** Calculated as **0.5%** above the nearest Support level. A rounding adjustment is applied to odd cents (like .17 or .77) to avoid institutional piling. **Entries are canceled if the Risk/Reward ratio is < 1.5, or if buying directly into overhead Resistance.**
                             
                             **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR)** to account for current volatility.
                             """
@@ -427,6 +427,7 @@ def main():
                         raw_hvns = getattr(analysis, "volume_profile_hvns", [])
                         raw_entry = getattr(analysis, "suggested_entry", None)
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
+                        setup_notes = getattr(analysis, "setup_notes", [])
 
                         with col_s:
                             st.markdown("#### 📉 Support Levels")
@@ -465,12 +466,23 @@ def main():
                         st.divider()
                         st.markdown("#### 🎯 Smart Execution")
                         
-                        entry_str = f"\${float(raw_entry):.2f}" if raw_entry is not None else "N/A"
+                        if setup_notes:
+                            for note in setup_notes:
+                                if "✅" in note:
+                                    st.success(note)
+                                elif "⚠️" in note:
+                                    st.warning(note)
+                                elif "❌" in note:
+                                    st.error(note)
+                                else:
+                                    st.info(note)
+                        
+                        entry_str = f"\${float(raw_entry):.2f}" if raw_entry is not None else "Waiting for Setup"
                         stop_str = f"\${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                         
                         ecol1, ecol2 = st.columns(2)
                         ecol1.metric("Suggested Entry", entry_str)
-                        ecol2.metric("Suggested Stop Loss", stop_str, delta=f"-1 ATR", delta_color="off")
+                        ecol2.metric("Suggested Stop Loss", stop_str, delta=f"-1 ATR" if raw_stop else None, delta_color="off")
 
                     # OHLC Details
                     st.subheader("📊 Price Details")
