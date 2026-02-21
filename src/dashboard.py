@@ -409,22 +409,50 @@ def main():
                     
                     # Debug / Detailed Trade Setup
                     with st.expander("🛠️ Detailed Trade Setup Insights"):
-                        st.markdown("**(Extracted automatically by indicators)**")
-                        st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
+                        st.markdown("### 🧮 How It Works")
+                        st.markdown(
+                            """
+                            **Support & Resistance:** Found by identifying local price extremums (5-day high/low fractals). 
+                            Close levels are clustered together, and the highest supports below price / lowest resistances above price are highlighted.
+                            
+                            **Suggested Entry:** Calculated as **0.5%** above the nearest Support level. A rounding adjustment is applied to odd cents (like .17 or .77) to avoid institutional piling.
+                            
+                            **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR)** to account for current volatility.
+                            """
+                        )
+                        st.divider()
                         
+                        col_s, col_r = st.columns(2)
                         raw_support = getattr(analysis, "support_levels", [])
-                        support_str = ", ".join([f"\${float(x):.2f}" for x in raw_support]) if raw_support else "None"
-                        st.write(f"Support Levels: {support_str}")
-                        
                         raw_resist = getattr(analysis, "resistance_levels", [])
-                        resist_str = ", ".join([f"\${float(x):.2f}" for x in raw_resist]) if raw_resist else "None"
-                        st.write(f"Resistance Levels: {resist_str}")
-                        
                         raw_entry = getattr(analysis, "suggested_entry", None)
-                        st.write(f"Suggested Entry: \${float(raw_entry):.2f}" if raw_entry is not None else "Suggested Entry: N/A")
-                        
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
-                        st.write(f"Suggested Stop Loss: \${float(raw_stop):.2f}" if raw_stop is not None else "Suggested Stop Loss: N/A")
+
+                        with col_s:
+                            st.markdown("#### 📉 Support Levels")
+                            if raw_support:
+                                for s in raw_support:
+                                    st.markdown(f"- \${float(s):.2f}")
+                            else:
+                                st.markdown("- None detected")
+                                
+                        with col_r:
+                            st.markdown("#### 📈 Resistance Levels")
+                            if raw_resist:
+                                for r in raw_resist:
+                                    st.markdown(f"- \${float(r):.2f}")
+                            else:
+                                st.markdown("- None detected")
+                        
+                        st.divider()
+                        st.markdown("#### 🎯 Smart Execution")
+                        
+                        entry_str = f"\${float(raw_entry):.2f}" if raw_entry is not None else "N/A"
+                        stop_str = f"\${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
+                        
+                        ecol1, ecol2 = st.columns(2)
+                        ecol1.metric("Suggested Entry", entry_str)
+                        ecol2.metric("Suggested Stop Loss", stop_str, delta=f"-1 ATR", delta_color="off")
 
                     # OHLC Details
                     st.subheader("📊 Price Details")
