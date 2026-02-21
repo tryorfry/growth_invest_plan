@@ -10,10 +10,19 @@ def render_portfolio_tracker_page():
     st.title("💼 Portfolio Tracker")
     st.markdown("Track your actual stock positions and monitor performance vs the market.")
     
-    db = st.session_state.get('db')
-    if not db:
-        st.error("Database connection not found.")
-        return
+    # Get database instance
+    try:
+        from src.dashboard import init_database
+        db = init_database()
+        if 'db' not in st.session_state:
+            st.session_state['db'] = db
+    except ImportError:
+        # Fallback if run standalone
+        db = st.session_state.get('db')
+        if not db:
+            db = Database()
+            db.init_db()
+            st.session_state['db'] = db
 
     # Initialize Manager
     with db.get_session() as session:

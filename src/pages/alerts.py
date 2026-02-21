@@ -14,10 +14,17 @@ def render_alerts_page():
     st.title("🔔 Alert Management")
     
     # Initialize
-    db = st.session_state.get('db')
-    if not db:
-        db = Database()
-        st.session_state['db'] = db
+    try:
+        from src.dashboard import init_database
+        db = init_database()
+        if 'db' not in st.session_state:
+            st.session_state['db'] = db
+    except ImportError:
+        db = st.session_state.get('db')
+        if not db:
+            db = Database()
+            db.init_db()
+            st.session_state['db'] = db
     
     alert_engine = AlertEngine(use_email=True)
     session = db.SessionLocal()

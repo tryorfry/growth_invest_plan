@@ -17,6 +17,7 @@ def render_watchlist_page():
     db = st.session_state.get('db')
     if not db:
         db = Database()
+        db.init_db()  # <-- CRITICAL: Ensures tables exist if page is loaded directly
         st.session_state['db'] = db
     
     session = db.SessionLocal()
