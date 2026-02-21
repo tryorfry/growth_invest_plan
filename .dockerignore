@@ -1,4 +1,9 @@
-.git
-.venv
-__pycache__
+.venv/
+__pycache__/
 *.pyc
+.pytest_cache/
+htmlcov/
+.coverage
+stock_analysis.db
+.git/
+.env

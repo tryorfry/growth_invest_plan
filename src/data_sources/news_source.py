@@ -1,70 +1,94 @@
+"""Source for fetching and analyzing News Sentiment"""
 
-from typing import Dict, Any, Optional
 import yfinance as yf
 from textblob import TextBlob
+import pandas as pd
 import asyncio
+from typing import List, Dict, Any
 
-from .base import DataSource
-
-class NewsSource(DataSource):
-    """Fetches news and calculates sentiment from Yahoo Finance"""
+class NewsSentimentSource:
+    """Fetches recent news articles and scores them using Natural Language Processing"""
     
     def get_source_name(self) -> str:
-        return "News"
-    
-    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+        return "NewsSentimentNLP"
+        
+    async def fetch(self, ticker: str) -> Dict[str, Any]:
+        """Async wrapper for the DataSource interface"""
+        # Run the synchronous fetch in a thread pool to not block the event loop
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.fetch_and_analyze_news, ticker)
+        
+    def fetch_and_analyze_news(self, ticker: str, max_articles: int = 20) -> Dict[str, Any]:
         """
-        Fetch news and analyze sentiment.
+        Fetches recent news from Yahoo Finance and scores the headline sentiment.
         
         Args:
-            ticker: Stock ticker symbol
+            ticker (str): Stock symbol.
+            max_articles (int): Maximum number of articles to process.
+            
+        Returns:
+            Dict containing average sentiment and a list of scored articles.
         """
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._fetch_sync, ticker)
-
-    def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
         try:
             stock = yf.Ticker(ticker)
-            news = stock.news
+            news_items = stock.news
             
-            if not news:
-                return None
+            if not news_items:
+                return {"average_sentiment": 0.0, "articles": [], "sentiment_label": "Neutral"}
+                
+            scored_articles = []
+            total_sentiment = 0.0
             
-            headlines = []
-            sentiment_scores = []
-            
-            for item in news:
+            # YFinance news is a list of dicts. Usually has 'title', 'link', 'publisher', 'providerPublishTime'
+            for item in news_items[:max_articles]:
                 title = item.get('title', '')
                 if not title:
                     continue
-                
-                # Simple sentiment analysis using TextBlob
+                    
+                # Use TextBlob to calculate Polarity (-1.0 to 1.0)
                 blob = TextBlob(title)
-                score = blob.sentiment.polarity
-                sentiment_scores.append(score)
-                headlines.append(f"{title} ({score:.2f})")
-            
-            if not sentiment_scores:
-                return None
+                polarity = blob.sentiment.polarity
                 
-            avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
+                # Determine label
+                if polarity > 0.15:
+                    label = "Bullish"
+                elif polarity < -0.15:
+                    label = "Bearish"
+                else:
+                    label = "Neutral"
+                    
+                dt = pd.to_datetime(item.get('providerPublishTime', 0), unit='s')
+                
+                scored_articles.append({
+                    "title": title,
+                    "publisher": item.get('publisher', 'Unknown'),
+                    "link": item.get('link', ''),
+                    "date": dt.strftime('%Y-%m-%d %H:%M'),
+                    "timestamp": dt,
+                    "sentiment_score": polarity,
+                    "sentiment_label": label
+                })
+                
+                total_sentiment += polarity
+                
+            if not scored_articles:
+                return {"average_sentiment": 0.0, "articles": [], "sentiment_label": "Neutral"}
+                
+            avg_sentiment = total_sentiment / len(scored_articles)
             
-            # Simple summarization based on average score
-            if avg_sentiment > 0.1:
-                feeling = "Bullish"
-            elif avg_sentiment < -0.1:
-                feeling = "Bearish"
+            if avg_sentiment > 0.15:
+                overall_label = "Bullish"
+            elif avg_sentiment < -0.15:
+                overall_label = "Bearish"
             else:
-                feeling = "Neutral"
-            
-            summary = f"{feeling} ({avg_sentiment:.2f}) based on latest {len(headlines)} headlines"
-            
+                overall_label = "Neutral"
+                
             return {
-                "news_sentiment": avg_sentiment, 
-                "news_summary": summary,
-                "headlines": headlines
+                "average_sentiment": avg_sentiment,
+                "sentiment_label": overall_label,
+                "articles": scored_articles
             }
             
         except Exception as e:
-            print(f"Error fetching News: {e}")
-            return None
+            print(f"Error fetching news for {ticker}: {e}")
+            return {"average_sentiment": 0.0, "articles": [], "sentiment_label": "Neutral", "error": str(e)}

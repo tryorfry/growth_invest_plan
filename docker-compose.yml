@@ -1,73 +1,13 @@
+version: '3.8'
+
 services:
-  # Database Service
-  db:
-    image: postgres:15-alpine
-    container_name: growth-invest-db
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=stock_analysis
+  growth_analyzer:
+    build: .
+    container_name: growth_analyzer_app
     ports:
-      - "5432:5432"
+      - "8502:8501" # Exposing on 8502 to avoid local conflicts
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  # CLI Application
-  cli:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: growth-invest-plan:cli
-    depends_on:
-      - db
-    volumes:
-      - ./charts:/app/charts
-      - ./exports:/app/exports
-      - ./stock_analysis.db:/app/stock_analysis.db
-      - ./analysis_results.csv:/app/analysis_results.csv
-      - ./.env:/app/.env
+      - ./data:/app/data  # Mount a separate volume for persistent storage if needed
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
-    command: [ "AAPL", "NVDA" ]
-
-  # Streamlit Dashboard
-  dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.dashboard
-    image: growth-invest-plan:dashboard
-    depends_on:
-      - db
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./stock_analysis.db:/app/stock_analysis.db
-      - ./charts:/app/charts
-      - ./exports:/app/exports
-      - ./.env:/app/.env
-    environment:
-      - STREAMLIT_SERVER_PORT=8501
-      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
+      - TZ=UTC
     restart: unless-stopped
-
-  # Hourly Scheduler
-  scheduler:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: growth-invest-plan:scheduler
-    depends_on:
-      - db
-    volumes:
-      - ./stock_analysis.db:/app/stock_analysis.db
-      - ./charts:/app/charts
-      - ./.env:/app/.env
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/stock_analysis
-    command: ["python", "src/scheduler.py"]
-    restart: unless-stopped
-
-volumes:
-  postgres_data:

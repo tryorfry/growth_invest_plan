@@ -20,6 +20,8 @@ from src.database import Database
 from src.models import Stock, Analysis
 from src.visualization_plotly import PlotlyChartGenerator
 from src.utils import save_analysis, render_ticker_header
+from src.auth import AuthManager
+from src.pages.login import render_login_page
 
 
 # Page configuration
@@ -251,9 +253,17 @@ def main():
     chart_gen = init_chart_generator()
     init_scheduler()  # Start background scheduler
     
+    # Initialize session state for auth
+    AuthManager.init_session_state()
+    
     # Store in session state
     if 'db' not in st.session_state:
         st.session_state['db'] = db
+        
+    # Authentication Gate
+    if not AuthManager.is_authenticated():
+        render_login_page()
+        return
     
     # Sidebar navigation
     with st.sidebar:
@@ -275,6 +285,8 @@ def main():
         )
         
         st.divider()
+        if st.button("🚪 Logout", use_container_width=True):
+            AuthManager.logout()
     
     if page == "🌍 Market Pulse":
         from src.pages.market_pulse import render_market_pulse_page

@@ -7,10 +7,11 @@ import pandas as pd
 
 from .data_sources.base import DataSource
 from .data_sources.yfinance_source import YFinanceSource
+from .data_sources.yfinance_analyst_source import YFinanceAnalystSource
 from .data_sources.finviz_source import FinvizSource
 from .data_sources.marketbeat_source import MarketBeatSource
-from .data_sources.yfinance_analyst_source import YFinanceAnalystSource
-from .data_sources.news_source import NewsSource
+from .data_sources.news_source import NewsSentimentSource
+from .data_sources.macro_source import MacroSource
 
 
 @dataclass
@@ -141,12 +142,15 @@ class StockAnalyzer:
             technical_source: Source for technical data (default: YFinance)
             fundamental_source: Source for fundamentals (default: Finviz)
             analyst_source: Source for analyst data (default: MarketBeat)
-            news_source: Source for sentiment (default: NewsSource)
+            news_source: Source for sentiment (default: NewsSentimentSource)
+            
+        Returns:
+            StockAnalyzer instance
         """
         self.technical_source = technical_source or YFinanceSource()
         self.fundamental_source = fundamental_source or FinvizSource()
-        self.analyst_source = analyst_source or YFinanceAnalystSource()
-        self.news_source = news_source or NewsSource()
+        self.analyst_source = analyst_source or MarketBeatSource()
+        self.news_source = news_source or NewsSentimentSource()
     
     async def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
         """

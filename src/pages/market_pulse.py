@@ -3,6 +3,8 @@
 import streamlit as st
 import pandas as pd
 from src.data_sources.macro_source import MacroSource
+from src.data_sources.sector_source import SectorSource
+import plotly.graph_objects as go
 
 def render_market_pulse_page():
     st.title("🌍 Market Pulse")

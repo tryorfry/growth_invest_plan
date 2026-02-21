@@ -1,92 +1,56 @@
-# System Architecture & Data Flow
+# Growth Investment Analyzer - System Architecture
 
-This document provides a high-level overview of how the **Growth Invest Plan** application is structured and how data flows through the system.
+This document maps out the core architecture and data flow of the Growth Investment Analyzer platform.
 
-## 🏗️ Software Architecture
-
-The application follows a modular architecture, separating the User Interface (UI), Business Logic, and Data Access layers.
+## Architecture Flowchart
 
 ```mermaid
 graph TD
-    User((User)) -->|Interacts| UI[Streamlit Dashboard]
-    
-    subgraph "Presentation Layer (src/pages/)"
-        UI --> Nav{Navigation}
-        Nav --> HP[Home / Analysis]
-        Nav --> MP[Market Pulse]
-        Nav --> PT[Portfolio Tracker]
-        Nav --> BT[Backtester]
-    end
-    
-    subgraph "Logic Layer (src/)"
-        HP --> SA[StockAnalyzer]
-        SA --> VC[ValuationCalculator]
-        VC --> DCF[DCF Analysis]
-        VC --> Graham[Graham Valuation]
-        
-        MP --> MS[MacroSource]
-        
-        PT --> PM[PortfolioManager]
-        
-        PT --> PM[PortfolioManager]
-        
-        BT --> BE[BacktestEngine]
+    %% User Interfaces
+    Client[Web Browser] -->|HTTP/WebSockets| StreamlitApp[Streamlit Server <br/> :8501]
 
-        Scheduler[Hourly Scheduler] --> SA
+    %% Authentication Gate
+    subgraph Security Layer
+        StreamlitApp --> AuthGate{AuthManager <br/> Session State}
+        AuthGate -->|Unauthenticated| LoginPage[Login / Signup UI]
+        AuthGate -->|Authenticated| Dashboard[Full Dashboard UI]
     end
-    
-    subgraph "Data Access Layer"
-        SA --> YF[YFinanceSource]
-        SA --> MB[MarketBeatSource]
-        MS --> YF
-        
-        PM --> DB[Database Wrapper]
-        DB --> SQLite[(Local SQLite)]
-        DB --> LocalPG[(Local PostgreSQL - Docker)]
-        DB --> RemotePG[(Remote PostgreSQL - Supabase)]
+
+    %% Internal Python Modules
+    subgraph Core Engines
+        Dashboard --> Analyzer[StockAnalyzer Engine]
+        Dashboard --> Scheduler[Background Scheduler Thread]
+        Scheduler --> AlertsEngine[Alerts Processing Engine]
     end
-    
-    subgraph "External Providers"
-        YF -->|API| Yahoo[Yahoo Finance]
-        MB -->|Scraping| MarketBeat[MarketBeat.com]
+
+    %% Data Sources Layer
+    subgraph External Data Extraction
+        Analyzer --> YFinance[YFinance Source <br/> Price/Volume/Earnings Date]
+        Analyzer --> Finviz[Finviz Source <br/> Fundamentals/Valuation]
+        Analyzer --> MarketBeat[MarketBeat Source <br/> Analyst Targets]
+        Analyzer --> NewsSource[News Sentiment Source <br/> TextBlob NLP]
+        Analyzer --> SectorSource[Sector Rotation Source <br/> ETF Relative Strength]
+    end
+
+    %% Advanced Mathematical Modeling
+    subgraph Quantitative Models
+        Analyzer --> MonteCarlo[Monte Carlo Engine <br/> Geometric Brownian Motion]
+        Analyzer --> SupportResistance[Support/Resistance Math <br/> Volume Profile & Clustering]
+    end
+
+    %% Database Persistence
+    subgraph Local Database Storage
+        Database[(SQLite: stock_analysis.db)]
+        AuthGate <-->|User Records & Password Hashes| Database
+        Analyzer -->|Save Snapshot| Database
+        AlertsEngine <-->|Read Triggers & History| Database
+        Dashboard <-->|Portfolios & Watchlists| Database
     end
 ```
 
-## 🔄 Core Data Flows
-
-### 1. Stock Analysis Flow
-1. **Trigger**: User enters a ticker (e.g., `NVDA`) in the Home page.
-2. **Detection**: `StockAnalyzer` checks the `Database` for cached data.
-3. **Fetching**: If stale/missing, `YFinanceSource` and `MarketBeatSource` fetch live metrics/news.
-4. **Processing**: `ValuationCalculator` runs financial models (DCF, Graham).
-5. **Persistence**: The new analysis is saved to the `PostgreSQL` database.
-6. **Rendering**: `PlotlyChartGenerator` creates interactive visuals for the UI.
-
-### 2. Portfolio Management Flow
-1. **Input**: User adds a "BUY" transaction through the **Portfolio Tracker** UI.
-2. **Logic**: `PortfolioManager` verifies the ticker and calculates the impact on the portfolio's cost basis.
-3. **Storage**: The transaction is committed to the permanent `transactions` table.
-4. **Monitoring**: The UI continuously fetches live prices to show real-time Unrealized P/L.
-
-### 3. Backtesting Performance
-1. **Config**: User selects a strategy (e.g., EMA Crossover) and a timeframe.
-2. **Simulation**: `BacktestEngine` pulls historical price series.
-3. **Execution**: The engine iterates through the history, "placing trades" based on the mathematical signals.
-4. **Comparison**: Results are benchmarked against a static "Buy & Hold" strategy and visualized.
-
-## 🛡️ Security Boundaries
-
-### 4. Background Scheduling
-1. **Trigger**: Hourly timer (via Docker service or Streamlit background thread).
-2. **Fetching**: `Scheduler` retrieves all unique tickers from the `Stock` table.
-3. **Execution**: Calls `StockAnalyzer.analyze()` for each ticker sequentially.
-4. **Update**: Fresh data is persisted to the database, ready for the next user visit.
-
-
-- **Environment Secrets**: Sensitive URLs and API keys are stored in environment variables, never in code.
-- **Database Access**: All connections go through a centralized `Database` class with session management to prevent leaks.
-- **Public API Safety**: No direct exposure of high-cost or high-risk APIs (like AI) to unauthenticated public triggers.
-
-## ⚙️ Reliability & Migration
-- **Auto-Migration Engine**: The `Database.init_db` method automatically detects schema changes.
-- **Backward Compatibility**: New fundamental and technical metrics are dynamically added to existing tables during application startup, ensuring the app never crashes due to missing columns on cloud or local servers.
+### Key Components:
+1. **Security Layer:** Using `bcrypt` and Streamlit `session_state`, the application forcefully routes unauthenticated web traffic to the Login screen, securing the entire local SQL database.
+2. **Core Engines:** The `StockAnalyzer` class coordinates multiple asynchronous data fetches, while the Background Scheduler runs in a separate thread to evaluate user-defined price alerts continuously.
+3. **External Data Extraction:** A highly extensible scraper implementation (`DataSource` abstract class) fetches data from Yahoo Finance, Finviz, and MarketBeat cleanly.
+4. **Quantitative Models:** The system runs mathematical models locally using `numpy` and `pandas` (such as the Monte Carlo simulation and 1D price clustering algorithms for support/resistance).
+5. **Database Persistence:** Everything relies on a consolidated local SQLAlchemy database (`stock_analysis.db`), preserving user privacy and circumventing expensive structured API subscription costs.

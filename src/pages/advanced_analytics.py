@@ -9,9 +9,12 @@ from src.data_sources.options_source import OptionsSource
 from src.data_sources.insider_source import InsiderSource
 from src.data_sources.institutional_source import InstitutionalSource
 from src.data_sources.short_interest_source import ShortInterestSource
+from src.data_sources.news_source import NewsSentimentSource
+from src.data_sources.earnings_source import EarningsSource
 from src.pattern_recognition import PatternRecognition
 from src.visualization_advanced import AdvancedVisualizations
 from src.options_calc import OptionsProfitCalculator
+from src.math_models import MonteCarloEngine
 from src.utils import render_ticker_header, save_analysis
 from src.valuations import ValuationCalculator
 from src.reporting import ReportGenerator
@@ -101,6 +104,8 @@ def render_advanced_analytics_page():
             insider_source = InsiderSource()
             whale_source = InstitutionalSource()
             short_source = ShortInterestSource()
+            news_source = NewsSentimentSource()
+            earn_source = EarningsSource()
             
             # Get basic analysis
             analysis = asyncio.run(analyzer.analyze(ticker))
@@ -115,7 +120,10 @@ def render_advanced_analytics_page():
                 render_ticker_header(analysis)
                 
                 # Display tabs
-                tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+                    "🎲 Monte Carlo",
+                    "📰 News Sentiment",
+                    "📅 Earnings Drift",
                     "📊 Options Data",
                     "👔 Insider Trading",
                     "🐋 Whale Tracking",
@@ -124,8 +132,215 @@ def render_advanced_analytics_page():
                     "💰 Valuations"
                 ])
                 
-                # Tab 1: Options Data
+                # Tab 1: Monte Carlo Probabilities
                 with tab1:
+                    st.subheader("10,000-Path Monte Carlo Price Simulation")
+                    st.markdown("Projects future price probabilities based on stock's historical volatility and daily returns (Geometric Brownian Motion).")
+                    
+                    if analysis.history is not None and not analysis.history.empty:
+                        col1, col2 = st.columns([1, 1])
+                        
+                        with col1:
+                            days_out = st.slider("Days to Simulate", min_value=14, max_value=90, value=30, step=7)
+                        
+                        with col2:
+                            num_sims = st.selectbox("Number of Simulations", options=[1000, 5000, 10000], index=2)
+                        
+                        with st.spinner(f"Running {num_sims:,} simulations..."):
+                            mc_results = MonteCarloEngine.simulate_gbm(
+                                current_price=analysis.current_price,
+                                history=analysis.history,
+                                days_out=days_out,
+                                num_simulations=num_sims
+                            )
+                            
+                        if mc_results:
+                            import plotly.graph_objects as go
+                            import numpy as np
+                            
+                            mc_fig = go.Figure()
+                            
+                            # We don't want to draw 10,000 lines (too heavy for browser)
+                            # Let's draw 100 random sample paths in light grey
+                            paths = mc_results['paths']
+                            sample_indices = np.random.choice(paths.shape[1], size=min(100, paths.shape[1]), replace=False)
+                            
+                            x_axis = np.arange(days_out + 1)
+                            
+                            # Add sample lines
+                            for idx in sample_indices:
+                                mc_fig.add_trace(go.Scatter(
+                                    x=x_axis, y=paths[:, idx],
+                                    mode='lines',
+                                    line=dict(color='rgba(150, 150, 150, 0.1)', width=1),
+                                    showlegend=False,
+                                    hoverinfo='skip'
+                                ))
+                                
+                            # Calculate percentiles across all paths
+                            p5_path = np.percentile(paths, 5, axis=1)
+                            p50_path = np.percentile(paths, 50, axis=1)
+                            p95_path = np.percentile(paths, 95, axis=1)
+                            
+                            # Add Confidence Interval Cone (90% Confidence)
+                            mc_fig.add_trace(go.Scatter(
+                                x=np.concatenate([x_axis, x_axis[::-1]]),
+                                y=np.concatenate([p95_path, p5_path[::-1]]),
+                                fill='toself',
+                                fillcolor='rgba(0, 100, 250, 0.2)',
+                                line=dict(color='rgba(255,255,255,0)'),
+                                hoverinfo="skip",
+                                name="90% Confidence Interval"
+                            ))
+                            
+                            # Add Median line
+                            mc_fig.add_trace(go.Scatter(
+                                x=x_axis, y=p50_path,
+                                mode='lines',
+                                line=dict(color='rgb(50, 150, 250)', width=3, dash='dash'),
+                                name="Expected Path (Median)"
+                            ))
+                            
+                            mc_fig.update_layout(
+                                title=f"Price Projection Cone ({days_out} Days)",
+                                xaxis_title="Trading Days from Today",
+                                yaxis_title="Price ($)",
+                                height=450,
+                                showlegend=True,
+                                margin=dict(l=20, r=20, t=40, b=20)
+                            )
+                            st.plotly_chart(mc_fig, use_container_width=True)
+                            
+                            # Display exact probability metrics
+                            st.markdown("### Probable Outcomes")
+                            p_cols = st.columns(4)
+                            p_cols[0].metric("Target Price (Median)", f"${mc_results['percentiles']['p50']:.2f}")
+                            p_cols[1].metric("Bull Case (Top 5%)", f"${mc_results['percentiles']['p95']:.2f}")
+                            p_cols[2].metric("Bear Case (Bottom 5%)", f"${mc_results['percentiles']['p5']:.2f}")
+                            
+                            prob_up = mc_results['prob_higher'] * 100
+                            p_cols[3].metric("Win Probability", f"{prob_up:.1f}%")
+                            
+                    else:
+                        st.error("Missing historical price data required for simulation.")
+                        
+                # Tab 2: News Sentiment Heatmap
+                with tab2:
+                    st.subheader("📰 Local News Sentiment Analyzer")
+                    st.markdown("Scans recent headlines using Natural Language Processing (TextBlob) to detect media shifts before price reacts.")
+                    
+                    with st.spinner("Analyzing recent news..."):
+                        news_data = news_source.fetch_and_analyze_news(ticker, max_articles=20)
+                        
+                    if news_data and news_data['articles']:
+                        avg_sent = news_data['average_sentiment']
+                        label = news_data['sentiment_label']
+                        
+                        # Overall metrics
+                        ncol1, ncol2, ncol3 = st.columns(3)
+                        ncol1.metric("Average Sentiment Score", f"{avg_sent:.3f}", 
+                                     f"{avg_sent*100:.1f}%" if avg_sent != 0 else None,
+                                     delta_color="normal" if avg_sent > 0 else "inverse" if avg_sent < 0 else "off")
+                        ncol2.metric("Overall Bias", label)
+                        ncol3.metric("Articles Analyzed", len(news_data['articles']))
+                        
+                        # Use Plotly to make a sentiment bar chart
+                        import plotly.graph_objects as go
+                        import pandas as pd
+                        
+                        news_df = pd.DataFrame(news_data['articles'])
+                        # Reverse so newest is on the right
+                        news_df = news_df.iloc[::-1].reset_index(drop=True)
+                        
+                        colors = ['#00C851' if s > 0.1 else '#ff4444' if s < -0.1 else '#33b5e5' for s in news_df['sentiment_score']]
+                        
+                        fig_news = go.Figure(data=[
+                            go.Bar(
+                                x=news_df.index,
+                                y=news_df['sentiment_score'],
+                                marker_color=colors,
+                                text=news_df['sentiment_label'],
+                                hovertext=news_df['title'] + '<br>' + news_df['date'],
+                                hoverinfo="text"
+                            )
+                        ])
+                        
+                        fig_news.update_layout(
+                            title="Recent Headline Sentiment Scores",
+                            xaxis_title="Article Flow (Oldest to Newest)",
+                            yaxis_title="NLP Polarity (-1 to 1)",
+                            xaxis=dict(showticklabels=False), # Hide indices
+                            yaxis=dict(range=[-1.1, 1.1]),
+                            height=300,
+                            margin=dict(l=20, r=20, t=40, b=20)
+                        )
+                        # Add a zero line
+                        fig_news.add_hline(y=0, line_width=1, line_color="white")
+                        
+                        st.plotly_chart(fig_news, use_container_width=True)
+                        
+                        st.markdown("### Latest Headlines")
+                        for idx, row in news_df.iloc[::-1].iterrows(): # Show newest first here
+                            emoji = "🟢" if row['sentiment_label'] == "Bullish" else "🔴" if row['sentiment_label'] == "Bearish" else "⚪"
+                            st.markdown(f"**{emoji} [{row['title']}]({row['link']})**")
+                            st.caption(f"{row['publisher']} • {row['date']} • Score: {row['sentiment_score']:.3f} ")
+                            st.divider()
+                    else:
+                        st.warning("No recent news found to analyze.")
+                        
+                # Tab 3: Earnings Drift Analyzer
+                with tab3:
+                    st.subheader("📅 Post-Earnings Price Drift")
+                    st.markdown("Statistically analyzes how this stock behaves on the day after (T+1) and two weeks after (T+14) earnings reports.")
+                    
+                    with st.spinner("Fetching historical earnings data..."):
+                        earn_data = earn_source.fetch_earnings_drift(ticker, limit=12)
+                        
+                    if earn_data and earn_data['analyzed_events'] > 0:
+                        
+                        ecol1, ecol2, ecol3 = st.columns(3)
+                        ecol1.metric("Historical Win Rate (T+14)", f"{earn_data['win_rate_t14_pct']:.1f}%")
+                        ecol2.metric("Average T+1 Day Move", f"{earn_data['avg_t1_return']:+.2f}%", 
+                                     delta_color="normal" if earn_data['avg_t1_return'] > 0 else "inverse")
+                        ecol3.metric("Average T+14 Day Drift", f"{earn_data['avg_t14_return']:+.2f}%",
+                                     delta_color="normal" if earn_data['avg_t14_return'] > 0 else "inverse")
+                                     
+                        st.markdown("### Historical Earnings Events")
+                        
+                        # Format as DataFrame
+                        edf = pd.DataFrame(earn_data['events'])
+                        
+                        # Add a visual emoji for Beats vs Miss
+                        def format_beat(val):
+                            if pd.isna(val): return "Unknown"
+                            return "✅ Beat" if val else "❌ Miss"
+                            
+                        edf['beat_status'] = edf['beat'].apply(format_beat)
+                        
+                        # Reorder and rename columns for display
+                        display_df = edf[['date', 'eps_estimate', 'eps_reported', 'beat_status', 't0_return', 't1_return', 't14_return']].copy()
+                        display_df.columns = ['Date', 'Est EPS', 'Reported EPS', 'Status', 'Closing Impact (T0)', 'Next Day Drift (T+1)', '2-Week Drift (T+14)']
+                        
+                        # Apply a background gradient to returns
+                        formatted_edf = display_df.style.format({
+                            'Est EPS': '${:.2f}',
+                            'Reported EPS': '${:.2f}',
+                            'Closing Impact (T0)': '{:+.2f}%',
+                            'Next Day Drift (T+1)': '{:+.2f}%',
+                            '2-Week Drift (T+14)': '{:+.2f}%'
+                        }).background_gradient(
+                            cmap='RdYlGn', 
+                            subset=['Closing Impact (T0)', 'Next Day Drift (T+1)', '2-Week Drift (T+14)'], 
+                            vmin=-15, vmax=15
+                        )
+                        
+                        st.dataframe(formatted_edf, use_container_width=True)
+                        
+                    else:
+                        st.warning("Insufficient historical earnings data to analyze drift.")
+                        
+                # Tab 4: Options Data
+                with tab4:
                     st.subheader("Options Metrics")
                     
                     options_data = options_source.fetch_options_data(ticker)
@@ -226,8 +441,8 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No options data available for this ticker")
                 
-                # Tab 2: Insider Trading
-                with tab2:
+                # Tab 5: Insider Trading
+                with tab5:
                     st.subheader("Insider Trading Activity")
                     
                     insider_data = asyncio.run(insider_source.fetch_insider_data(ticker))
@@ -279,8 +494,8 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No insider trading data available")
                 
-                # Tab 3: Whale Tracking
-                with tab3:
+                # Tab 6: Whale Tracking
+                with tab6:
                     st.subheader("Major Institutional Holders")
                     
                     with st.spinner("Fetching institutional holdings..."):
@@ -331,8 +546,8 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No institutional data available for this ticker.")
                 
-                # Tab 4: Short Interest
-                with tab4:
+                # Tab 7: Short Interest
+                with tab7:
                     st.subheader("Short Interest Metrics")
                     
                     short_data = short_source.fetch_short_interest(ticker)
@@ -386,8 +601,8 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No short interest data available")
                 
-                # Tab 5: Candlestick Patterns
-                with tab5:
+                # Tab 8: Candlestick Patterns
+                with tab8:
                     if analysis.history is not None and not analysis.history.empty:
                         pattern_detector = PatternRecognition()
                         patterns = pattern_detector.get_recent_patterns(analysis.history, days=30)
@@ -428,8 +643,8 @@ def render_advanced_analytics_page():
                     else:
                         st.error("No historical data available for pattern recognition")
                 
-                # Tab 6: Valuations
-                with tab6:
+                # Tab 9: Valuations
+                with tab9:
                     st.subheader("Intrinsic Value Estimates")
                     
                     calc = ValuationCalculator()
