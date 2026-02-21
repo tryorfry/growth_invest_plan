@@ -509,21 +509,21 @@ def main():
                                 st.write("**Next Earnings:** N/A")
                         
                         with col2:
-                            if analysis.revenue:
+                            if pd.notna(analysis.revenue):
                                 revenue_b = analysis.revenue / 1e9
                                 st.write(f"**Revenue (Q):** ${revenue_b:.2f}B")
                             else:
                                 st.write("**Revenue (Q):** N/A")
                         
                         with col3:
-                            if analysis.operating_income:
+                            if pd.notna(analysis.operating_income):
                                 op_income_b = analysis.operating_income / 1e9
                                 st.write(f"**Op Income (Q):** ${op_income_b:.2f}B")
                             else:
                                 st.write("**Op Income (Q):** N/A")
                         
                         with col4:
-                            if analysis.basic_eps:
+                            if pd.notna(analysis.basic_eps):
                                 st.write(f"**EPS (Q):** ${analysis.basic_eps:.2f}")
                             else:
                                 st.write("**EPS (Q):** N/A")
