@@ -412,8 +412,7 @@ def main():
                         st.markdown("### 🧮 How It Works")
                         st.markdown(
                             """
-                            **Support & Resistance:** Found by identifying local price extremums (5-day high/low fractals). 
-                            Close levels are clustered together, and the highest supports below price / lowest resistances above price are highlighted.
+                            **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema. This filters out the noise of simple fractals to provide institutional-grade support and resistance levels.
                             
                             **Suggested Entry:** Calculated as **0.5%** above the nearest Support level. A rounding adjustment is applied to odd cents (like .17 or .77) to avoid institutional piling.
                             
@@ -425,22 +424,41 @@ def main():
                         col_s, col_r = st.columns(2)
                         raw_support = getattr(analysis, "support_levels", [])
                         raw_resist = getattr(analysis, "resistance_levels", [])
+                        raw_hvns = getattr(analysis, "volume_profile_hvns", [])
                         raw_entry = getattr(analysis, "suggested_entry", None)
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
 
                         with col_s:
                             st.markdown("#### 📉 Support Levels")
+                            st.markdown("**Statistical Clusters:**")
                             if raw_support:
                                 for s in raw_support:
                                     st.markdown(f"- \${float(s):.2f}")
                             else:
                                 st.markdown("- None detected")
                                 
+                            st.markdown("**High Volume Nodes (Below Price):**")
+                            hvn_supp = [h for h in raw_hvns if analysis.current_price and h < analysis.current_price]
+                            if hvn_supp:
+                                for h in sorted(hvn_supp)[-2:]:
+                                    st.markdown(f"- \${float(h):.2f}")
+                            else:
+                                st.markdown("- None detected")
+                                
                         with col_r:
                             st.markdown("#### 📈 Resistance Levels")
+                            st.markdown("**Statistical Clusters:**")
                             if raw_resist:
                                 for r in raw_resist:
                                     st.markdown(f"- \${float(r):.2f}")
+                            else:
+                                st.markdown("- None detected")
+                                
+                            st.markdown("**High Volume Nodes (Above Price):**")
+                            hvn_res = [h for h in raw_hvns if analysis.current_price and h > analysis.current_price]
+                            if hvn_res:
+                                for h in sorted(hvn_res)[:2]:
+                                    st.markdown(f"- \${float(h):.2f}")
                             else:
                                 st.markdown("- None detected")
                         

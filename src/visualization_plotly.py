@@ -115,14 +115,26 @@ class PlotlyChartGenerator:
             
         # Support and Resistance
         if show_support_resistance:
+            # High Volume Nodes
+            for hvn in getattr(analysis, 'volume_profile_hvns', []):
+                fig.add_hline(
+                    y=hvn,
+                    line_dash="solid",
+                    line_color="rgba(128, 0, 128, 0.3)",
+                    line_width=4,
+                    annotation_text="HVN",
+                    annotation_position="bottom left",
+                    row=1, col=1
+                )
+                
             # Support levels
             for level in getattr(analysis, 'support_levels', []):
                 fig.add_hline(
                     y=level,
                     line_dash="dot",
                     line_color="green",
-                    line_width=1,
-                    opacity=0.7,
+                    line_width=2,
+                    opacity=0.8,
                     annotation_text=f"Support: ${level:.2f}",
                     annotation_position="bottom right",
                     row=1, col=1
@@ -134,8 +146,8 @@ class PlotlyChartGenerator:
                     y=level,
                     line_dash="dot",
                     line_color="red",
-                    line_width=1,
-                    opacity=0.7,
+                    line_width=2,
+                    opacity=0.8,
                     annotation_text=f"Resistance: ${level:.2f}",
                     annotation_position="top right",
                     row=1, col=1

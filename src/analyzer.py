@@ -102,6 +102,10 @@ class StockAnalysis:
     # Candlestick patterns
     recent_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
+    # Volume Profile
+    volume_profile_hvns: List[float] = field(default_factory=list)
+    volume_profile_lvns: List[float] = field(default_factory=list)
+    
     # Support & Resistance
     support_levels: List[float] = field(default_factory=list)
     resistance_levels: List[float] = field(default_factory=list)
@@ -296,71 +300,93 @@ class StockAnalyzer:
 
     def _calculate_support_resistance(self, analysis: StockAnalysis) -> None:
         """
-        Calculate major support and resistance levels using local extrema.
-        Simple logic: Find local mins/maxs over a 20-day window.
+        Calculate major support and resistance levels using statistical clustering
+        and Volume Profile.
         """
         df = analysis.history
         if df is None or len(df) < 20:
             return
             
-        # Use a rolling window to find local min/max
-        # Simulating "fractals" - a high surrounded by lower highs, etc.
-        # But simpler: use scipy.signal.argrelextrema-like logic manually or simple window
-        
-        # We'll just define support as local min in 5-day window, resistance as max
-        # Then we cluster them.
-        
-        levels = []
-        for i in range(2, len(df) - 2):
-            # 5-bar fractal check
-            # High
-            if (df['High'].iloc[i] > df['High'].iloc[i-1] and 
-                df['High'].iloc[i] > df['High'].iloc[i-2] and 
-                df['High'].iloc[i] > df['High'].iloc[i+1] and 
-                df['High'].iloc[i] > df['High'].iloc[i+2]):
-                levels.append((df['High'].iloc[i], 'resistance'))
-                
-            # Low
-            if (df['Low'].iloc[i] < df['Low'].iloc[i-1] and 
-                df['Low'].iloc[i] < df['Low'].iloc[i-2] and 
-                df['Low'].iloc[i] < df['Low'].iloc[i+1] and 
-                df['Low'].iloc[i] < df['Low'].iloc[i+2]):
-                levels.append((df['Low'].iloc[i], 'support'))
-        
-        # Now cluster close levels together
-        # Sort levels by price
-        # Filter to keep only the most significant (e.g. recently touched or multiple touches)
-        # This is a simplified version: just take the most recent 3 distinct levels above/below current price
+        import numpy as np
         
         current_price = analysis.current_price
         
-        supports = sorted([l[0] for l in levels if l[1] == 'support' and l[0] < current_price])
-        resistances = sorted([l[0] for l in levels if l[1] == 'resistance' and l[0] > current_price])
+        # 1. Volume Profile (Price by Volume)
+        min_price = df['Low'].min()
+        max_price = df['High'].max()
         
-        # Simple Clustering: If levels are within 2%, keep only the most recent (effectively assumed via list order, but better to group)
-        # For simplicity in this v1, just take the top 3 nearest supports and resistances
-        
-        # Nearest supports (highest values below price)
-        if supports:
-            # Filter close values
-            unique_supports = []
-            if supports:
-                unique_supports.append(supports[-1]) # Closest support
-                for s in reversed(supports[:-1]):
-                    if abs(s - unique_supports[-1]) / unique_supports[-1] > 0.02: # 2% gap
-                        unique_supports.append(s)
-            analysis.support_levels = unique_supports[:3] # Keep top 3 nearest
+        if pd.notna(min_price) and pd.notna(max_price) and max_price > min_price:
+            num_bins = 50
+            bins = np.linspace(min_price, max_price, num_bins + 1)
+            typical_price = (df['High'] + df['Low'] + df['Close']) / 3
             
-        # Nearest resistances (lowest values above price)
-        if resistances:
-            # Filter close values
-            unique_resistances = []
-            if resistances:
-                unique_resistances.append(resistances[0]) # Closest resistance
-                for r in resistances[1:]:
-                    if abs(r - unique_resistances[-1]) / unique_resistances[-1] > 0.02:
-                        unique_resistances.append(r)
-            analysis.resistance_levels = unique_resistances[:3] # Keep top 3 nearest
+            # Simple volume distribution
+            indices = np.digitize(typical_price.fillna(0), bins)
+            
+            volume_by_bin = np.zeros(num_bins)
+            volumes = df['Volume'].fillna(0).values
+            for i in range(len(df)):
+                bin_idx = indices[i] - 1
+                if 0 <= bin_idx < num_bins:
+                    volume_by_bin[bin_idx] += volumes[i]
+                    
+            # Find High Volume Nodes (HVNs) and Low Volume Nodes (LVNs)
+            hvns = []
+            lvns = []
+            mean_vol = np.mean(volume_by_bin)
+            
+            for i in range(1, num_bins - 1):
+                if volume_by_bin[i] > volume_by_bin[i-1] and volume_by_bin[i] > volume_by_bin[i+1]:
+                    if volume_by_bin[i] > mean_vol * 1.2:  # Significant volume
+                        hvns.append(float((bins[i] + bins[i+1]) / 2))
+                elif volume_by_bin[i] < volume_by_bin[i-1] and volume_by_bin[i] < volume_by_bin[i+1]:
+                    lvns.append(float((bins[i] + bins[i+1]) / 2))
+                    
+            analysis.volume_profile_hvns = sorted(hvns)
+            analysis.volume_profile_lvns = sorted(lvns)
+        
+        # 2. Statistical Clustering of daily highs and lows
+        highs = df['High'].values
+        lows = df['Low'].values
+        
+        pivot_highs = []
+        pivot_lows = []
+        
+        # Find local extrema (3-day pivot)
+        for i in range(1, len(df) - 1):
+            if highs[i] > highs[i-1] and highs[i] > highs[i+1]:
+                pivot_highs.append(float(highs[i]))
+            if lows[i] < lows[i-1] and lows[i] < lows[i+1]:
+                pivot_lows.append(float(lows[i]))
+                
+        def cluster_levels(levels, threshold_pct=0.02):
+            if not levels:
+                return []
+            levels = sorted(levels)
+            clusters = []
+            current_cluster = [levels[0]]
+            
+            for level in levels[1:]:
+                cluster_avg = sum(current_cluster) / len(current_cluster)
+                if abs(level - cluster_avg) / cluster_avg <= threshold_pct:
+                    current_cluster.append(level)
+                else:
+                    clusters.append(sum(current_cluster) / len(current_cluster))
+                    current_cluster = [level]
+                    
+            if current_cluster:
+                clusters.append(sum(current_cluster) / len(current_cluster))
+            return clusters
+
+        clustered_supports = cluster_levels(pivot_lows, 0.02)
+        clustered_resistances = cluster_levels(pivot_highs, 0.02)
+        
+        # Filter for top 3 nearest
+        supports = sorted([s for s in clustered_supports if s < current_price])
+        resistances = sorted([r for r in clustered_resistances if r > current_price])
+        
+        analysis.support_levels = supports[-3:] if supports else []
+        analysis.resistance_levels = resistances[:3] if resistances else []
 
     def _calculate_trade_setup(self, analysis: StockAnalysis) -> None:
         """
