@@ -333,11 +333,14 @@ class StockAnalyzer:
             # Find High Volume Nodes (HVNs) and Low Volume Nodes (LVNs)
             hvns = []
             lvns = []
-            mean_vol = np.mean(volume_by_bin)
+            
+            # Use 75th percentile of non-zero bins to prevent massive volume spikes from suppressing all other nodes
+            non_zero_vols = volume_by_bin[volume_by_bin > 0]
+            threshold = np.percentile(non_zero_vols, 75) if len(non_zero_vols) > 0 else 0
             
             for i in range(1, num_bins - 1):
                 if volume_by_bin[i] > volume_by_bin[i-1] and volume_by_bin[i] > volume_by_bin[i+1]:
-                    if volume_by_bin[i] > mean_vol * 1.2:  # Significant volume
+                    if volume_by_bin[i] >= threshold:  # Significant volume peak
                         hvns.append(float((bins[i] + bins[i+1]) / 2))
                 elif volume_by_bin[i] < volume_by_bin[i-1] and volume_by_bin[i] < volume_by_bin[i+1]:
                     lvns.append(float((bins[i] + bins[i+1]) / 2))
