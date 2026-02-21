@@ -33,12 +33,12 @@ class TestYFinanceSource:
         assert yfinance_source.get_source_name() == "YFinance"
     
     @pytest.mark.asyncio
-    async def test_fetch_returns_none_on_empty_history(self, yfinance_source):
-        """Test that fetch returns None when no historical data is available"""
+    async def test_fetch_raises_value_error_on_empty_history(self, yfinance_source):
+        """Test that fetch raises ValueError when no historical data is available"""
         with patch('yfinance.Ticker') as mock_ticker:
             mock_ticker.return_value.history.return_value = pd.DataFrame()
-            result = await yfinance_source.fetch("INVALID")
-            assert result is None
+            with pytest.raises(ValueError, match="No price data found"):
+                await yfinance_source.fetch("INVALID")
     
     def test_calculate_technical_indicators(self, yfinance_source, mock_historical_data):
         """Test technical indicator calculations"""
