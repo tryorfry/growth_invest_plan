@@ -413,18 +413,18 @@ def main():
                         st.write("Has `support_levels`?", hasattr(analysis, "support_levels"))
                         
                         raw_support = getattr(analysis, "support_levels", [])
-                        support_str = ", ".join([f"${float(x):.2f}" for x in raw_support]) if raw_support else "None"
+                        support_str = ", ".join([f"\${float(x):.2f}" for x in raw_support]) if raw_support else "None"
                         st.write(f"Support Levels: {support_str}")
                         
                         raw_resist = getattr(analysis, "resistance_levels", [])
-                        resist_str = ", ".join([f"${float(x):.2f}" for x in raw_resist]) if raw_resist else "None"
+                        resist_str = ", ".join([f"\${float(x):.2f}" for x in raw_resist]) if raw_resist else "None"
                         st.write(f"Resistance Levels: {resist_str}")
                         
                         raw_entry = getattr(analysis, "suggested_entry", None)
-                        st.write(f"Suggested Entry: ${float(raw_entry):.2f}" if raw_entry is not None else "Suggested Entry: N/A")
+                        st.write(f"Suggested Entry: \${float(raw_entry):.2f}" if raw_entry is not None else "Suggested Entry: N/A")
                         
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
-                        st.write(f"Suggested Stop Loss: ${float(raw_stop):.2f}" if raw_stop is not None else "Suggested Stop Loss: N/A")
+                        st.write(f"Suggested Stop Loss: \${float(raw_stop):.2f}" if raw_stop is not None else "Suggested Stop Loss: N/A")
 
                     # OHLC Details
                     st.subheader("📊 Price Details")
