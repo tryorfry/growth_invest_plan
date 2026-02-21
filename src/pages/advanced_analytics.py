@@ -7,9 +7,11 @@ from datetime import datetime
 from src.analyzer import StockAnalyzer
 from src.data_sources.options_source import OptionsSource
 from src.data_sources.insider_source import InsiderSource
+from src.data_sources.institutional_source import InstitutionalSource
 from src.data_sources.short_interest_source import ShortInterestSource
 from src.pattern_recognition import PatternRecognition
 from src.visualization_advanced import AdvancedVisualizations
+from src.options_calc import OptionsProfitCalculator
 from src.utils import render_ticker_header, save_analysis
 from src.valuations import ValuationCalculator
 from src.reporting import ReportGenerator
@@ -97,6 +99,7 @@ def render_advanced_analytics_page():
             analyzer = StockAnalyzer()
             options_source = OptionsSource()
             insider_source = InsiderSource()
+            whale_source = InstitutionalSource()
             short_source = ShortInterestSource()
             
             # Get basic analysis
@@ -112,9 +115,10 @@ def render_advanced_analytics_page():
                 render_ticker_header(analysis)
                 
                 # Display tabs
-                tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                     "📊 Options Data",
                     "👔 Insider Trading",
+                    "🐋 Whale Tracking",
                     "📉 Short Interest",
                     "🕯️ Patterns",
                     "💰 Valuations"
@@ -171,6 +175,54 @@ def render_advanced_analytics_page():
                             st.info("📈 Put/Call Ratio < 0.7: More calls than puts, potentially bullish sentiment")
                         else:
                             st.info("➡️ Put/Call Ratio neutral")
+
+                        # Options P/L Curve
+                        if analysis.suggested_entry and iv > 0:
+                            st.divider()
+                            st.subheader("🧪 Theoretical Options Strategy")
+                            st.markdown("Based on current IV and the algorithmic **Suggested Entry**.")
+                            
+                            target_price = analysis.max_buy_price if analysis.max_buy_price else (analysis.suggested_entry * 1.15)
+                            
+                            pl_data = OptionsProfitCalculator.generate_pl_curve(
+                                entry_price=analysis.suggested_entry,
+                                target_price=target_price,
+                                current_iv=iv,
+                                days_to_exp=45
+                            )
+                            
+                            st.markdown(f"**Recommended Action:** Buy 1 Call Contract at **${pl_data['suggested_strike']} Strike** expiring in ~45 Days.")
+                            st.markdown(f"**Estimated upfront cost:** ${pl_data['contract_cost']:.2f}")
+                            
+                            # Chart the P/L
+                            import plotly.graph_objects as go
+                            
+                            pl_fig = go.Figure()
+                            # Find indices where profit > 0 to color green vs red
+                            pl_fig.add_trace(go.Scatter(
+                                x=pl_data['curve_prices'],
+                                y=pl_data['curve_profit_loss'],
+                                mode='lines',
+                                name="P/L ($)",
+                                line=dict(color='rgba(150, 150, 250, 0.8)', width=3),
+                                fill='tozeroy'
+                            ))
+                            
+                            # Add vertical line for entry
+                            pl_fig.add_vline(x=analysis.suggested_entry, line_width=2, line_dash="dash", line_color="orange", annotation_text="Entry")
+                            
+                            # Target horizontal zero line
+                            pl_fig.add_hline(y=0, line_width=1, line_color="white")
+                            
+                            pl_fig.update_layout(
+                                title="Theoretical Profit / Loss at Expiration",
+                                xaxis_title="Underlying Stock Price ($)",
+                                yaxis_title="Profit/Loss ($)",
+                                height=350,
+                                margin=dict(l=20, r=20, t=40, b=20)
+                            )
+                            st.plotly_chart(pl_fig, use_container_width=True)
+                            
                     else:
                         st.warning("No options data available for this ticker")
                 
@@ -227,8 +279,60 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No insider trading data available")
                 
-                # Tab 3: Short Interest
+                # Tab 3: Whale Tracking
                 with tab3:
+                    st.subheader("Major Institutional Holders")
+                    
+                    with st.spinner("Fetching institutional holdings..."):
+                        whale_data = whale_source.fetch_institutional_holders(ticker)
+                    
+                    if whale_data:
+                        breakdown = whale_data.get('major_holdings_breakdown', {})
+                        if breakdown:
+                            st.write("**Holdings Breakdown**")
+                            b_cols = st.columns(min(len(breakdown), 4))
+                            for i, (desc, val) in enumerate(breakdown.items()):
+                                col = b_cols[i % 4]
+                                # If it looks like a percentage string or float
+                                if isinstance(val, float):
+                                    if val < 2.0: # likely a raw decimal like 0.65
+                                        disp_val = f"{val:.2%}"
+                                    else:
+                                        disp_val = f"{val:,.0f}"
+                                else:
+                                    disp_val = str(val)
+                                col.metric(desc, disp_val)
+                            
+                        st.markdown("---")
+                        
+                        wcol1, wcol2 = st.columns(2)
+                        
+                        with wcol1:
+                            st.write("**Top Mutual Fund Holders**")
+                            mut_df = pd.DataFrame(whale_data.get("mutualfund_holders", []))
+                            if not mut_df.empty:
+                                st.dataframe(mut_df[['holder', 'shares', 'value', 'date_reported']].style.format({
+                                    'shares': '{:,}',
+                                    'value': '${:,.0f}'
+                                }), use_container_width=True)
+                            else:
+                                st.info("No mutual fund data available.")
+                                
+                        with wcol2:
+                            st.write("**Top Institutional Holders**")
+                            inst_df = pd.DataFrame(whale_data.get("institutional_holders", []))
+                            if not inst_df.empty:
+                                st.dataframe(inst_df[['holder', 'shares', 'value', 'date_reported']].style.format({
+                                    'shares': '{:,}',
+                                    'value': '${:,.0f}'
+                                }), use_container_width=True)
+                            else:
+                                st.info("No institutional data available.")
+                    else:
+                        st.warning("No institutional data available for this ticker.")
+                
+                # Tab 4: Short Interest
+                with tab4:
                     st.subheader("Short Interest Metrics")
                     
                     short_data = short_source.fetch_short_interest(ticker)
@@ -282,8 +386,8 @@ def render_advanced_analytics_page():
                     else:
                         st.warning("No short interest data available")
                 
-                # Tab 4: Candlestick Patterns
-                with tab4:
+                # Tab 5: Candlestick Patterns
+                with tab5:
                     if analysis.history is not None and not analysis.history.empty:
                         pattern_detector = PatternRecognition()
                         patterns = pattern_detector.get_recent_patterns(analysis.history, days=30)
@@ -324,8 +428,8 @@ def render_advanced_analytics_page():
                     else:
                         st.error("No historical data available for pattern recognition")
                 
-                # Tab 5: Valuations
-                with tab5:
+                # Tab 6: Valuations
+                with tab6:
                     st.subheader("Intrinsic Value Estimates")
                     
                     calc = ValuationCalculator()

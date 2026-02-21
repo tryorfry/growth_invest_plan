@@ -264,6 +264,7 @@ def main():
             options=[
                 "🏠 Home",
                 "🌍 Market Pulse",
+                "🔍 Screener",
                 "💼 Portfolio",
                 "🧪 Backtester",
                 "📋 Watchlist",
@@ -275,10 +276,14 @@ def main():
         
         st.divider()
     
-    # Route to pages
     if page == "🌍 Market Pulse":
         from src.pages.market_pulse import render_market_pulse_page
         render_market_pulse_page()
+        return
+
+    elif page == "🔍 Screener":
+        from src.pages.screener import render_screener_page
+        render_screener_page()
         return
 
     elif page == "💼 Portfolio":
