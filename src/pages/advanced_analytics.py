@@ -2,6 +2,8 @@
 
 import streamlit as st
 import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
 import asyncio
 from datetime import datetime
 from src.analyzer import StockAnalyzer
@@ -207,8 +209,6 @@ def render_advanced_analytics_page():
                             )
                             
                         if mc_results:
-                            import plotly.graph_objects as go
-                            import numpy as np
                             
                             mc_fig = go.Figure()
                             
@@ -296,47 +296,45 @@ def render_advanced_analytics_page():
                         ncol2.metric("Overall Bias", label)
                         ncol3.metric("Articles Analyzed", len(news_data['articles']))
                         
-                        # Use Plotly to make a sentiment bar chart
-                        import plotly.graph_objects as go
-                        import pandas as pd
+                        if news_data and 'articles' in news_data and len(news_data['articles']) > 0:
                         
-                        news_df = pd.DataFrame(news_data['articles'])
-                        # Reverse so newest is on the right
-                        news_df = news_df.iloc[::-1].reset_index(drop=True)
-                        
-                        colors = ['#00C851' if s > 0.1 else '#ff4444' if s < -0.1 else '#33b5e5' for s in news_df['sentiment_score']]
-                        
-                        fig_news = go.Figure(data=[
-                            go.Bar(
-                                x=news_df.index,
-                                y=news_df['sentiment_score'],
-                                marker_color=colors,
-                                text=news_df['sentiment_label'],
-                                hovertext=news_df['title'] + '<br>' + news_df['date'],
-                                hoverinfo="text"
+                            news_df = pd.DataFrame(news_data['articles'])
+                            # Reverse so newest is on the right
+                            news_df = news_df.iloc[::-1].reset_index(drop=True)
+                            
+                            colors = ['#00C851' if s > 0.1 else '#ff4444' if s < -0.1 else '#33b5e5' for s in news_df['sentiment_score']]
+                            
+                            fig_news = go.Figure(data=[
+                                go.Bar(
+                                    x=news_df.index,
+                                    y=news_df['sentiment_score'],
+                                    marker_color=colors,
+                                    text=news_df['sentiment_label'],
+                                    hovertext=news_df['title'] + '<br>' + news_df['date'],
+                                    hoverinfo="text"
+                                )
+                            ])
+                            
+                            fig_news.update_layout(
+                                title="Recent Headline Sentiment Scores",
+                                xaxis_title="Article Flow (Oldest to Newest)",
+                                yaxis_title="NLP Polarity (-1 to 1)",
+                                xaxis=dict(showticklabels=False), # Hide indices
+                                yaxis=dict(range=[-1.1, 1.1]),
+                                height=300,
+                                margin=dict(l=20, r=20, t=40, b=20)
                             )
-                        ])
-                        
-                        fig_news.update_layout(
-                            title="Recent Headline Sentiment Scores",
-                            xaxis_title="Article Flow (Oldest to Newest)",
-                            yaxis_title="NLP Polarity (-1 to 1)",
-                            xaxis=dict(showticklabels=False), # Hide indices
-                            yaxis=dict(range=[-1.1, 1.1]),
-                            height=300,
-                            margin=dict(l=20, r=20, t=40, b=20)
-                        )
-                        # Add a zero line
-                        fig_news.add_hline(y=0, line_width=1, line_color="white")
-                        
-                        st.plotly_chart(fig_news, use_container_width=True)
-                        
-                        st.markdown("### Latest Headlines")
-                        for idx, row in news_df.iloc[::-1].iterrows(): # Show newest first here
-                            emoji = "🟢" if row['sentiment_label'] == "Bullish" else "🔴" if row['sentiment_label'] == "Bearish" else "⚪"
-                            st.markdown(f"**{emoji} [{row['title']}]({row['link']})**")
-                            st.caption(f"{row['publisher']} • {row['date']} • Score: {row['sentiment_score']:.3f} ")
-                            st.divider()
+                            # Add a zero line
+                            fig_news.add_hline(y=0, line_width=1, line_color="white")
+                            
+                            st.plotly_chart(fig_news, use_container_width=True)
+                            
+                            st.markdown("### Latest Headlines")
+                            for idx, row in news_df.iloc[::-1].iterrows(): # Show newest first here
+                                emoji = "🟢" if row['sentiment_label'] == "Bullish" else "🔴" if row['sentiment_label'] == "Bearish" else "⚪"
+                                st.markdown(f"**{emoji} [{row['title']}]({row['link']})**")
+                                st.caption(f"{row['publisher']} • {row['date']} • Score: {row['sentiment_score']:.3f} ")
+                                st.divider()
                     else:
                         st.warning("No recent news found to analyze.")
                         
@@ -459,11 +457,7 @@ def render_advanced_analytics_page():
                             )
                             
                             st.markdown(f"**Recommended Action:** Buy 1 Call Contract at **${pl_data['suggested_strike']} Strike** expiring in ~45 Days.")
-                            st.markdown(f"**Estimated upfront cost:** ${pl_data['contract_cost']:.2f}")
-                            
                             # Chart the P/L
-                            import plotly.graph_objects as go
-                            
                             pl_fig = go.Figure()
                             # Find indices where profit > 0 to color green vs red
                             pl_fig.add_trace(go.Scatter(
