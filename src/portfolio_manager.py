@@ -60,13 +60,18 @@ class PortfolioManager:
                 holdings[ticker] = {'qty': 0.0, 'cost_basis': 0.0, 'total_spent': 0.0}
             
             if t.type == 'BUY':
-                new_qty = holdings[ticker]['qty'] + t.quantity
-                new_spent = holdings[ticker]['total_spent'] + (t.quantity * t.price) + t.fees
+                qty = float(t.quantity or 0.0)
+                price = float(t.price or 0.0)
+                fees = float(t.fees or 0.0)
+                
+                new_qty = holdings[ticker]['qty'] + qty
+                new_spent = holdings[ticker]['total_spent'] + (qty * price) + fees
                 holdings[ticker]['qty'] = new_qty
                 holdings[ticker]['total_spent'] = new_spent
                 holdings[ticker]['cost_basis'] = new_spent / new_qty if new_qty > 0 else 0
             elif t.type == 'SELL':
-                holdings[ticker]['qty'] -= t.quantity
+                qty = float(t.quantity or 0.0)
+                holdings[ticker]['qty'] -= qty
                 # Reduce total spent proportionally when selling
                 if holdings[ticker]['qty'] <= 0:
                     holdings[ticker]['qty'] = 0
@@ -98,10 +103,14 @@ class PortfolioManager:
         
         cash_balance = initial_balance
         for t in transactions:
+            qty = float(t.quantity or 0.0)
+            price = float(t.price or 0.0)
+            fees = float(t.fees or 0.0)
+            
             if t.type == 'BUY':
-                cash_balance -= (t.quantity * t.price) + t.fees
+                cash_balance -= (qty * price) + fees
             elif t.type == 'SELL':
-                cash_balance += (t.quantity * t.price) - t.fees
+                cash_balance += (qty * price) - fees
         
         df = self.get_portfolio_holdings(portfolio_id)
         
