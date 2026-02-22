@@ -22,6 +22,7 @@ from src.visualization_plotly import PlotlyChartGenerator
 from src.utils import save_analysis, render_ticker_header
 from src.auth import AuthManager
 from src.pages.login import render_login_page
+from src.theme_manager import ThemeManager
 
 
 # Page configuration
@@ -275,6 +276,30 @@ def main():
     with st.sidebar:
         st.title("📊 Stock Analyzer")
         
+        # Add personalized greeting and Theme Manager
+        st.markdown(f"**Hello, {st.session_state.get('username', 'User')}!** 👋")
+        
+        # Theme configuration
+        current_theme = st.session_state.get('theme_preference', 'dark')
+        theme_options = ['dark', 'light']
+        theme_index = theme_options.index(current_theme) if current_theme in theme_options else 0
+        
+        selected_theme = st.selectbox(
+            "🎨 UI Theme",
+            options=theme_options,
+            index=theme_index,
+            format_func=lambda x: "☀️ Light Mode" if x == 'light' else "🌙 Dark Mode"
+        )
+        
+        if selected_theme != current_theme:
+            with st.spinner("Updating theme..."):
+                with db.get_session() as session:
+                    if AuthManager.update_theme(session, st.session_state['user_id'], selected_theme):
+                        st.session_state['theme_preference'] = selected_theme
+                        st.rerun()
+
+        st.divider()
+        
         tier = st.session_state.get('user_tier', 'free')
         nav_options = [
             "🏠 Home",
@@ -305,7 +330,11 @@ def main():
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
             AuthManager.logout()
-    
+            
+    # Apply dynamic theme variables
+    ThemeManager.apply_theme()
+            
+    # Route to selected page
     if page == "🌍 Market Pulse":
         from src.pages.market_pulse import render_market_pulse_page
         render_market_pulse_page()

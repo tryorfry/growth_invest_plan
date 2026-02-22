@@ -5,6 +5,7 @@ Plotly-based chart generator for interactive visualizations
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pandas as pd
+import streamlit as st
 from typing import Optional
 from .analyzer import StockAnalysis
 
@@ -184,6 +185,10 @@ class PlotlyChartGenerator:
             row=2, col=1
         )
         
+        # Determine template
+        theme = st.session_state.get('theme_preference', 'dark')
+        template = 'plotly_white' if theme == 'light' else 'plotly_dark'
+
         # Update layout
         fig.update_layout(
             title=f'{analysis.ticker} Technical Analysis',
@@ -191,7 +196,7 @@ class PlotlyChartGenerator:
             xaxis_rangeslider_visible=False,
             height=700,
             hovermode='x unified',
-            template='plotly_white'
+            template=template
         )
         
         fig.update_yaxes(title_text="Volume", row=2, col=1)
@@ -227,12 +232,16 @@ class PlotlyChartGenerator:
         fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="Overbought (70)")
         fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="Oversold (30)")
         
+        # Determine template
+        theme = st.session_state.get('theme_preference', 'dark')
+        template = 'plotly_white' if theme == 'light' else 'plotly_dark'
+
         fig.update_layout(
             title='Relative Strength Index (RSI)',
             yaxis_title='RSI',
             xaxis_title='Date',
             height=300,
-            template='plotly_white',
+            template=template,
             yaxis=dict(range=[0, 100])
         )
         
@@ -284,12 +293,16 @@ class PlotlyChartGenerator:
         
         fig.add_hline(y=0, line_dash="dash", line_color="gray")
         
+        # Determine template
+        theme = st.session_state.get('theme_preference', 'dark')
+        template = 'plotly_white' if theme == 'light' else 'plotly_dark'
+
         fig.update_layout(
             title='MACD (Moving Average Convergence Divergence)',
             yaxis_title='MACD',
             xaxis_title='Date',
             height=300,
-            template='plotly_white'
+            template=template
         )
         
         return fig

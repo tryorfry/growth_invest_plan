@@ -17,6 +17,7 @@ class User(Base):
     email = Column(String(120), unique=True, nullable=False, index=True)
     password_hash = Column(String(128), nullable=False)
     tier = Column(String(20), default='free') # 'free', 'premium', 'admin'
+    theme_preference = Column(String(20), default='dark')
     created_at = Column(DateTime, default=datetime.utcnow)
     
     def __repr__(self):

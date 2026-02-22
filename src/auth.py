@@ -89,6 +89,8 @@ class AuthManager:
             st.session_state['username'] = None
         if 'user_tier' not in st.session_state:
             st.session_state['user_tier'] = None
+        if 'theme_preference' not in st.session_state:
+            st.session_state['theme_preference'] = 'dark'
 
     @staticmethod
     def login(user: User):
@@ -97,6 +99,7 @@ class AuthManager:
         st.session_state['user_id'] = user.id
         st.session_state['username'] = user.username
         st.session_state['user_tier'] = user.tier
+        st.session_state['theme_preference'] = getattr(user, 'theme_preference', 'dark')
 
     @staticmethod
     def logout():
@@ -105,6 +108,7 @@ class AuthManager:
         st.session_state['user_id'] = None
         st.session_state['username'] = None
         st.session_state['user_tier'] = None
+        st.session_state['theme_preference'] = 'dark'
         # Rerun to refresh the UI
         st.rerun()
 
@@ -112,3 +116,20 @@ class AuthManager:
     def is_authenticated() -> bool:
         """Check if current session is authenticated"""
         return st.session_state.get('authenticated', False)
+
+    @staticmethod
+    def update_theme(db_session: Session, user_id: int, new_theme: str) -> bool:
+        """Update a user's theme preference and sync it to the session cache"""
+        if new_theme not in ['light', 'dark']:
+            return False
+            
+        try:
+            user = db_session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.theme_preference = new_theme
+                db_session.commit()
+                st.session_state['theme_preference'] = new_theme
+                return True
+        except Exception:
+            db_session.rollback()
+        return False
