@@ -28,6 +28,26 @@ class Database:
         if self.db_url.startswith("postgres://"):
             self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
             
+        # Fix for passwords containing unencoded special characters like '@'
+        try:
+            import urllib.parse
+            if "://" in self.db_url:
+                scheme, rest = self.db_url.split("://", 1)
+                if "@" in rest:
+                    # Find the LAST '@' which should be the boundary before the host
+                    parts = rest.rsplit("@", 1)
+                    creds = parts[0]
+                    host_port_db = parts[1]
+                    
+                    if ":" in creds:
+                        user, pwd = creds.split(":", 1)
+                        # Ensure the password is URL encoded
+                        pwd = urllib.parse.unquote(pwd) # Unquote first to prevent double-encoding
+                        encoded_pwd = urllib.parse.quote(pwd)
+                        self.db_url = f"{scheme}://{user}:{encoded_pwd}@{host_port_db}"
+        except Exception as e:
+            print(f"URL parsing warning: {e}")
+            
         self.engine = create_engine(self.db_url, echo=False)
         self.SessionLocal = sessionmaker(bind=self.engine)
         
