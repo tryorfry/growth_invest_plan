@@ -94,7 +94,7 @@ class PortfolioManager:
         
         # Get portfolio config
         portfolio = self.session.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
-        initial_balance = portfolio.initial_balance if portfolio else 0.0
+        initial_balance = float(portfolio.initial_balance or 0.0) if portfolio else 0.0
         
         # Calculate cash available from all transactions
         transactions = self.session.query(Transaction).filter(
