@@ -159,16 +159,26 @@ def render_portfolio_tracker_page():
                         current_nlv = perf.get('nlv', selected_portfolio.initial_balance)
                         
                         allowed_risk = current_nlv * 0.01 # 1% account risk
-                        suggested_shares = math.floor(allowed_risk / risk_per_share) if risk_per_share > 0 else 0
+                        suggested_shares_by_risk = math.floor(allowed_risk / risk_per_share) if risk_per_share > 0 else 0
+                        
+                        # Cap position size at 5% of total NLV
+                        max_capital_allowed = current_nlv * 0.05
+                        suggested_shares_by_cap = math.floor(max_capital_allowed / planned_entry) if planned_entry > 0 else 0
+                        
+                        # Take the safer (smaller) of the two constraints
+                        suggested_shares = min(suggested_shares_by_risk, suggested_shares_by_cap)
                         total_capital_required = suggested_shares * planned_entry
                         
-                        st.info(f"**Current NLV:** ${current_nlv:,.2f} | **1% Max Risk:** ${allowed_risk:,.2f}")
+                        st.info(f"**Current NLV:** ${current_nlv:,.2f} | **1% Max Risk:** ${allowed_risk:,.2f} | **5% Max Capital:** ${max_capital_allowed:,.2f}")
                         
                         m1, m2, m3 = st.columns(3)
                         m1.metric("Risk Per Share", f"${risk_per_share:.2f}")
                         m2.metric("Recommended Shares", f"{suggested_shares}")
                         m3.metric("Capital Required", f"${total_capital_required:,.2f}")
                         
+                        if suggested_shares_by_risk > suggested_shares_by_cap:
+                            st.warning(f"⚠️ Sizing artificially constrained. Although 1% risk allows {suggested_shares_by_risk} shares, the 5% maximum portfolio capital rule caps you at {suggested_shares_by_cap} shares.")
+                            
                         if total_capital_required > perf.get('cash_balance', 0):
                             st.warning(f"⚠️ Warning: This trade requires ${total_capital_required:,.2f}, but you only have ${perf.get('cash_balance', 0):,.2f} in Available Cash.")
                             
