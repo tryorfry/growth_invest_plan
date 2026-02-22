@@ -35,45 +35,50 @@ class ThemeManager:
         # We target Streamlit's core CSS variables exposed to the root
         css = f"""
         <style>
-            :root {{
-                --primary-color: {colors['accent']};
+            /* Override CSS Variables globally */
+            :root, .stApp, [data-testid="stAppViewContainer"], [data-testid="stSidebar"] {{
+                --text-color: {colors['text_primary']};
                 --background-color: {colors['bg_primary']};
                 --secondary-background-color: {colors['bg_secondary']};
-                --text-color: {colors['text_primary']};
-                --font: "Source Sans Pro", sans-serif;
+                --primary-color: {colors['accent']};
             }}
             
-            /* Force exact background colors on standard app containers */
-            .stApp {{
+            /* Apply specific background colors */
+            .stApp, [data-testid="stAppViewContainer"] {{
                 background-color: {colors['bg_primary']} !important;
-                color: {colors['text_primary']} !important;
             }}
             
-            .css-1d391kg, [data-testid="stSidebar"] {{
+            [data-testid="stHeader"] {{
+                background-color: transparent !important;
+            }}
+            
+            [data-testid="stSidebar"] {{
                 background-color: {colors['sidebar_bg']} !important;
             }}
             
-            /* Metric text handling */
-            [data-testid="stMetricValue"] {{
+            /* Typography overrides for Dark Mode unreadability */
+            .stApp, [data-testid="stSidebar"] {{
+                color: {colors['text_primary']} !important;
+            }}
+            
+            /* Safely target readable text without breaking dynamic metric colors */
+            .stMarkdown, .stMarkdown p, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown li,
+            .stText, .stCheckbox label, .stRadio label, .stSelectbox label, .stMultiSelect label, label,
+            [data-testid="stMetricLabel"] {{
                 color: {colors['text_primary']} !important;
             }}
             
             /* Tabs styling */
-            [data-baseweb="tab"] {{
+            [data-baseweb="tab"] p {{
                 color: {colors['text_secondary']} !important;
             }}
-            [data-baseweb="tab"][aria-selected="true"] {{
+            [data-baseweb="tab"][aria-selected="true"] p {{
                 color: {colors['accent']} !important;
             }}
             
             /* Dataframes and tables */
-            .stDataFrame {{
+            [data-testid="stDataFrame"], .stDataFrame {{
                 background-color: {colors['bg_secondary']} !important;
-            }}
-            
-            /* Headers */
-            h1, h2, h3, h4, h5, h6 {{
-                color: {colors['text_primary']} !important;
             }}
         </style>
         """
