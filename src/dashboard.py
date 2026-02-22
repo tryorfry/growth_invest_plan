@@ -271,6 +271,9 @@ def main():
     if not AuthManager.is_authenticated():
         render_login_page()
         return
+        
+    # Hook the global theme config early to prevent UI flickering and double-renders
+    ThemeManager.apply_theme()
     
     # Sidebar navigation
     with st.sidebar:
@@ -330,9 +333,6 @@ def main():
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
             AuthManager.logout()
-            
-    # Apply dynamic theme variables
-    ThemeManager.apply_theme()
             
     # Route to selected page
     if page == "🌍 Market Pulse":
