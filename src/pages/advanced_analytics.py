@@ -129,43 +129,49 @@ def render_advanced_analytics_page():
                     st.caption("Powered by Google Gemini")
                 
                 with col_ai2:
-                    if st.button("✨ Generate AI Thesis", use_container_width=True):
-                        with st.spinner("Synthesizing market data..."):
-                            ai = AIAnalyzer()
-                            
-                            # Construct unified data payload from existing analysis objects
-                            payload = {
-                                "current_price": analysis.current_price,
-                                "trend": "Bullish" if analysis.current_price > getattr(analysis, 'sma_50', 0) else "Bearish",
-                                "support": getattr(analysis, 'support_level', "N/A"),
-                                "resistance": getattr(analysis, 'resistance_level', "N/A")
-                            }
-                            
-                            # Safely attempt to pull extended metrics if available
-                            try:
-                                opt_data = asyncio.run(options_source.fetch_data(ticker))
-                                if opt_data and 'max_pain' in opt_data:
-                                    payload['hvn'] = opt_data['max_pain']
-                            except Exception:
-                                pass
+                    user_tier = st.session_state.get('tier', 'free')
+                    
+                    if user_tier == 'free':
+                        st.button("✨ Generate AI Thesis", use_container_width=True, disabled=True, help="Upgrade to Premium to unlock AI insights")
+                        st.caption("🔒 Premium Feature")
+                    else:
+                        if st.button("✨ Generate AI Thesis", use_container_width=True):
+                            with st.spinner("Synthesizing market data..."):
+                                ai = AIAnalyzer()
                                 
-                            try:
-                                sent_data = news_source.get_sentiment(ticker)
-                                if sent_data:
-                                    payload['sentiment'] = sent_data
-                            except Exception:
-                                pass
+                                # Construct unified data payload from existing analysis objects
+                                payload = {
+                                    "current_price": analysis.current_price,
+                                    "trend": "Bullish" if analysis.current_price > getattr(analysis, 'sma_50', 0) else "Bearish",
+                                    "support": getattr(analysis, 'support_level', "N/A"),
+                                    "resistance": getattr(analysis, 'resistance_level', "N/A")
+                                }
                                 
-                            try:
-                                earn_data = asyncio.run(earn_source.fetch_data(ticker))
-                                if earn_data and not earn_data.empty:
-                                    payload['earnings'] = {'drift_direction': earn_data.iloc[0].get('drift_direction', 'Unknown')}
-                            except Exception:
-                                pass
+                                # Safely attempt to pull extended metrics if available
+                                try:
+                                    opt_data = asyncio.run(options_source.fetch_data(ticker))
+                                    if opt_data and 'max_pain' in opt_data:
+                                        payload['hvn'] = opt_data['max_pain']
+                                except Exception:
+                                    pass
+                                    
+                                try:
+                                    sent_data = news_source.get_sentiment(ticker)
+                                    if sent_data:
+                                        payload['sentiment'] = sent_data
+                                except Exception:
+                                    pass
+                                    
+                                try:
+                                    earn_data = asyncio.run(earn_source.fetch_data(ticker))
+                                    if earn_data and not earn_data.empty:
+                                        payload['earnings'] = {'drift_direction': earn_data.iloc[0].get('drift_direction', 'Unknown')}
+                                except Exception:
+                                    pass
+                                    
+                                thesis = ai.generate_thesis(ticker, payload)
                                 
-                            thesis = ai.generate_thesis(ticker, payload)
-                            
-                            st.info(thesis)
+                                st.info(thesis)
                 st.markdown("---")
                 # ----------------------------------
                 
