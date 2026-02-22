@@ -70,6 +70,9 @@ class Database:
         inspector = inspect(self.engine)
         
         new_cols = [
+            # Portfolio setup
+            ("portfolios", "initial_balance", "FLOAT"),
+            
             # Stock updates
             ("stocks", "sector", "VARCHAR(100)"),
             
@@ -119,10 +122,19 @@ class Database:
         # We need to check columns for both 'stocks' and 'analyses'
         existing_cols_analyses = {col['name'] for col in inspector.get_columns('analyses')}
         existing_cols_stocks = {col['name'] for col in inspector.get_columns('stocks')}
+        existing_cols_portfolios = {col['name'] for col in inspector.get_columns('portfolios')}
         
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
-                existing = existing_cols_stocks if table == 'stocks' else existing_cols_analyses
+                if table == 'stocks':
+                    existing = existing_cols_stocks
+                elif table == 'analyses':
+                    existing = existing_cols_analyses
+                elif table == 'portfolios':
+                    existing = existing_cols_portfolios
+                else:
+                    existing = set()
+                    
                 if col not in existing:
                     try:
                         # Normalize type for Postgres if needed (e.g., DATETIME -> TIMESTAMP)

@@ -13,9 +13,9 @@ class PortfolioManager:
         self.session = session
         self.user_id = user_id
 
-    def create_portfolio(self, name: str, description: str = "") -> Portfolio:
+    def create_portfolio(self, name: str, description: str = "", initial_balance: float = 0.0) -> Portfolio:
         """Create a new portfolio"""
-        portfolio = Portfolio(name=name, description=description, user_id=self.user_id)
+        portfolio = Portfolio(name=name, description=description, initial_balance=initial_balance, user_id=self.user_id)
         self.session.add(portfolio)
         self.session.commit()
         return portfolio
@@ -67,11 +67,14 @@ class PortfolioManager:
                 holdings[ticker]['cost_basis'] = new_spent / new_qty if new_qty > 0 else 0
             elif t.type == 'SELL':
                 holdings[ticker]['qty'] -= t.quantity
-                # For simplicity, we don't adjust cost basis on sell, just reduce quantity
+                # Reduce total spent proportionally when selling
                 if holdings[ticker]['qty'] <= 0:
                     holdings[ticker]['qty'] = 0
                     holdings[ticker]['total_spent'] = 0
                     holdings[ticker]['cost_basis'] = 0
+                else:
+                    # Maintain the same cost basis per share, just reduce total spent
+                    holdings[ticker]['total_spent'] = holdings[ticker]['cost_basis'] * holdings[ticker]['qty']
                     
         # Filter out empty holdings
         active_holdings = {k: v for k, v in holdings.items() if v['qty'] > 0}
@@ -82,26 +85,72 @@ class PortfolioManager:
         return pd.DataFrame.from_dict(active_holdings, orient='index').reset_index().rename(columns={'index': 'Ticker'})
 
     def get_portfolio_performance(self, portfolio_id: int, current_prices: Dict[str, float]) -> Dict[str, Any]:
-        """Calculate total portfolio performance metrics"""
+        """Calculate total portfolio performance metrics and available cash"""
+        
+        # Get portfolio config
+        portfolio = self.session.query(Portfolio).filter(Portfolio.id == portfolio_id).first()
+        initial_balance = portfolio.initial_balance if portfolio else 0.0
+        
+        # Calculate cash available from all transactions
+        transactions = self.session.query(Transaction).filter(
+            Transaction.portfolio_id == portfolio_id
+        ).all()
+        
+        cash_balance = initial_balance
+        for t in transactions:
+            if t.type == 'BUY':
+                cash_balance -= (t.quantity * t.price) + t.fees
+            elif t.type == 'SELL':
+                cash_balance += (t.quantity * t.price) - t.fees
+        
         df = self.get_portfolio_holdings(portfolio_id)
+        
         if df.empty:
-            return {'total_value': 0.0, 'total_cost': 0.0, 'total_pl': 0.0, 'total_pl_pct': 0.0}
+            return {
+                'total_value': 0.0, 
+                'total_cost': 0.0, 
+                'total_pl': 0.0, 
+                'total_pl_pct': 0.0, 
+                'cash_balance': cash_balance,
+                'nlv': cash_balance
+            }
             
-        total_value = 0.0
+        total_market_value = 0.0
         total_cost = 0.0
+        
+        # Sector allocation tracking
+        sectors = {}
         
         for _, row in df.iterrows():
             ticker = row['Ticker']
-            current_price = current_prices.get(ticker, 0.0)
-            total_value += row['qty'] * current_price
-            total_cost += row['total_spent']
+            current_price = float(current_prices.get(ticker, 0.0))
+            position_value = float(row['qty']) * current_price
+            total_market_value += position_value
+            total_cost += float(row['total_spent'])
             
-        total_pl = total_value - total_cost
+            # Fetch Sector
+            stock = self.session.query(Stock).filter(Stock.ticker == ticker).first()
+            sector_name = stock.sector if stock and stock.sector else "Unknown"
+            if sector_name not in sectors:
+                sectors[sector_name] = 0.0
+            sectors[sector_name] += position_value
+            
+        total_pl = total_market_value - total_cost
         total_pl_pct = (total_pl / total_cost * 100) if total_cost > 0 else 0
+        nlv = cash_balance + total_market_value
+        
+        # Calculate Sector Percentages
+        sector_allocation = {}
+        if total_market_value > 0:
+            for s_name, value in sectors.items():
+                sector_allocation[s_name] = (value / total_market_value) * 100
         
         return {
-            'total_value': total_value,
+            'total_value': total_market_value,
             'total_cost': total_cost,
             'total_pl': total_pl,
-            'total_pl_pct': total_pl_pct
+            'total_pl_pct': total_pl_pct,
+            'cash_balance': cash_balance,
+            'nlv': nlv,
+            'sector_allocation': sector_allocation
         }

@@ -38,6 +38,7 @@ def render_portfolio_tracker_page():
             if not portfolios:
                 st.info("You haven't created any portfolios yet. Create your first one to start tracking!")
                 portfolio_name = st.text_input("New Portfolio Name", placeholder="e.g. Long Term Growth")
+                initial_nlv = st.number_input("Initial Deposit / Starting NLV ($)", min_value=1.0, value=10000.0, step=100.0)
                 if st.button("Create Portfolio"):
                     # Enforce Free Tier Limits for portfolios
                     tier = st.session_state.get('user_tier', 'free')
@@ -45,7 +46,7 @@ def render_portfolio_tracker_page():
                         st.error("Free tier is limited to 1 portfolio. Please upgrade to Premium to unlock unlimited portfolios.")
                         st.stop()
                     
-                    pm.create_portfolio(portfolio_name)
+                    pm.create_portfolio(portfolio_name, initial_balance=initial_nlv)
                     st.rerun()
             else:
                 selected_portfolio = st.selectbox(
@@ -63,8 +64,9 @@ def render_portfolio_tracker_page():
                     with st.form("new_portfolio_form"):
                         new_name = st.text_input("Portfolio Name")
                         new_desc = st.text_area("Description")
+                        initial_nlv = st.number_input("Initial Deposit / Starting NLV ($)", min_value=1.0, value=10000.0, step=100.0)
                         if st.form_submit_button("Save"):
-                            pm.create_portfolio(new_name, new_desc)
+                            pm.create_portfolio(new_name, new_desc, initial_balance=initial_nlv)
                             st.session_state['show_new_portfolio'] = False
                             st.rerun()
 
@@ -97,6 +99,90 @@ def render_portfolio_tracker_page():
                     st.success(f"Added {trans_type} for {ticker}")
                     st.rerun()
 
+        # Premium Position Sizing Calculator
+        import math
+        from src.utils_tickers import render_hybrid_ticker_input
+        from src.analyzer import StockAnalyzer
+        import asyncio
+        
+        st.divider()
+        tier = st.session_state.get('user_tier', 'free')
+        is_premium = tier in ['premium', 'admin']
+        
+        with st.expander("🛡️ Risk & Position Sizing Calculator (Premium)"):
+            if not is_premium:
+                st.warning("👑 This is a Premium feature. Upgrade your account to unlock advanced risk management & portfolio sizing.")
+            else:
+                st.markdown("Calculate exactly how many shares to buy to keep your risk under 1% of your NLV.")
+                colA, colB = st.columns(2)
+                with colA:
+                    sizer_ticker = render_hybrid_ticker_input(key_prefix="sizer")
+                
+                with colB:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.button("Fetch Advanced Analytics Data"):
+                        with st.spinner("Fetching data..."):
+                            analyzer = StockAnalyzer()
+                            analysis = asyncio.run(analyzer.analyze(sizer_ticker))
+                            if analysis:
+                                st.session_state[f'sizer_entry_{sizer_ticker}'] = analysis.suggested_entry
+                                st.session_state[f'sizer_stop_{sizer_ticker}'] = analysis.suggested_stop_loss
+                                st.success("Auto-filled from technical support levels!")
+                            else:
+                                st.error("Failed to fetch analysis.")
+                
+                s_col1, s_col2 = st.columns(2)
+                with s_col1:
+                    default_entry = st.session_state.get(f'sizer_entry_{sizer_ticker}', 0.0)
+                    planned_entry = st.number_input("Planned Entry Price", min_value=0.01, value=float(default_entry) if default_entry else 100.0, step=0.1)
+                with s_col2:
+                    default_stop = st.session_state.get(f'sizer_stop_{sizer_ticker}', 0.0)
+                    planned_stop = st.number_input("Planned Stop Loss", min_value=0.01, value=float(default_stop) if default_stop else 90.0, step=0.1)
+
+                if planned_entry > planned_stop:
+                    risk_per_share = planned_entry - planned_stop
+                    
+                    # Calculate NLV dynamically if possible, or fallback to the manager 
+                    # Wait, we need the performance dict for NLV. Let's fetch it here.
+                    with st.spinner("Calculating NLV..."):
+                        current_prices = {}
+                        holdings_for_nlv = pm.get_portfolio_holdings(selected_portfolio.id)
+                        if not holdings_for_nlv.empty:
+                            for idx, row in holdings_for_nlv.iterrows():
+                                try:
+                                    t = yf.Ticker(row['Ticker'])
+                                    current_prices[row['Ticker']] = t.fast_info['lastPrice']
+                                except:
+                                    current_prices[row['Ticker']] = 0.0
+                                
+                        perf = pm.get_portfolio_performance(selected_portfolio.id, current_prices)
+                        current_nlv = perf.get('nlv', selected_portfolio.initial_balance)
+                        
+                        allowed_risk = current_nlv * 0.01 # 1% account risk
+                        suggested_shares = math.floor(allowed_risk / risk_per_share) if risk_per_share > 0 else 0
+                        total_capital_required = suggested_shares * planned_entry
+                        
+                        st.info(f"**Current NLV:** ${current_nlv:,.2f} | **1% Max Risk:** ${allowed_risk:,.2f}")
+                        
+                        m1, m2, m3 = st.columns(3)
+                        m1.metric("Risk Per Share", f"${risk_per_share:.2f}")
+                        m2.metric("Recommended Shares", f"{suggested_shares}")
+                        m3.metric("Capital Required", f"${total_capital_required:,.2f}")
+                        
+                        if total_capital_required > perf.get('cash_balance', 0):
+                            st.warning(f"⚠️ Warning: This trade requires ${total_capital_required:,.2f}, but you only have ${perf.get('cash_balance', 0):,.2f} in Available Cash.")
+                            
+                        # Sector Concentration Check
+                        sector_alloc = perf.get('sector_allocation', {})
+                        if stock_obj := db.get_or_create_stock(session, sizer_ticker):
+                            target_sector = stock_obj.sector
+                            if target_sector and target_sector in sector_alloc:
+                                current_exposure = sector_alloc[target_sector]
+                                if current_exposure > 25.0: # Arbitrary warning threshold
+                                    st.warning(f"⚠️ Sector Warning: You already have {current_exposure:.1f}% of your portfolio exposed to {target_sector}.")
+                else:
+                    st.error("Stop Loss must be below Entry Price for a long position.")
+
         # 3. View Holdings
         st.subheader(f"📊 {selected_portfolio.name} Holdings")
         holdings_df = pm.get_portfolio_holdings(selected_portfolio.id)
@@ -118,10 +204,11 @@ def render_portfolio_tracker_page():
         performance = pm.get_portfolio_performance(selected_portfolio.id, current_prices)
         
         # Summary Row
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Value", f"${performance['total_value']:,.2f}")
-        col2.metric("Total Cost", f"${performance['total_cost']:,.2f}")
-        col3.metric("Total P/L", f"${performance['total_pl']:,.2f}", f"{performance['total_pl_pct']:.2f}%")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Net Liquidation Value", f"${performance.get('nlv', 0):,.2f}")
+        m2.metric("Available Cash", f"${performance.get('cash_balance', 0):,.2f}")
+        m3.metric("Total Invested", f"${performance.get('total_value', 0):,.2f}")
+        m4.metric("Total P/L", f"${performance.get('total_pl', 0):,.2f}", f"{performance.get('total_pl_pct', 0):.2f}%")
         
         # Detailed Table
         st.divider()

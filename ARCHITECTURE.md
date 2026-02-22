@@ -17,6 +17,7 @@ graph TD
             StreamlitApp --> AuthGate{AuthManager <br/> Session State}
             AuthGate -->|Unauthenticated| LoginPage[Login / Signup UI]
             AuthGate -->|Authenticated| Dashboard[Full Dashboard UI]
+            AuthGate -->|Authenticated| SubPages[Portfolio / Watchlist UI]
         end
 
         %% Internal Python Modules
@@ -24,6 +25,8 @@ graph TD
             Dashboard --> Analyzer[StockAnalyzer Engine]
             Dashboard --> Scheduler[Background Scheduler Thread]
             Scheduler --> AlertsEngine[Alerts Processing Engine]
+            SubPages --> PortfolioManager[Portfolio Manager]
+            PortfolioManager --> PositionSizer[Position Sizer & Risk Math]
         end
 
         %% Data Sources Layer
@@ -58,3 +61,4 @@ graph TD
 3. **External Data Extraction:** A highly extensible scraper implementation (`DataSource` abstract class) fetches data from Yahoo Finance, Finviz, and MarketBeat cleanly.
 4. **Quantitative Models:** The system runs mathematical models locally using `numpy` and `pandas` (such as the Monte Carlo simulation and 1D price clustering algorithms for support/resistance).
 5. **Database Persistence:** Everything relies on a consolidated local SQLAlchemy database (`stock_analysis.db`), preserving user privacy and circumventing expensive structured API subscription costs.
+6. **Risk Management:** The new `PortfolioManager` tracks Available Cash properly and dynamically calculates Net Liquidation Value (NLV), while the `PositionSizer` enforces 1% trade risk metrics across the portfolio.

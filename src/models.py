@@ -235,6 +235,7 @@ class Portfolio(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, default=1)
     name = Column(String(100), nullable=False)
     description = Column(Text)
+    initial_balance = Column(Float, default=0.0)
     currency = Column(String(10), default="USD")
     created_at = Column(DateTime, default=datetime.utcnow)
     
