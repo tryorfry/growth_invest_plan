@@ -293,6 +293,9 @@ def main():
                 "🔬 Advanced Analytics"
             ])
             
+        if tier == 'admin':
+            nav_options.append("🛡️ Admin Dashboard")
+            
         page = st.radio("Navigation", options=nav_options)
         
         # Upsell for free users
@@ -337,7 +340,16 @@ def main():
         from src.pages.advanced_analytics import render_advanced_analytics_page
         render_advanced_analytics_page()
         return
-    
+        
+    elif page == "🛡️ Admin Dashboard":
+        from src.pages.admin_dashboard import show_admin_dashboard
+        # The admin dashboard signature needs db and session.
+        # Let's initialize a session specifically for it or modify the function signature.
+        from src.database import Database
+        db = Database()
+        with db.get_session() as session:
+            show_admin_dashboard(db, session)
+        return
     elif page == "📈 Comparison":
         from src.pages.comparison import render_comparison_page
         render_comparison_page()
