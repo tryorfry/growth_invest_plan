@@ -21,6 +21,15 @@ class Database:
         # Prioritize environment variable for Cloud deployment (Supabase/Postgres)
         self.db_url = os.getenv("DATABASE_URL")
         
+        # Get from Streamlit Secrets natively first, fallback to os env
+        # This completely bypasses environment variable caching issues
+        try:
+            import streamlit as st
+            if "DATABASE_URL" in st.secrets:
+                self.db_url = st.secrets["DATABASE_URL"]
+        except Exception:
+            pass
+
         if not self.db_url:
             self.db_url = f'sqlite:///{db_path}'
         
@@ -28,27 +37,40 @@ class Database:
         if self.db_url.startswith("postgres://"):
             self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
             
-        # Fix for passwords containing unencoded special characters like '@'
+        # Parse safely natively using SQL Alchemy to avoid url encoding conflicts
+        from sqlalchemy.engine.url import make_url
         try:
-            import urllib.parse
-            if "://" in self.db_url:
-                scheme, rest = self.db_url.split("://", 1)
-                if "@" in rest:
-                    # Find the LAST '@' which should be the boundary before the host
-                    parts = rest.rsplit("@", 1)
-                    creds = parts[0]
-                    host_port_db = parts[1]
+            # If the user put raw '@' symbols in the password without encoding them, 
+            # we need to manually extract the components so SQLAlchemy doesn't misparse the host
+            raw_url = self.db_url
+            if "://" in raw_url and "@" in raw_url:
+                scheme_end = raw_url.find("://") + 3
+                scheme = raw_url[:scheme_end]
+                rest = raw_url[scheme_end:]
+                
+                # The actual host block starts after the LAST @ symbol
+                last_at = rest.rfind("@")
+                if last_at != -1:
+                    creds = rest[:last_at]
+                    host_block = rest[last_at+1:]
                     
                     if ":" in creds:
                         user, pwd = creds.split(":", 1)
-                        # Ensure the password is URL encoded
-                        pwd = urllib.parse.unquote(pwd) # Unquote first to prevent double-encoding
-                        encoded_pwd = urllib.parse.quote(pwd)
-                        self.db_url = f"{scheme}://{user}:{encoded_pwd}@{host_port_db}"
+                        # We have the raw password!
+                        # Now build the SQL alchemy URL object directly
+                        parsed_url = make_url(f"{scheme}{host_block}")
+                        parsed_url = parsed_url.set(username=user, password=pwd)
+                        self.db_url = parsed_url.render_as_string(hide_password=False)
+                        print(f"Successfully rebuilt SQLAlchemy URL natively. Host: {parsed_url.host}")
         except Exception as e:
-            print(f"URL parsing warning: {e}")
+            print(f"WARNING: Native URL builder failed: {e}")
+
+        # Adding connect_args to prevent connection timeouts on Supabase pooled connections
+        connect_args = {}
+        if self.db_url.startswith("postgresql"):
+            connect_args = {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 5}
             
-        self.engine = create_engine(self.db_url, echo=False)
+        self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args)
         self.SessionLocal = sessionmaker(bind=self.engine)
         
     def init_db(self):
