@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, Index
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, ForeignKey, Text, Index
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -98,7 +98,7 @@ class Analysis(Base):
     free_cash_flow = Column(Float)
     total_debt = Column(Float)
     total_cash = Column(Float)
-    shares_outstanding = Column(Integer)
+    shares_outstanding = Column(BigInteger)
     earnings_growth = Column(Float)
     
     # Sentiment

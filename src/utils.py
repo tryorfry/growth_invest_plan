@@ -13,44 +13,44 @@ def save_analysis(db: Database, analysis: StockAnalysis):
         # Get or create stock
         stock = db.get_or_create_stock(session, analysis.ticker)
         
-        # Create analysis record
+        # Create analysis record with safe float casting for numpy compatibility
         analysis_record = Analysis(
             stock_id=stock.id,
             timestamp=analysis.timestamp,
             analysis_timestamp=analysis.analysis_timestamp,
-            current_price=analysis.current_price,
-            open_price=analysis.open,
-            high=analysis.high,
-            low=analysis.low,
-            close=analysis.close,
-            atr=analysis.atr,
-            ema20=analysis.ema20,
-            ema50=analysis.ema50,
-            ema200=analysis.ema200,
-            rsi=analysis.rsi,
-            macd=analysis.macd,
-            macd_signal=analysis.macd_signal,
-            bollinger_upper=analysis.bollinger_upper,
-            bollinger_lower=analysis.bollinger_lower,
+            current_price=_safe_float(analysis.current_price),
+            open_price=_safe_float(analysis.open),
+            high=_safe_float(analysis.high),
+            low=_safe_float(analysis.low),
+            close=_safe_float(analysis.close),
+            atr=_safe_float(analysis.atr),
+            ema20=_safe_float(analysis.ema20),
+            ema50=_safe_float(analysis.ema50),
+            ema200=_safe_float(analysis.ema200),
+            rsi=_safe_float(analysis.rsi),
+            macd=_safe_float(analysis.macd),
+            macd_signal=_safe_float(analysis.macd_signal),
+            bollinger_upper=_safe_float(analysis.bollinger_upper),
+            bollinger_lower=_safe_float(analysis.bollinger_lower),
             last_earnings_date=analysis.last_earnings_date,
             next_earnings_date=analysis.next_earnings_date,
             days_until_earnings=analysis.days_until_earnings,
-            revenue=analysis.revenue,
-            operating_income=analysis.operating_income,
-            basic_eps=analysis.basic_eps,
-            median_price_target=analysis.median_price_target,
+            revenue=_safe_float(analysis.revenue),
+            operating_income=_safe_float(analysis.operating_income),
+            basic_eps=_safe_float(analysis.basic_eps),
+            median_price_target=_safe_float(analysis.median_price_target),
             analyst_source=analysis.analyst_source,
-            book_value=analysis.book_value,
-            free_cash_flow=analysis.free_cash_flow,
-            total_debt=analysis.total_debt,
-            total_cash=analysis.total_cash,
+            book_value=_safe_float(analysis.book_value),
+            free_cash_flow=_safe_float(analysis.free_cash_flow),
+            total_debt=_safe_float(analysis.total_debt),
+            total_cash=_safe_float(analysis.total_cash),
             shares_outstanding=analysis.shares_outstanding,
-            earnings_growth=analysis.earnings_growth,
-            news_sentiment=analysis.news_sentiment,
+            earnings_growth=_safe_float(analysis.earnings_growth),
+            news_sentiment=_safe_float(analysis.news_sentiment),
             news_summary=analysis.news_summary
         )
         
-        # Add Finviz data
+        # Add Finviz data (already using _safe_float)
         if analysis.finviz_data:
             analysis_record.market_cap = analysis.finviz_data.get("Market Cap")
             analysis_record.pe_ratio = _safe_float(analysis.finviz_data.get("P/E"))
