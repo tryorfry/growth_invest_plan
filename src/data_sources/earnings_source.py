@@ -2,12 +2,14 @@
 
 import yfinance as yf
 import pandas as pd
+import streamlit as st
 from typing import Dict, Any, List
 
 class EarningsSource:
     """Analyzes historical stock performance following earnings reports"""
     
-    def fetch_earnings_drift(self, ticker: str, limit: int = 12) -> Dict[str, Any]:
+    @st.cache_data(ttl=3600)
+    def fetch_earnings_drift(_self, ticker: str, limit: int = 12) -> Dict[str, Any]:
         """
         Fetches historical earnings dates and calculates the T+1 and T+14 day returns.
         

@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import NullPool
 from .models import Base
 
 
@@ -36,56 +37,6 @@ class Database:
         # SQLAlchemy 1.4+ requires 'postgresql://' instead of 'postgres://'
         if self.db_url.startswith("postgres://"):
             self.db_url = self.db_url.replace("postgres://", "postgresql://", 1)
-            
-        # Parse safely natively using SQL Alchemy to avoid url encoding conflicts
-        from sqlalchemy.engine.url import URL
-        try:
-            # If the user put raw '@' symbols in the password without encoding them, 
-            # we need to manually extract the components so SQLAlchemy doesn't misparse the host
-            raw_url = self.db_url
-            if "://" in raw_url and "@" in raw_url:
-                scheme_end = raw_url.find("://") + 3
-                scheme = raw_url[:scheme_end - 3]
-                rest = raw_url[scheme_end:]
-                
-                # The actual host block starts after the LAST @ symbol
-                last_at = rest.rfind("@")
-                if last_at != -1:
-                    creds = rest[:last_at]
-                    host_block = rest[last_at+1:]
-                    
-                    # Parse host block
-                    port = None
-                    db = None
-                    if "/" in host_block:
-                        host_port, db = host_block.split("/", 1)
-                    else:
-                        host_port = host_block
-                        
-                    if ":" in host_port:
-                        host, port_str = host_port.split(":", 1)
-                        if port_str.isdigit():
-                            port = int(port_str)
-                    else:
-                        host = host_port
-
-                    if ":" in creds:
-                        user, pwd = creds.split(":", 1)
-                        # We have all components separated safely!
-                        # Now build the SQL alchemy URL object natively via dictionary
-                        import urllib.parse
-                        pwd_unquoted = urllib.parse.unquote(pwd)
-                        self.db_url = URL.create(
-                            drivername=scheme,
-                            username=user,
-                            password=pwd_unquoted,
-                            host=host,
-                            port=port,
-                            database=db
-                        )
-                        print(f"Successfully constructed URL via dictionary for host: {host}")
-        except Exception as e:
-            print(f"WARNING: Native URL builder failed: {e}")
 
         # Adding connect_args to prevent connection timeouts on Supabase pooled connections
         connect_args = {}
@@ -104,8 +55,10 @@ class Database:
                 "keepalives_count": 5,
                 "sslmode": "require"
             }
+            self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args, poolclass=NullPool)
+        else:
+            self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args)
             
-        self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args)
         self.SessionLocal = sessionmaker(bind=self.engine)
         
     def init_db(self):

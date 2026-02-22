@@ -4,6 +4,7 @@ import yfinance as yf
 from textblob import TextBlob
 import pandas as pd
 import asyncio
+import streamlit as st
 from typing import List, Dict, Any
 
 class NewsSentimentSource:
@@ -18,7 +19,8 @@ class NewsSentimentSource:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.fetch_and_analyze_news, ticker)
         
-    def fetch_and_analyze_news(self, ticker: str, max_articles: int = 20) -> Dict[str, Any]:
+    @st.cache_data(ttl=3600)
+    def fetch_and_analyze_news(_self, ticker: str, max_articles: int = 20) -> Dict[str, Any]:
         """
         Fetches recent news from Yahoo Finance and scores the headline sentiment.
         

@@ -274,6 +274,7 @@ def main():
         
     # Hook the global theme config early to prevent UI flickering and double-renders
     ThemeManager.apply_theme()
+    ThemeManager.inject_custom_css()
     
     # Sidebar navigation
     with st.sidebar:
@@ -406,8 +407,11 @@ def main():
         else:
             default_ticker = "AAPL"
             
-        ticker = st.text_input("Stock Ticker", value=default_ticker, max_chars=10).upper()
-        
+        from src.utils_tickers import render_hybrid_ticker_input
+        ticker = render_hybrid_ticker_input(key_prefix="main_dash")
+        if not ticker:
+            ticker = default_ticker
+            
         analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True)
         
         st.divider()
@@ -480,6 +484,32 @@ def main():
                     # Show Investment Checklist
                     render_checklist(analysis)
                     
+                    # AI-Powered Trade Thesis
+                    st.divider()
+                    st.subheader("🤖 AI Investment Thesis")
+                    from src.ai_analyzer import AIAnalyzer
+                    
+                    # Create data payload for the prompt from the analysis object
+                    ai_payload = {
+                        "current_price": analysis.current_price,
+                        "trend": getattr(analysis, 'market_trend', 'Unknown'),
+                        "support": getattr(analysis, 'support_levels', [None])[-1] if getattr(analysis, 'support_levels', []) else 'Unknown',
+                        "resistance": getattr(analysis, 'resistance_levels', [None])[0] if getattr(analysis, 'resistance_levels', []) else 'Unknown',
+                        "hvn": getattr(analysis, 'volume_profile_hvns', [None])[-1] if getattr(analysis, 'volume_profile_hvns', []) else 'Unknown',
+                    }
+                    if analysis.news_sentiment is not None:
+                        sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
+                        ai_payload["sentiment"] = {"score": analysis.news_sentiment, "label": sentiment_label}
+                        
+                    # Call AI Analyzer directly on the main dashboard thread
+                    with st.spinner("Generating AI Analysis..."):
+                        ai_engine = AIAnalyzer()
+                        if ai_engine.is_available():
+                            thesis_text = ai_engine.generate_thesis(analysis.ticker, ai_payload)
+                            st.info(thesis_text)
+                        else:
+                            st.warning("⚠️ AI Analysis is currently unavailable. Please configure your `GEMINI_API_KEY` in Streamlit secrets or OS environment.")
+                            
                     # Debug / Detailed Trade Setup
                     with st.expander("🛠️ Detailed Trade Setup Insights"):
                         st.markdown("### 🧮 How It Works")

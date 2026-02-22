@@ -3,6 +3,7 @@
 from typing import Dict, Any, Optional
 from curl_cffi import requests
 from bs4 import BeautifulSoup
+import streamlit as st
 
 from .base import FundamentalDataSource
 
@@ -30,24 +31,25 @@ class FinvizSource(FundamentalDataSource):
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._fetch_sync, ticker)
 
-    def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
+    @st.cache_data(ttl=3600)
+    def _fetch_sync(_self, ticker: str) -> Optional[Dict[str, Any]]:
         """Synchronous fetch logic for thread execution"""
-        url = f"{self.BASE_URL}?t={ticker}&p=d"
+        url = f"{_self.BASE_URL}?t={ticker}&p=d"
         
         try:
-            response = requests.get(url, impersonate="chrome110", timeout=self.TIMEOUT)
+            response = requests.get(url, impersonate="chrome110", timeout=_self.TIMEOUT)
             
             if response.status_code != 200:
                 print(f"Failed to fetch Finviz data: HTTP {response.status_code}")
                 return None
             
-            return self._parse_snapshot_table(response.content)
+            return _self._parse_snapshot_table(response.content)
             
         except Exception as e:
             print(f"Error fetching Finviz data: {e}")
             return None
     
-    def _parse_snapshot_table(self, html_content: bytes) -> Dict[str, str]:
+    def _parse_snapshot_table(_self, html_content: bytes) -> Dict[str, str]:
         """
         Parse the Finviz snapshot table.
         

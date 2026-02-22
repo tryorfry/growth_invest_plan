@@ -1,69 +1,81 @@
-"""Insider trading data source using SEC EDGAR"""
+"""Source for fetching and analyzing C-Suite Insider Trading activity"""
 
-import aiohttp
-import asyncio
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
-from bs4 import BeautifulSoup
-
+import yfinance as yf
+import pandas as pd
+import streamlit as st
+from typing import Dict, Any, List
 
 class InsiderSource:
-    """Fetch insider trading data from SEC EDGAR"""
+    """Fetches insider transaction metrics such as Net Accumulation and key trades"""
     
-    async def fetch_insider_data(self, ticker: str) -> Dict[str, Any]:
+    @st.cache_data(ttl=3600)
+    def fetch_insider_activity(_self, ticker: str) -> Dict[str, Any]:
         """
-        Fetch recent insider trading activity.
+        Fetches 6-month aggregate purchases/sales and a recent history of trades.
         
         Args:
-            ticker: Stock ticker symbol
+            ticker: Stock symbol to analyze.
             
         Returns:
-            Dictionary with insider trading data
+            Dict containing aggregation metrics and recent transactions list.
         """
         try:
-            # Use a simpler approach - get from yfinance first
-            import yfinance as yf
             stock = yf.Ticker(ticker)
             
-            # Get insider transactions
-            try:
-                insider_txns = stock.insider_transactions
-                if insider_txns is not None and not insider_txns.empty:
-                    recent_txns = insider_txns.head(10)
-                    
-                    # Calculate net buying/selling
-                    buys = recent_txns[recent_txns['Transaction'] == 'Buy']['Shares'].sum() if 'Transaction' in recent_txns.columns else 0
-                    sells = recent_txns[recent_txns['Transaction'] == 'Sale']['Shares'].sum() if 'Transaction' in recent_txns.columns else 0
-                    
-                    return {
-                        'recent_transactions': len(recent_txns),
-                        'total_shares_bought': buys,
-                        'total_shares_sold': sells,
-                        'net_insider_activity': buys - sells,
-                        'transactions': recent_txns.to_dict('records') if len(recent_txns) > 0 else [],
-                        'fetched_at': datetime.now()
-                    }
-            except:
-                pass
+            # Fetch aggregate purchases over last 6 months
+            purchases_df = stock.insider_purchases
+            transactions_df = stock.insider_transactions
             
-            # Get insider ownership percentage
-            info = stock.info
-            insider_ownership = info.get('heldPercentInsiders', 0) * 100 if info.get('heldPercentInsiders') else 0
-            
-            return {
-                'insider_ownership_pct': insider_ownership,
-                'recent_transactions': 0,
-                'total_shares_bought': 0,
-                'total_shares_sold': 0,
-                'net_insider_activity': 0,
-                'transactions': [],
-                'fetched_at': datetime.now()
+            result = {
+                "six_month_buys": 0,
+                "six_month_sales": 0,
+                "net_shares_purchased": 0,
+                "total_insider_shares": 0,
+                "recent_transactions": []
             }
+            
+            if purchases_df is not None and not purchases_df.empty:
+                # yFinance columns: 'Insider Purchases Last 6m', 'Shares', 'Trans'
+                col_name = purchases_df.columns[0]
+                
+                for _, row in purchases_df.iterrows():
+                    metric = str(row[col_name]).strip()
+                    shares = float(row.get('Shares', 0.0)) if pd.notna(row.get('Shares')) else 0.0
+                    
+                    if metric == 'Purchases':
+                        result["six_month_buys"] = shares
+                    elif metric == 'Sales':
+                        result["six_month_sales"] = shares
+                    elif metric == 'Net Shares Purchased (Sold)':
+                        result["net_shares_purchased"] = shares
+                    elif metric == 'Total Insider Shares Held':
+                        result["total_insider_shares"] = shares
+                        
+            if transactions_df is not None and not transactions_df.empty:
+                # Get the top 15 most recent transactions
+                recent = transactions_df.head(15).copy()
+                
+                for _, row in recent.iterrows():
+                    start_date = row.get('Start Date')
+                    date_str = start_date.strftime('%Y-%m-%d') if pd.notna(start_date) else "Unknown"
+                    
+                    result["recent_transactions"].append({
+                        "date": date_str,
+                        "insider": str(row.get('Insider', 'Unknown')),
+                        "position": str(row.get('Position', 'Unknown')),
+                        "shares": int(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
+                        "value": float(row.get('Value', 0.0)) if pd.notna(row.get('Value')) else 0.0
+                    })
+                    
+            return result
             
         except Exception as e:
             print(f"Error fetching insider data for {ticker}: {e}")
             return {
-                'insider_ownership_pct': 0,
-                'recent_transactions': 0,
-                'error': str(e)
+                "six_month_buys": 0,
+                "six_month_sales": 0,
+                "net_shares_purchased": 0,
+                "total_insider_shares": 0,
+                "recent_transactions": [],
+                "error": str(e)
             }

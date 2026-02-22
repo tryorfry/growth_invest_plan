@@ -90,13 +90,16 @@ def render_advanced_analytics_page():
                 if selected_history != "Enter New...":
                     default_ticker = selected_history
 
-    # Ticker input
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        ticker = st.text_input("Enter Stock Ticker", value=default_ticker).upper()
-    with col2:
-        st.write("") # Alignment
-        analyze_btn = st.button("Analyze", type="primary", use_container_width=True)
+    # Sidebar for controls
+    with st.sidebar:
+        st.header("⚙️ Analysis Settings")
+        
+        from src.utils_tickers import render_hybrid_ticker_input
+        ticker = render_hybrid_ticker_input(key_prefix="adv_anal")
+        if not ticker:
+            ticker = "AAPL"
+            
+        analyze_btn = st.button("🔬 Run Advanced Analysis", type="primary", use_container_width=True)
     
     if analyze_btn and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
@@ -489,56 +492,53 @@ def render_advanced_analytics_page():
                 
                 # Tab 5: Insider Trading
                 with tab5:
-                    st.subheader("Insider Trading Activity")
+                    st.subheader("👔 C-Suite & Insider Trading Activity")
+                    st.markdown("Tracks the executive buy/sell flow over the last 6 months to gauge internal confidence.")
                     
-                    insider_data = asyncio.run(insider_source.fetch_insider_data(ticker))
-                    
-                    if insider_data:
+                    with st.spinner("Fetching SEC Form 4 equivalents..."):
+                        insider_data = insider_source.fetch_insider_activity(ticker)
+                        
+                    if insider_data and (insider_data.get('six_month_buys', 0) > 0 or insider_data.get('six_month_sales', 0) > 0 or insider_data.get('recent_transactions')):
                         col1, col2, col3 = st.columns(3)
                         
+                        net_shares = insider_data.get('net_shares_purchased', 0)
+                        
                         with col1:
-                            ownership = insider_data.get('insider_ownership_pct', 0)
-                            st.metric(
-                                "Insider Ownership",
-                                f"{ownership:.2f}%",
-                                help="Percentage of shares held by insiders"
-                            )
-                        
+                            st.metric("6-Month Insider Buys", f"{insider_data.get('six_month_buys', 0):,.0f} shares", 
+                                      help="Total shares purchased by insiders in the last 6 months")
+                            
                         with col2:
-                            txns = insider_data.get('recent_transactions', 0)
-                            st.metric(
-                                "Recent Transactions",
-                                txns,
-                                help="Number of recent insider transactions"
-                            )
-                        
+                            st.metric("6-Month Insider Sales", f"{insider_data.get('six_month_sales', 0):,.0f} shares",
+                                      help="Total shares sold by insiders in the last 6 months")
+                            
                         with col3:
-                            net = insider_data.get('net_insider_activity', 0)
-                            delta_color = "normal" if net >= 0 else "inverse"
-                            st.metric(
-                                "Net Activity",
-                                f"{net:,} shares",
-                                delta=f"{'Buying' if net > 0 else 'Selling' if net < 0 else 'Neutral'}",
-                                delta_color=delta_color,
-                                help="Net shares bought minus sold"
-                            )
+                            st.metric("Net Accumulation", f"{net_shares:,.0f} shares",
+                                      delta="Accumulating" if net_shares > 0 else "Distributing" if net_shares < 0 else "Neutral",
+                                      delta_color="normal" if net_shares >= 0 else "inverse")
+                                      
+                        st.divider()
                         
-                        # Transactions table
-                        if insider_data.get('transactions'):
-                            st.markdown("### Recent Transactions")
-                            df = pd.DataFrame(insider_data['transactions'])
-                            st.dataframe(df, width='stretch')
-                        
+                        if insider_data.get('recent_transactions'):
+                            st.markdown("### Most Recent Transactions")
+                            df = pd.DataFrame(insider_data['recent_transactions'])
+                            
+                            df.columns = ["Date", "Executive / Insider", "Position", "Shares", "Value ($)"]
+                            
+                            st.dataframe(df.style.format({
+                                "Shares": "{:,.0f}",
+                                "Value ($)": "${:,.0f}"
+                            }), use_container_width=True)
+                            
                         # Interpretation
                         st.markdown("### Interpretation")
-                        if net > 0:
-                            st.success("✅ Net insider buying - potentially bullish signal")
-                        elif net < 0:
-                            st.warning("⚠️ Net insider selling - potentially bearish signal")
+                        if net_shares > 0:
+                            st.success("✅ **Net Insider Buying** — Executives are actively accumulating shares, a strong bullish signal.")
+                        elif net_shares < 0:
+                            st.warning("⚠️ **Net Insider Selling** — Executives are distributing shares, which can signal caution (though often just for tax/diversification purposes).")
                         else:
-                            st.info("➡️ No significant insider activity")
+                            st.info("➡️ **Neutral** — No significant directional insider activity recently.")
                     else:
-                        st.warning("No insider trading data available")
+                        st.warning("No recent SEC Form 4 insider trading data available for this ticker.")
                 
                 # Tab 6: Whale Tracking
                 with tab6:

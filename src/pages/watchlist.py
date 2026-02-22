@@ -74,11 +74,10 @@ def render_watchlist_page():
             
             # Add stock section
             with st.expander("➕ Add Stock to Watchlist"):
-                col1, col2 = st.columns([2, 3])
-                with col1:
-                    new_ticker = st.text_input("Ticker Symbol").upper()
-                with col2:
-                    new_notes = st.text_input("Notes (optional)")
+                from src.utils_tickers import render_hybrid_ticker_input
+                
+                new_ticker = render_hybrid_ticker_input(key_prefix=f"add_wl_{selected_id}")
+                new_notes = st.text_input("Notes (optional)", key=f"notes_wl_{selected_id}")
                 
                 if st.button("Add Stock"):
                     if new_ticker:
@@ -87,7 +86,7 @@ def render_watchlist_page():
                             st.success(f"Added {new_ticker} to watchlist")
                             st.rerun()
                     else:
-                        st.error("Please enter a ticker")
+                        st.error("Please select or enter a ticker")
             
             # Display stocks in watchlist
             stocks = wm.get_watchlist_stocks(selected_id)
@@ -138,34 +137,49 @@ def render_watchlist_page():
                 
                 # Analyze all button
                 if st.button("📊 Analyze All Stocks", type="primary"):
-                    with st.spinner("Analyzing stocks..."):
-                        analyzer = StockAnalyzer()
+                    analyzer = StockAnalyzer()
+                    
+                    for stock in stocks:
+                        ticker = stock['ticker']
                         
-                        for stock in stocks:
-                            ticker = stock['ticker']
-                            st.write(f"Analyzing {ticker}...")
+                        # Create a clean placeholder for the "Analyzing..." message
+                        status_placeholder = st.empty()
+                        
+                        try:
+                            with status_placeholder.container():
+                                with st.spinner(f"Analyzing {ticker}..."):
+                                    analysis = asyncio.run(analyzer.analyze(ticker))
                             
-                            try:
-                                analysis = asyncio.run(analyzer.analyze(ticker))
-                                if analysis:
-                                    # Save to database
-                                    save_analysis(db, analysis)
-                                    
-                                    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
-                                    with col1:
-                                        st.metric("Price", f"${analysis.current_price:.2f}")
-                                    with col2:
-                                        st.metric("RSI", f"{analysis.rsi:.1f}" if analysis.rsi else "N/A")
-                                    with col3:
-                                        st.metric("P/E", analysis.finviz_data.get('P/E', 'N/A'))
-                                    with col4:
-                                        st.metric("Market Cap", analysis.finviz_data.get('Market Cap', 'N/A'))
-                                    with col5:
-                                        yfin_url = f"https://finance.yahoo.com/quote/{ticker}"
-                                        finviz_url = f"https://finviz.com/quote.ashx?t={ticker}"
-                                        st.markdown(f"**Links:**\n[YFinance]({yfin_url})\n[Finviz]({finviz_url})")
-                            except Exception as e:
-                                st.error(f"Error analyzing {ticker}: {e}")
+                            # Clear the spinner placeholder immediately after analysis is done
+                            status_placeholder.empty()
+                            
+                            st.markdown(f"### **Analysis for {ticker}**")
+                            
+                            if analysis:
+                                # Save to database
+                                save_analysis(db, analysis)
+                                
+                                col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 1])
+                                with col1:
+                                    st.metric("Price", f"${analysis.current_price:.2f}")
+                                with col2:
+                                    st.metric("RSI", f"{analysis.rsi:.1f}" if analysis.rsi else "N/A")
+                                with col3:
+                                    st.metric("P/E", analysis.finviz_data.get('P/E', 'N/A'))
+                                with col4:
+                                    st.metric("Market Cap", analysis.finviz_data.get('Market Cap', 'N/A'))
+                                with col5:
+                                    yfin_url = f"https://finance.yahoo.com/quote/{ticker}"
+                                    finviz_url = f"https://finviz.com/quote.ashx?t={ticker}"
+                                    st.markdown(f"**Links:**\n[YFinance]({yfin_url})\n[Finviz]({finviz_url})")
+                            else:
+                                st.error(f"Analysis failed for {ticker}. The ticker might be invalid or delisted.")
+                                
+                        except Exception as e:
+                            status_placeholder.empty()
+                            st.markdown(f"### **Analysis for {ticker}**")
+                            st.error(f"⚠️ Error analyzing {ticker}: {e}")
+                            
             else:
                 st.info("No stocks in this watchlist yet. Add some above!")
         else:

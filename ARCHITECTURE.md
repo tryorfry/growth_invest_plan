@@ -7,44 +7,48 @@ This document maps out the core architecture and data flow of the Growth Investm
 ```mermaid
 graph TD
     %% User Interfaces
-    Client[Web Browser] -->|HTTP/WebSockets| StreamlitApp[Streamlit Server <br/> :8501]
+    Client[Web Browser] -->|HTTP/WebSockets| StreamlitApp
 
-    %% Authentication Gate
-    subgraph Security Layer
-        StreamlitApp --> AuthGate{AuthManager <br/> Session State}
-        AuthGate -->|Unauthenticated| LoginPage[Login / Signup UI]
-        AuthGate -->|Authenticated| Dashboard[Full Dashboard UI]
-    end
+    subgraph Docker Container
+        StreamlitApp[Streamlit Server <br/> :8501]
 
-    %% Internal Python Modules
-    subgraph Core Engines
-        Dashboard --> Analyzer[StockAnalyzer Engine]
-        Dashboard --> Scheduler[Background Scheduler Thread]
-        Scheduler --> AlertsEngine[Alerts Processing Engine]
-    end
+        %% Authentication Gate
+        subgraph Security Layer
+            StreamlitApp --> AuthGate{AuthManager <br/> Session State}
+            AuthGate -->|Unauthenticated| LoginPage[Login / Signup UI]
+            AuthGate -->|Authenticated| Dashboard[Full Dashboard UI]
+        end
 
-    %% Data Sources Layer
-    subgraph External Data Extraction
-        Analyzer --> YFinance[YFinance Source <br/> Price/Volume/Earnings Date]
-        Analyzer --> Finviz[Finviz Source <br/> Fundamentals/Valuation]
-        Analyzer --> MarketBeat[MarketBeat Source <br/> Analyst Targets]
-        Analyzer --> NewsSource[News Sentiment Source <br/> TextBlob NLP]
-        Analyzer --> SectorSource[Sector Rotation Source <br/> ETF Relative Strength]
-    end
+        %% Internal Python Modules
+        subgraph Core Engines
+            Dashboard --> Analyzer[StockAnalyzer Engine]
+            Dashboard --> Scheduler[Background Scheduler Thread]
+            Scheduler --> AlertsEngine[Alerts Processing Engine]
+        end
 
-    %% Advanced Mathematical Modeling
-    subgraph Quantitative Models
-        Analyzer --> MonteCarlo[Monte Carlo Engine <br/> Geometric Brownian Motion]
-        Analyzer --> SupportResistance[Support/Resistance Math <br/> Volume Profile & Clustering]
-    end
+        %% Data Sources Layer
+        subgraph External Data Extraction
+            Analyzer --> YFinance[YFinance Source <br/> Price/Volume/Earnings Date]
+            Analyzer --> Finviz[Finviz Source <br/> Fundamentals/Valuation]
+            Analyzer --> MarketBeat[MarketBeat Source <br/> Analyst Targets]
+            Analyzer --> NewsSource[News Sentiment Source <br/> TextBlob NLP]
+            Analyzer --> SectorSource[Sector Rotation Source <br/> ETF Relative Strength]
+        end
 
-    %% Database Persistence
-    subgraph Local Database Storage
-        Database[(SQLite: stock_analysis.db)]
-        AuthGate <-->|User Records & Password Hashes| Database
-        Analyzer -->|Save Snapshot| Database
-        AlertsEngine <-->|Read Triggers & History| Database
-        Dashboard <-->|Portfolios & Watchlists| Database
+        %% Advanced Mathematical Modeling
+        subgraph Quantitative Models
+            Analyzer --> MonteCarlo[Monte Carlo Engine <br/> Geometric Brownian Motion]
+            Analyzer --> SupportResistance[Support/Resistance Math <br/> Volume Profile & Clustering]
+        end
+
+        %% Database Persistence
+        subgraph Local Database Storage
+            Database[(SQLite: stock_analysis.db)]
+            AuthGate <-->|User Records & Password Hashes| Database
+            Analyzer -->|Save Snapshot| Database
+            AlertsEngine <-->|Read Triggers & History| Database
+            Dashboard <-->|Portfolios & Watchlists| Database
+        end
     end
 ```
 
