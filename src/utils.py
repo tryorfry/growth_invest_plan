@@ -13,11 +13,11 @@ def save_analysis(db: Database, analysis: StockAnalysis):
         # Get or create stock
         stock = db.get_or_create_stock(session, analysis.ticker)
         
-        # Create analysis record with safe float casting for numpy compatibility
+        # Create analysis record with safe float/int/datetime casting for numpy/pandas compat
         analysis_record = Analysis(
             stock_id=stock.id,
-            timestamp=analysis.timestamp,
-            analysis_timestamp=analysis.analysis_timestamp,
+            timestamp=_safe_datetime(analysis.timestamp),
+            analysis_timestamp=_safe_datetime(analysis.analysis_timestamp),
             current_price=_safe_float(analysis.current_price),
             open_price=_safe_float(analysis.open),
             high=_safe_float(analysis.high),
@@ -32,9 +32,9 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             macd_signal=_safe_float(analysis.macd_signal),
             bollinger_upper=_safe_float(analysis.bollinger_upper),
             bollinger_lower=_safe_float(analysis.bollinger_lower),
-            last_earnings_date=analysis.last_earnings_date,
-            next_earnings_date=analysis.next_earnings_date,
-            days_until_earnings=analysis.days_until_earnings,
+            last_earnings_date=_safe_datetime(analysis.last_earnings_date),
+            next_earnings_date=_safe_datetime(analysis.next_earnings_date),
+            days_until_earnings=_safe_int(analysis.days_until_earnings),
             revenue=_safe_float(analysis.revenue),
             operating_income=_safe_float(analysis.operating_income),
             basic_eps=_safe_float(analysis.basic_eps),
@@ -44,7 +44,7 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             free_cash_flow=_safe_float(analysis.free_cash_flow),
             total_debt=_safe_float(analysis.total_debt),
             total_cash=_safe_float(analysis.total_cash),
-            shares_outstanding=analysis.shares_outstanding,
+            shares_outstanding=_safe_int(analysis.shares_outstanding),
             earnings_growth=_safe_float(analysis.earnings_growth),
             news_sentiment=_safe_float(analysis.news_sentiment),
             news_summary=analysis.news_summary
@@ -73,6 +73,25 @@ def _safe_float(value):
         if isinstance(value, (int, float)):
             return float(value)
         return float(value) if value and value != '-' else None
+    except (ValueError, TypeError):
+        return None
+
+def _safe_datetime(dt):
+    """Safely convert pandas timestamp to native datetime"""
+    if pd.isna(dt):
+        return None
+    if hasattr(dt, 'to_pydatetime'):
+        return dt.to_pydatetime()
+    return dt
+
+def _safe_int(val):
+    """Safely convert numpy/pandas int to native int"""
+    if pd.isna(val):
+        return None
+    try:
+        if isinstance(val, (int, float)):
+            return int(val)
+        return int(val) if val and val != '-' else None
     except (ValueError, TypeError):
         return None
 
