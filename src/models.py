@@ -144,6 +144,7 @@ class Watchlist(Base):
     __tablename__ = 'watchlists'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, default=1)
     name = Column(String(100), nullable=False)
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -184,6 +185,7 @@ class Alert(Base):
     __tablename__ = 'alerts'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, default=1)
     stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
     alert_type = Column(String(50), nullable=False)  # price, rsi, macd, volume, earnings
     condition = Column(String(50), nullable=False)  # above, below, crosses_above, crosses_below
@@ -229,6 +231,7 @@ class Portfolio(Base):
     __tablename__ = 'portfolios'
     
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, default=1)
     name = Column(String(100), nullable=False)
     description = Column(Text)
     currency = Column(String(10), default="USD")

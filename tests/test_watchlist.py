@@ -23,7 +23,7 @@ def db():
 def wm(db):
     """Create watchlist manager"""
     with db.get_session() as session:
-        yield WatchlistManager(session)
+        yield WatchlistManager(session, user_id=1)
 
 
 def test_create_watchlist(wm):

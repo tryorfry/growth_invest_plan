@@ -26,10 +26,11 @@ def render_portfolio_tracker_page():
 
     # Initialize Manager
     with db.get_session() as session:
-        pm = PortfolioManager(session)
+        user_id = st.session_state.get('user_id', 1)
+        pm = PortfolioManager(session, user_id)
         
         # 1. Manage Portfolios
-        portfolios = db.get_all_portfolios()
+        portfolios = db.get_all_portfolios(user_id)
         
         col1, col2 = st.columns([2, 1])
         
@@ -38,6 +39,12 @@ def render_portfolio_tracker_page():
                 st.info("You haven't created any portfolios yet. Create your first one to start tracking!")
                 portfolio_name = st.text_input("New Portfolio Name", placeholder="e.g. Long Term Growth")
                 if st.button("Create Portfolio"):
+                    # Enforce Free Tier Limits for portfolios
+                    tier = st.session_state.get('user_tier', 'free')
+                    if tier == 'free' and len(portfolios) >= 1: # If no portfolios, len(portfolios) is 0, so this check passes
+                        st.error("Free tier is limited to 1 portfolio. Please upgrade to Premium to unlock unlimited portfolios.")
+                        st.stop()
+                    
                     pm.create_portfolio(portfolio_name)
                     st.rerun()
             else:

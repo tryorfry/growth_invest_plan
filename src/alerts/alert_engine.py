@@ -195,7 +195,7 @@ class AlertEngine:
         return message
     
     def create_alert(self, session: Session, ticker: str, alert_type: str, 
-                    condition: str, threshold: float, email_enabled: bool = True) -> Optional[Alert]:
+                    condition: str, threshold: float, user_id: int, email_enabled: bool = True) -> Optional[Alert]:
         """
         Create a new alert.
         
@@ -205,6 +205,7 @@ class AlertEngine:
             alert_type: Type of alert (price, rsi, macd, volume, earnings)
             condition: Condition (above, below, crosses_above, crosses_below)
             threshold: Threshold value
+            user_id: ID of the user creating the alert
             email_enabled: Whether to send email notifications
             
         Returns:
@@ -219,6 +220,7 @@ class AlertEngine:
             alert_type=alert_type,
             condition=condition,
             threshold=threshold,
+            user_id=user_id,
             is_active=1,
             email_enabled=1 if email_enabled else 0
         )

@@ -9,14 +9,16 @@ from datetime import datetime
 class WatchlistManager:
     """Manage stock watchlists"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, user_id: int):
         self.session = session
+        self.user_id = user_id
     
     def create_watchlist(self, name: str, description: str = "") -> Watchlist:
         """Create a new watchlist"""
         watchlist = Watchlist(
             name=name,
-            description=description
+            description=description,
+            user_id=self.user_id
         )
         self.session.add(watchlist)
         self.session.commit()
@@ -24,11 +26,14 @@ class WatchlistManager:
     
     def get_watchlist(self, watchlist_id: int) -> Optional[Watchlist]:
         """Get watchlist by ID"""
-        return self.session.query(Watchlist).filter(Watchlist.id == watchlist_id).first()
+        return self.session.query(Watchlist).filter(
+            Watchlist.id == watchlist_id,
+            Watchlist.user_id == self.user_id
+        ).first()
     
     def get_all_watchlists(self) -> List[Watchlist]:
         """Get all watchlists"""
-        return self.session.query(Watchlist).all()
+        return self.session.query(Watchlist).filter(Watchlist.user_id == self.user_id).all()
     
     def add_stock_to_watchlist(self, watchlist_id: int, ticker: str, notes: str = "") -> Optional[WatchlistItem]:
         """Add a stock to a watchlist"""
@@ -103,7 +108,10 @@ class WatchlistManager:
     
     def get_default_watchlist(self) -> Watchlist:
         """Get or create the default watchlist"""
-        watchlist = self.session.query(Watchlist).filter(Watchlist.name == "My Watchlist").first()
+        watchlist = self.session.query(Watchlist).filter(
+            Watchlist.name == "My Watchlist",
+            Watchlist.user_id == self.user_id
+        ).first()
         if not watchlist:
             watchlist = self.create_watchlist("My Watchlist", "Default watchlist")
         return watchlist

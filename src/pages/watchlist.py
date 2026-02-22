@@ -22,7 +22,8 @@ def render_watchlist_page():
     
     session = db.SessionLocal()
     try:
-        wm = WatchlistManager(session)
+        user_id = st.session_state.get('user_id', 1)
+        wm = WatchlistManager(session, user_id)
         
         # Sidebar for watchlist selection
         with st.sidebar:

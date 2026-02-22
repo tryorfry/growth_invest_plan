@@ -60,6 +60,7 @@ def test_create_alert(db, alert_engine, sample_stock):
             alert_type="price",
             condition="above",
             threshold=200.0,
+            user_id=1,
             email_enabled=True
         )
         
@@ -75,7 +76,7 @@ def test_price_alert_above(db, alert_engine, sample_stock, sample_analysis):
     with db.get_session() as session:
         # Create alert for price above 100
         alert_engine.create_alert(
-            session, "TEST", "price", "above", 100.0
+            session, "TEST", "price", "above", 100.0, user_id=1
         )
         
         # Current price is 150, should trigger
@@ -91,7 +92,7 @@ def test_price_alert_below(db, alert_engine, sample_stock, sample_analysis):
     with db.get_session() as session:
         # Create alert for price below 200
         alert_engine.create_alert(
-            session, "TEST", "price", "below", 200.0
+            session, "TEST", "price", "below", 200.0, user_id=1
         )
         
         # Current price is 150, should trigger
@@ -106,7 +107,7 @@ def test_rsi_alert_overbought(db, alert_engine, sample_stock, sample_analysis):
     with db.get_session() as session:
         # Create alert for RSI above 70
         alert_engine.create_alert(
-            session, "TEST", "rsi", "above", 70.0
+            session, "TEST", "rsi", "above", 70.0, user_id=1
         )
         
         # RSI is 75, should trigger
@@ -122,7 +123,7 @@ def test_rsi_alert_oversold(db, alert_engine, sample_stock, sample_analysis):
     with db.get_session() as session:
         # Create alert for RSI below 30
         alert_engine.create_alert(
-            session, "TEST", "rsi", "below", 30.0
+            session, "TEST", "rsi", "below", 30.0, user_id=1
         )
         
         # RSI is 25, should trigger
@@ -137,7 +138,7 @@ def test_deactivate_alert(db, alert_engine, sample_stock):
     """Test deactivating an alert"""
     with db.get_session() as session:
         alert = alert_engine.create_alert(
-            session, "TEST", "price", "above", 200.0
+            session, "TEST", "price", "above", 200.0, user_id=1
         )
         
         assert alert.is_active == 1
@@ -152,7 +153,7 @@ def test_alert_history_created(db, alert_engine, sample_stock, sample_analysis):
     """Test that alert history is created when alert triggers"""
     with db.get_session() as session:
         alert_engine.create_alert(
-            session, "TEST", "price", "above", 100.0
+            session, "TEST", "price", "above", 100.0, user_id=1
         )
         
         sample_analysis.current_price = 150.0
@@ -169,8 +170,8 @@ def test_multiple_alerts(db, alert_engine, sample_stock, sample_analysis):
     """Test multiple alerts triggering"""
     with db.get_session() as session:
         # Create multiple alerts
-        alert_engine.create_alert(session, "TEST", "price", "above", 100.0)
-        alert_engine.create_alert(session, "TEST", "rsi", "above", 60.0)
+        alert_engine.create_alert(session, "TEST", "price", "above", 100.0, user_id=1)
+        alert_engine.create_alert(session, "TEST", "rsi", "above", 60.0, user_id=1)
         
         sample_analysis.current_price = 150.0
         sample_analysis.rsi = 65.0

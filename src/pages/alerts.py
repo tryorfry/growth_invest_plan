@@ -74,6 +74,7 @@ def render_alerts_page():
                         alert_type=alert_type,
                         condition=condition,
                         threshold=threshold,
+                        user_id=st.session_state.get('user_id', 1),
                         email_enabled=email_enabled
                     )
                     if alert:
@@ -87,8 +88,9 @@ def render_alerts_page():
         with tab2:
             st.subheader("Active Alerts")
             
-            # Get all active alerts
-            alerts = session.query(Alert).filter(Alert.is_active == 1).all()
+            # Get all active alerts for current user
+            user_id = st.session_state.get('user_id', 1)
+            alerts = session.query(Alert).filter(Alert.is_active == 1, Alert.user_id == user_id).all()
             
             if alerts:
                 for alert in alerts:

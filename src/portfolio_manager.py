@@ -9,12 +9,13 @@ from .models import Portfolio, Transaction, Stock, Analysis
 class PortfolioManager:
     """Manages portfolios, transactions, and performance metrics"""
     
-    def __init__(self, session: Session):
+    def __init__(self, session: Session, user_id: int):
         self.session = session
+        self.user_id = user_id
 
     def create_portfolio(self, name: str, description: str = "") -> Portfolio:
         """Create a new portfolio"""
-        portfolio = Portfolio(name=name, description=description)
+        portfolio = Portfolio(name=name, description=description, user_id=self.user_id)
         self.session.add(portfolio)
         self.session.commit()
         return portfolio

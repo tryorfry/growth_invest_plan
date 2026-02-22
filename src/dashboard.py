@@ -269,20 +269,29 @@ def main():
     with st.sidebar:
         st.title("📊 Stock Analyzer")
         
-        page = st.radio(
-            "Navigation",
-            options=[
-                "🏠 Home",
+        tier = st.session_state.get('user_tier', 'free')
+        nav_options = [
+            "🏠 Home",
+            "💼 Portfolio",
+            "📋 Watchlist",
+            "🔔 Alerts",
+            "📈 Comparison",
+            "🧪 Backtester"
+        ]
+        
+        # Premium and Admin Only Features
+        if tier in ['premium', 'admin']:
+            nav_options.extend([
                 "🌍 Market Pulse",
                 "🔍 Screener",
-                "💼 Portfolio",
-                "🧪 Backtester",
-                "📋 Watchlist",
-                "🔔 Alerts",
-                "🔬 Advanced Analytics",
-                "📈 Comparison"
-            ]
-        )
+                "🔬 Advanced Analytics"
+            ])
+            
+        page = st.radio("Navigation", options=nav_options)
+        
+        # Upsell for free users
+        if tier == 'free':
+            st.info("⭐ Upgrade to Premium to unlock the Market Pulse, automated AI Screener, and Advanced Analytics!")
         
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
@@ -451,7 +460,7 @@ def main():
                             st.markdown("**Statistical Clusters:**")
                             if raw_support:
                                 for s in raw_support:
-                                    st.markdown(f"- \${float(s):.2f}")
+                                    st.markdown(f"- \\${float(s):.2f}")
                             else:
                                 st.markdown("- None detected")
                                 
@@ -459,7 +468,7 @@ def main():
                             hvn_supp = [h for h in raw_hvns if analysis.current_price and h < analysis.current_price]
                             if hvn_supp:
                                 for h in sorted(hvn_supp)[-2:]:
-                                    st.markdown(f"- \${float(h):.2f}")
+                                    st.markdown(f"- \\${float(h):.2f}")
                             else:
                                 st.markdown("- None detected")
                                 
@@ -468,7 +477,7 @@ def main():
                             st.markdown("**Statistical Clusters:**")
                             if raw_resist:
                                 for r in raw_resist:
-                                    st.markdown(f"- \${float(r):.2f}")
+                                    st.markdown(f"- \\${float(r):.2f}")
                             else:
                                 st.markdown("- None detected")
                                 
@@ -476,7 +485,7 @@ def main():
                             hvn_res = [h for h in raw_hvns if analysis.current_price and h > analysis.current_price]
                             if hvn_res:
                                 for h in sorted(hvn_res)[:2]:
-                                    st.markdown(f"- \${float(h):.2f}")
+                                    st.markdown(f"- \\${float(h):.2f}")
                             else:
                                 st.markdown("- None detected")
                         
@@ -494,8 +503,8 @@ def main():
                                 else:
                                     st.info(note)
                         
-                        entry_str = f"\${float(raw_entry):.2f}" if raw_entry is not None else "Waiting for Setup"
-                        stop_str = f"\${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
+                        entry_str = f"\\${float(raw_entry):.2f}" if raw_entry is not None else "Waiting for Setup"
+                        stop_str = f"\\${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                         
                         ecol1, ecol2 = st.columns(2)
                         ecol1.metric("Suggested Entry", entry_str)
