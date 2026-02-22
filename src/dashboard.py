@@ -43,6 +43,12 @@ def init_database():
     """Initialize database connection"""
     db = Database("stock_analysis.db")
     db.init_db()
+    
+    # Seed admin user if needed
+    with db.get_session() as session:
+        from src.auth import AuthManager
+        AuthManager.seed_admin(session)
+        
     return db
 
 # Initialize analyzer

@@ -44,6 +44,28 @@ class AuthManager:
             return False, f"Database error: {str(e)}"
 
     @staticmethod
+    def seed_admin(db_session: Session):
+        """Seed an admin user from environment variables if no admin exists"""
+        import os
+        admin_user = os.getenv("ADMIN_USERNAME", "admin")
+        admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+        admin_email = os.getenv("ADMIN_EMAIL", "admin@example.com")
+        
+        # Check if any admin exists
+        existing_admin = db_session.query(User).filter(User.tier == 'admin').first()
+        if not existing_admin:
+            # Check if username is taken
+            existing_user = db_session.query(User).filter(User.username == admin_user).first()
+            if not existing_user:
+                AuthManager.create_user(
+                    db_session, 
+                    username=admin_user, 
+                    email=admin_email, 
+                    password=admin_pass, 
+                    tier='admin'
+                )
+
+    @staticmethod
     def authenticate_user(db_session: Session, username: str, password: str) -> tuple[bool, User, str]:
         """Authenticate a user. Returns (success, user_obj, message)"""
         user = db_session.query(User).filter(User.username == username).first()
