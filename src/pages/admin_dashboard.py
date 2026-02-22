@@ -39,14 +39,20 @@ def show_admin_dashboard(db: Database, session: Session):
     st.subheader("Update Subscription Tier")
     col1, col2, col3 = st.columns(3)
     
+    # Filter out admin users from being selected for modification
+    modifiable_users = [u.username for u in users if u.tier != 'admin']
+    
     with col1:
-        target_username = st.selectbox("Select User", options=[u.username for u in users])
+        if not modifiable_users:
+            st.info("No modifiable users found.")
+            return
+        target_username = st.selectbox("Select User", options=modifiable_users)
     with col2:
         target_user = session.query(User).filter(User.username == target_username).first()
         current_tier = target_user.tier if target_user else "free"
         st.metric("Current Tier", current_tier)
     with col3:
-        new_tier = st.selectbox("New Tier", options=['free', 'premium', 'admin'], index=['free', 'premium', 'admin'].index(current_tier))
+        new_tier = st.selectbox("New Tier", options=['free', 'premium'], index=['free', 'premium'].index(current_tier) if current_tier in ['free', 'premium'] else 0)
         
     if st.button("Update Subscription", type="primary"):
         if target_user and current_tier != new_tier:
