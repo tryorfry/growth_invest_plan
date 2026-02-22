@@ -89,7 +89,14 @@ class Database:
 
         # Adding connect_args to prevent connection timeouts on Supabase pooled connections
         connect_args = {}
-        if self.db_url.startswith("postgresql"):
+        is_postgres = False
+        if isinstance(self.db_url, str):
+            is_postgres = self.db_url.startswith("postgresql")
+        else:
+            # Handle SQLAlchemy URL object
+            is_postgres = getattr(self.db_url, "drivername", "").startswith("postgresql")
+
+        if is_postgres:
             connect_args = {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 5}
             
         self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args)
