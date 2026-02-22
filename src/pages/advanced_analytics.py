@@ -121,20 +121,16 @@ def render_advanced_analytics_page():
                 # Render shared header
                 render_ticker_header(analysis)
                 
-                # --- AI Thesis Generation Block ---
-                st.markdown("---")
-                col_ai1, col_ai2 = st.columns([3, 1])
-                with col_ai1:
-                    st.subheader("🤖 AI-Powered Trade Thesis")
-                    st.caption("Powered by Google Gemini")
-                
-                with col_ai2:
-                    user_tier = st.session_state.get('tier', 'free')
+                user_tier = st.session_state.get('tier', 'free')
+                if user_tier != 'free':
+                    # --- AI Thesis Generation Block ---
+                    st.markdown("---")
+                    col_ai1, col_ai2 = st.columns([3, 1])
+                    with col_ai1:
+                        st.subheader("🤖 AI-Powered Trade Thesis")
+                        st.caption("Powered by Google Gemini")
                     
-                    if user_tier == 'free':
-                        st.button("✨ Generate AI Thesis", use_container_width=True, disabled=True, help="Upgrade to Premium to unlock AI insights")
-                        st.caption("🔒 Premium Feature")
-                    else:
+                    with col_ai2:
                         if st.button("✨ Generate AI Thesis", use_container_width=True):
                             with st.spinner("Synthesizing market data..."):
                                 ai = AIAnalyzer()
@@ -172,8 +168,8 @@ def render_advanced_analytics_page():
                                 thesis = ai.generate_thesis(ticker, payload)
                                 
                                 st.info(thesis)
-                st.markdown("---")
-                # ----------------------------------
+                    st.markdown("---")
+                    # ----------------------------------
                 
                 # Display tabs
                 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
