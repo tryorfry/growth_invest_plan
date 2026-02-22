@@ -97,7 +97,13 @@ class Database:
             is_postgres = getattr(self.db_url, "drivername", "").startswith("postgresql")
 
         if is_postgres:
-            connect_args = {"keepalives": 1, "keepalives_idle": 30, "keepalives_interval": 10, "keepalives_count": 5}
+            connect_args = {
+                "keepalives": 1, 
+                "keepalives_idle": 30, 
+                "keepalives_interval": 10, 
+                "keepalives_count": 5,
+                "sslmode": "require"
+            }
             
         self.engine = create_engine(self.db_url, echo=False, connect_args=connect_args)
         self.SessionLocal = sessionmaker(bind=self.engine)
