@@ -67,13 +67,22 @@ def save_analysis(db: Database, analysis: StockAnalysis):
     finally:
         session.close()
 
+import math
+
 def _safe_float(value):
     """Safely convert string to float"""
+    if pd.isna(value):
+        return None
     try:
         if isinstance(value, (int, float)):
-            return float(value)
-        return float(value) if value and value != '-' else None
-    except (ValueError, TypeError):
+            val = float(value)
+        else:
+            val = float(value) if value and value != '-' else None
+            
+        if val is not None and (math.isnan(val) or math.isinf(val)):
+            return None
+        return val
+    except (ValueError, TypeError, OverflowError):
         return None
 
 def _safe_datetime(dt):
@@ -92,7 +101,7 @@ def _safe_int(val):
         if isinstance(val, (int, float)):
             return int(val)
         return int(val) if val and val != '-' else None
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
         return None
 
 def render_ticker_header(analysis: StockAnalysis):
