@@ -158,29 +158,36 @@ def render_portfolio_tracker_page():
                         perf = pm.get_portfolio_performance(selected_portfolio.id, current_prices)
                         current_nlv = perf.get('nlv', selected_portfolio.initial_balance)
                         
-                        allowed_risk = current_nlv * 0.01 # 1% account risk
-                        suggested_shares_by_risk = math.floor(allowed_risk / risk_per_share) if risk_per_share > 0 else 0
+                        # 1. Risk-Based sizing (1% of NLV)
+                        allowed_risk_dollars = current_nlv * 0.01 
+                        shares_by_risk = math.floor(allowed_risk_dollars / risk_per_share) if risk_per_share > 0 else 0
                         
-                        # Cap position size at 5% of total NLV
-                        max_capital_allowed = current_nlv * 0.05
-                        suggested_shares_by_cap = math.floor(max_capital_allowed / planned_entry) if planned_entry > 0 else 0
+                        # 2. Capital-Based sizing (5% of NLV)
+                        max_capital_dollars = current_nlv * 0.05
+                        shares_by_capital = math.floor(max_capital_dollars / planned_entry) if planned_entry > 0 else 0
                         
-                        # Take the safer (smaller) of the two constraints
-                        suggested_shares = min(suggested_shares_by_risk, suggested_shares_by_cap)
+                        # Take the safer of the two
+                        suggested_shares = min(shares_by_risk, shares_by_capital)
                         total_capital_required = suggested_shares * planned_entry
                         
-                        st.info(f"**Current NLV:** ${current_nlv:,.2f} | **1% Max Risk:** ${allowed_risk:,.2f} | **5% Max Capital:** ${max_capital_allowed:,.2f}")
+                        # Calculation Logic Explanation
+                        st.info(f"**Portfolio Risk Analysis**")
+                        st.markdown(f"""
+                        - **Current NLV:** ${current_nlv:,.2f}
+                        - **1% Risk Budget:** ${allowed_risk_dollars:,.2f} (Max loss if stop hit)
+                        - **5% Capital Cap:** ${max_capital_dollars:,.2f} (Max position size)
+                        """)
                         
                         m1, m2, m3 = st.columns(3)
                         m1.metric("Risk Per Share", f"${risk_per_share:.2f}")
                         m2.metric("Recommended Shares", f"{suggested_shares}")
-                        m3.metric("Capital Required", f"${total_capital_required:,.2f}")
+                        m3.metric("Total Capital", f"${total_capital_required:,.2f}")
                         
-                        if suggested_shares_by_risk > suggested_shares_by_cap:
-                            st.warning(f"⚠️ Sizing artificially constrained. Although 1% risk allows {suggested_shares_by_risk} shares, the 5% maximum portfolio capital rule caps you at {suggested_shares_by_cap} shares.")
-                            
+                        if shares_by_capital < shares_by_risk:
+                            st.warning(f"⚠️ **Sizing constrained by Capital Rule**: Your 1% risk rule allows {shares_by_risk} shares, but you are capped at {shares_by_capital} shares to keep position size under 5% of NLV.")
+                        
                         if total_capital_required > perf.get('cash_balance', 0):
-                            st.warning(f"⚠️ Warning: This trade requires ${total_capital_required:,.2f}, but you only have ${perf.get('cash_balance', 0):,.2f} in Available Cash.")
+                            st.error(f"⚠️ **Insufficient Funds**: You need ${total_capital_required:,.2f} but only have ${perf.get('cash_balance', 0):,.2f} cash available.")
                             
                         # Sector Concentration Check
                         sector_alloc = perf.get('sector_allocation', {})
@@ -228,6 +235,19 @@ def render_portfolio_tracker_page():
         holdings_display['P/L $'] = holdings_display['Current Value'] - holdings_display['total_spent']
         holdings_display['P/L %'] = (holdings_display['P/L $'] / holdings_display['total_spent']) * 100
         
+        # Add Cash Row
+        cash_row = pd.DataFrame([{
+            'Ticker': '💰 CASH',
+            'qty': 1.0,
+            'cost_basis': performance.get('cash_balance', 0),
+            'total_spent': performance.get('cash_balance', 0),
+            'Current Price': performance.get('cash_balance', 0),
+            'Current Value': performance.get('cash_balance', 0),
+            'P/L $': 0.0,
+            'P/L %': 0.0
+        }])
+        holdings_display = pd.concat([holdings_display, cash_row], ignore_index=True)
+
         # Formatting
         st.dataframe(
             holdings_display.style.format({
@@ -239,5 +259,6 @@ def render_portfolio_tracker_page():
                 'P/L $': '{:+.2f}',
                 'P/L %': '{:+.2f}%'
             }),
-            use_container_width=True
+            use_container_width=True,
+            hide_index=True
         )

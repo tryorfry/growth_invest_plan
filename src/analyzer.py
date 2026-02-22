@@ -443,6 +443,10 @@ class StockAnalyzer:
         stop_loss = round(nearest_support - atr, 2)
         risk = entry - stop_loss
         
+        # Set values anyway for the sizer (even if rejected later)
+        analysis.suggested_entry = entry
+        analysis.suggested_stop_loss = stop_loss
+        
         # 4. Ceiling Check & Risk/Reward Filter
         if nearest_resistance:
             reward = nearest_resistance - entry
@@ -450,23 +454,16 @@ class StockAnalyzer:
             # Ceiling Check
             if (nearest_resistance - price) / price < 0.015:
                 notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
-                analysis.setup_notes = notes
-                return
-                
-            # Risk/Reward Filter
-            rr_ratio = reward / risk if risk > 0 else 0
-            if rr_ratio < 1.5:
-                notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 1.5+")
-                analysis.setup_notes = notes
-                return
             else:
-                notes.append(f"✅ Setup Valid: Risk/Reward Ratio is {rr_ratio:.2f} (Target: ${nearest_resistance:.2f})")
+                # Risk/Reward Filter
+                rr_ratio = reward / risk if risk > 0 else 0
+                if rr_ratio < 1.5:
+                    notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 1.5+")
+                else:
+                    notes.append(f"✅ Setup Valid: Risk/Reward Ratio is {rr_ratio:.2f} (Target: ${nearest_resistance:.2f})")
         else:
             notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
             
-        # If we made it here, the setup passed all risk tests
-        analysis.suggested_entry = entry
-        analysis.suggested_stop_loss = stop_loss
         analysis.setup_notes = notes
             
     def _apply_smart_rounding(self, price: float) -> float:
