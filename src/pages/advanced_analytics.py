@@ -95,23 +95,22 @@ def render_advanced_analytics_page():
         st.header("⚙️ Analysis Settings")
         
         from src.utils_tickers import render_hybrid_ticker_input
-        
-        # If triggered from Screener, use that ticker as the default
-        screener_ticker = st.session_state.get('adv_anal_text', '')
-        
         ticker = render_hybrid_ticker_input(key_prefix="adv_anal")
         if not ticker:
-            ticker = screener_ticker if screener_ticker else "AAPL"
+            ticker = "AAPL"
             
         analyze_btn = st.button("🔬 Run Advanced Analysis", type="primary", use_container_width=True)
         
-        # Trigger from Screener: auto-run and clear the flag
+        # Trigger from Screener: pop the ticker so it doesn't persist across navigations
         if st.session_state.get('run_adv_anal'):
             st.session_state['run_adv_anal'] = False  # Reset flag
-            ticker = st.session_state.get('adv_anal_text', ticker)
+            screener_ticker = st.session_state.pop('screener_ticker', None)
+            if screener_ticker:
+                ticker = screener_ticker
             analyze_btn = True
     
     if (analyze_btn or st.session_state.get('auto_run_adv')) and ticker:
+
         with st.spinner(f"Analyzing {ticker}..."):
             # Initialize sources
             analyzer = StockAnalyzer()
@@ -760,6 +759,14 @@ def render_advanced_analytics_page():
                     )
             else:
                 st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
+
+    else:
+        st.markdown("---")
+        st.info("👈 **Enter a ticker in the sidebar and click 'Run Advanced Analysis' to get started.**")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Analyses Available", "Monte Carlo, Options, Insider...")
+        col2.metric("Patterns", "Hammer, Doji, Engulfing...")
+        col3.metric("Valuations", "DCF, P/E, P/S, EV/EBITDA...")
 
 
 if __name__ == "__main__":

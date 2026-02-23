@@ -167,7 +167,7 @@ def render_screener_page():
             r_cols[5].write(row['Failing Reasons'][:50] + "..." if len(row['Failing Reasons']) > 50 else row['Failing Reasons'])
             
             if r_cols[6].button(f"🔬 Analyze {ticker}", key=f"btn_{ticker}", type="primary", use_container_width=True):
-                st.session_state['adv_anal_text'] = ticker
+                st.session_state['screener_ticker'] = ticker
                 st.session_state['go_to_page'] = "🔬 Advanced Analytics"
                 st.session_state['run_adv_anal'] = True
                 st.rerun()
@@ -195,7 +195,7 @@ def render_screener_page():
                                 st.info(note)
                     with col_b:
                         if st.button(f"🔬 Full Analytics", key=f"exp_btn_{row['Ticker']}", type="primary", use_container_width=True):
-                            st.session_state['adv_anal_text'] = row['Ticker']
+                            st.session_state['screener_ticker'] = row['Ticker']
                             st.session_state['go_to_page'] = "🔬 Advanced Analytics"
                             st.session_state['run_adv_anal'] = True
                             st.rerun()
