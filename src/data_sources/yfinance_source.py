@@ -236,6 +236,7 @@ class YFinanceSource(TechnicalDataSource):
                 
                 # Checklist fields
                 result["country"] = info.get("country", None)
+                result["exchange"] = info.get("exchange", None)  # e.g. NMS, NYQ, NGM, PCX
                 result["average_volume"] = info.get("averageVolume", None)
                 result["analyst_recommendation"] = info.get("recommendationKey", None)
                 

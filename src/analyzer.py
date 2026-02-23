@@ -61,6 +61,7 @@ class StockAnalysis:
     
     # Checklist fields
     country: Optional[str] = None
+    exchange: Optional[str] = None  # yfinance exchange code e.g. NMS, NYQ, NGM
     average_volume: Optional[int] = None
     analyst_recommendation: Optional[str] = None
     revenue_growth_yoy: Optional[float] = None
@@ -289,6 +290,7 @@ class StockAnalyzer:
         
         # Checklist fields
         analysis.country = data.get("country")
+        analysis.exchange = data.get("exchange")
         analysis.average_volume = data.get("average_volume")
         analysis.analyst_recommendation = data.get("analyst_recommendation")
         analysis.revenue_growth_yoy = data.get("revenue_growth_yoy")

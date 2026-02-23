@@ -160,10 +160,21 @@ def render_checklist(analysis: StockAnalysis):
     mc_pass = mc_val is not None and mc_val >= 2_000_000_000
     _chk(f"Market Cap >= 2 B? ({mc_str})", mc_pass)
     
-    # 2. Country == USA
+    # 2. Listed on a US exchange?
+    exchange = getattr(analysis, 'exchange', None)
     country = getattr(analysis, 'country', None)
-    country_pass = country in ['United States', 'USA'] if country else False
-    _chk(f"Country of ticker listed is USA? ({country or 'N/A'})", country_pass)
+    # Yahoo Finance exchange codes for US markets:
+    # NMS/NGM/NCM = NASDAQ, NYQ/ASE = NYSE, PCX = NYSE Arca, BTS = BATS
+    US_EXCHANGES = {
+        'NMS', 'NGM', 'NCM',       # NASDAQ (Global Select, Global Market, Capital Market)
+        'NYQ', 'ASE',               # NYSE, NYSE American (AMEX)
+        'PCX',                      # NYSE Arca (ETFs, options)
+        'BTS',                      # BATS / Cboe BZX
+        'NasdaqGS', 'NasdaqGM', 'NasdaqCM',  # alternative codes
+    }
+    us_listed = (exchange in US_EXCHANGES) if exchange else (country in ['United States', 'USA'] if country else False)
+    listing_label = f"exchange: {exchange}" if exchange else f"country: {country or 'N/A'}"
+    _chk(f"Listed on US exchange? ({listing_label})", us_listed)
     
     # 3. Analyst recommendation Buy or Better
     rec = getattr(analysis, 'analyst_recommendation', '')
