@@ -247,6 +247,7 @@ class StockAnalyzer:
                     )
                     if analyst_data:
                         analysis.median_price_target = analyst_data.get("median_price_target")
+                        analysis.marketbeat_action_recent = analyst_data.get("recent_action")
                         analysis.analyst_source = "YFinance (Fallback)"
                         
         if analysis.median_price_target:
