@@ -260,22 +260,25 @@ def render_checklist(analysis: StockAnalysis):
     # 10. Extras
     action = getattr(analysis, 'marketbeat_action_recent', None)
     next_earn = getattr(analysis, 'next_earnings_date', None)
+    days_until = getattr(analysis, 'days_until_earnings', None)
     max_buy = getattr(analysis, 'max_buy_price', None)
     
     st.markdown("---")
-    st.markdown(f"**🟢 Recent Analyst Upgrade/Downgrade:** {action or 'N/A'}")
+    st.markdown(f"**🟢 Recent Analyst Upgrade/Downgrade:** {str(action) if action else 'N/A'}")
     
     if next_earn:
-        # Check if next_earn is a timestamp
-        if hasattr(next_earn, 'date'):
-            st.markdown(f"**📅 Next Quarter Earnings Date:** {next_earn.date()}")
-        elif isinstance(next_earn, str):
-            st.markdown(f"**📅 Next Quarter Earnings Date:** {next_earn}")
+        try:
+            date_str = next_earn.date() if hasattr(next_earn, 'date') else str(next_earn)[:10]
+            days_str = f" (in {days_until} days)" if days_until and days_until > 0 else ""
+            st.markdown(f"**📅 Next Quarter Earnings Date:** {date_str}{days_str}")
+        except Exception:
+            st.markdown(f"**📅 Next Quarter Earnings Date:** {str(next_earn)[:10]}")
     else:
-        st.markdown(f"**📅 Next Quarter Earnings Date:** N/A")
+        st.markdown("**📅 Next Quarter Earnings Date:** N/A")
         
     st.markdown(f"**💵 Max Buy Price (Median Target / 1.15):** ${max_buy:.2f}" if max_buy else "**💵 Max Buy Price:** N/A")
     st.divider()
+
 
 
 def main():
