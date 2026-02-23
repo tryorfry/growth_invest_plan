@@ -211,9 +211,12 @@ class Database:
         finally:
             session.close()
 
-    def get_all_portfolios(self, user_id: int) -> list:
+    def get_all_portfolios(self, user_id: int, session: Session = None) -> list:
         """Get all portfolios from the database"""
         from .models import Portfolio
+        if session:
+            return session.query(Portfolio).filter(Portfolio.user_id == user_id).order_by(Portfolio.name).all()
+            
         session = self.SessionLocal()
         try:
             return session.query(Portfolio).filter(Portfolio.user_id == user_id).order_by(Portfolio.name).all()

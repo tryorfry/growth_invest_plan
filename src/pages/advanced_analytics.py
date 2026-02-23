@@ -95,13 +95,23 @@ def render_advanced_analytics_page():
         st.header("⚙️ Analysis Settings")
         
         from src.utils_tickers import render_hybrid_ticker_input
+        
+        # If triggered from Screener, use that ticker as the default
+        screener_ticker = st.session_state.get('adv_anal_text', '')
+        
         ticker = render_hybrid_ticker_input(key_prefix="adv_anal")
         if not ticker:
-            ticker = "AAPL"
+            ticker = screener_ticker if screener_ticker else "AAPL"
             
         analyze_btn = st.button("🔬 Run Advanced Analysis", type="primary", use_container_width=True)
+        
+        # Trigger from Screener: auto-run and clear the flag
+        if st.session_state.get('run_adv_anal'):
+            st.session_state['run_adv_anal'] = False  # Reset flag
+            ticker = st.session_state.get('adv_anal_text', ticker)
+            analyze_btn = True
     
-    if analyze_btn and ticker:
+    if (analyze_btn or st.session_state.get('auto_run_adv')) and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
             # Initialize sources
             analyzer = StockAnalyzer()
@@ -266,15 +276,20 @@ def render_advanced_analytics_page():
                             )
                             st.plotly_chart(mc_fig, use_container_width=True)
                             
-                            # Display exact probability metrics
-                            st.markdown("### Probable Outcomes")
-                            p_cols = st.columns(4)
-                            p_cols[0].metric("Target Price (Median)", f"${mc_results['percentiles']['p50']:.2f}")
-                            p_cols[1].metric("Bull Case (Top 5%)", f"${mc_results['percentiles']['p95']:.2f}")
-                            p_cols[2].metric("Bear Case (Bottom 5%)", f"${mc_results['percentiles']['p5']:.2f}")
-                            
                             prob_up = mc_results['prob_higher'] * 100
-                            p_cols[3].metric("Win Probability", f"{prob_up:.1f}%")
+                            m1, m2, m3, m4 = st.columns(4)
+                            m1.metric("Current Price", f"${analysis.current_price:.2f}" if analysis.current_price else "N/A")
+                            m2.metric("Median Target (30d)", f"${p50_path[-1]:.2f}")
+                            m3.metric("Bull Target (95th %ile)", f"${p95_path[-1]:.2f}")
+                            m4.metric("Win Probability", f"{prob_up:.1f}%")
+                            
+                            # Suggested Entry/Stop - MORE PROMINENT
+                            st.markdown("---")
+                            st.success(f"🎯 **Suggested Trade Setup**")
+                            s1, s2 = st.columns(2)
+                            s1.markdown(f"👉 **Entry: ${getattr(analysis, 'suggested_entry', 0):.2f}**")
+                            s2.markdown(f"🛑 **Stop: ${getattr(analysis, 'suggested_stop_loss', 0):.2f}**")
+                            st.markdown("---")
                             
                     else:
                         st.error("Missing historical price data required for simulation.")

@@ -45,12 +45,27 @@ def init_database():
     db = Database("stock_analysis.db")
     db.init_db()
     
+    # Self-healing migration: ensure theme_preference column exists (added after initial deployment)
+    try:
+        import sqlite3 as _sqlite3
+        _conn = _sqlite3.connect("stock_analysis.db")
+        _cur = _conn.cursor()
+        _cur.execute("PRAGMA table_info(users)")
+        _cols = [row[1] for row in _cur.fetchall()]
+        if 'theme_preference' not in _cols and _cols:  # only if table exists
+            _cur.execute("ALTER TABLE users ADD COLUMN theme_preference VARCHAR(20) DEFAULT 'dark'")
+            _conn.commit()
+        _conn.close()
+    except Exception:
+        pass  # Fresh DB will have the column from create_all()
+    
     # Seed admin user if needed
     with db.get_session() as session:
         from src.auth import AuthManager
         AuthManager.seed_admin(session)
         
     return db
+
 
 # Initialize analyzer
 @st.cache_resource
@@ -324,8 +339,12 @@ def main():
             
         if tier == 'admin':
             nav_options.append("🛡️ Admin Dashboard")
+
+        # Programmatic navigation: jump to page set by other pages (e.g. Screener → Analytics)
+        go_to = st.session_state.pop('go_to_page', None)
+        default_index = nav_options.index(go_to) if go_to and go_to in nav_options else 0
             
-        page = st.radio("Navigation", options=nav_options)
+        page = st.radio("Navigation", options=nav_options, index=default_index, key="nav_radio")
         
         # Upsell for free users
         if tier == 'free':

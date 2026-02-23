@@ -20,6 +20,18 @@ class PortfolioManager:
         self.session.commit()
         return portfolio
 
+    def delete_portfolio(self, portfolio_id: int) -> bool:
+        """Delete an entire portfolio"""
+        portfolio = self.session.query(Portfolio).filter(
+            Portfolio.id == portfolio_id,
+            Portfolio.user_id == self.user_id
+        ).first()
+        if portfolio:
+            self.session.delete(portfolio)
+            self.session.commit()
+            return True
+        return False
+
     def add_transaction(self, portfolio_id: int, ticker: str, trans_type: str, 
                        quantity: float, price: float, fees: float = 0.0, 
                        notes: str = "") -> Transaction:
@@ -44,6 +56,24 @@ class PortfolioManager:
         self.session.commit()
         return transaction
 
+    def delete_ticker_from_portfolio(self, portfolio_id: int, ticker: str) -> bool:
+        """Delete all transactions for a specific ticker in a portfolio"""
+        stock = self.session.query(Stock).filter(Stock.ticker == ticker).first()
+        if not stock:
+            return False
+            
+        transactions = self.session.query(Transaction).filter(
+            Transaction.portfolio_id == portfolio_id,
+            Transaction.stock_id == stock.id
+        ).all()
+        
+        if transactions:
+            for t in transactions:
+                self.session.delete(t)
+            self.session.commit()
+            return True
+        return False
+
     def get_portfolio_holdings(self, portfolio_id: int) -> pd.DataFrame:
         """Calculate current holdings and cost basis for a portfolio"""
         transactions = self.session.query(Transaction).filter(
@@ -57,8 +87,17 @@ class PortfolioManager:
         for t in transactions:
             ticker = t.stock.ticker
             if ticker not in holdings:
-                holdings[ticker] = {'qty': 0.0, 'cost_basis': 0.0, 'total_spent': 0.0}
+                holdings[ticker] = {
+                    'qty': 0.0, 
+                    'cost_basis': 0.0, 
+                    'total_spent': 0.0,
+                    'Entry Date': t.timestamp
+                }
             
+            # Track earliest purchase date
+            if t.timestamp < holdings[ticker]['Entry Date']:
+                holdings[ticker]['Entry Date'] = t.timestamp
+
             if t.type == 'BUY':
                 qty = float(t.quantity or 0.0)
                 price = float(t.price or 0.0)
