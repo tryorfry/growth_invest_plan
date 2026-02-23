@@ -340,11 +340,14 @@ def main():
         if tier == 'admin':
             nav_options.append("🛡️ Admin Dashboard")
 
-        # Programmatic navigation: jump to page set by other pages (e.g. Screener → Analytics)
-        go_to = st.session_state.pop('go_to_page', None)
-        default_index = nav_options.index(go_to) if go_to and go_to in nav_options else 0
+        # Programmatic navigation: directly set nav_radio session state key so
+        # st.radio picks it up (index= is ignored when the key already exists in state)
+        if 'go_to_page' in st.session_state:
+            target_page = st.session_state.pop('go_to_page')
+            if target_page in nav_options:
+                st.session_state['nav_radio'] = target_page
             
-        page = st.radio("Navigation", options=nav_options, index=default_index, key="nav_radio")
+        page = st.radio("Navigation", options=nav_options, key="nav_radio")
         
         # Upsell for free users
         if tier == 'free':
