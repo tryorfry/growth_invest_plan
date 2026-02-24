@@ -546,83 +546,88 @@ def main():
                         else:
                             st.warning("⚠️ AI Analysis is currently unavailable. Please configure your `GEMINI_API_KEY` in Streamlit secrets or OS environment.")
                             
-                    # Debug / Detailed Trade Setup
-                    with st.expander("🛠️ Detailed Trade Setup Insights"):
-                        st.markdown("### 🧮 How It Works")
-                        st.markdown(
-                            """
-                            **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema. This filters out the noise of simple fractals to provide institutional-grade support and resistance levels.
-                            
-                            **Suggested Entry (Risk/Reward Verified):** Calculated as **0.5%** above the nearest Support level. A rounding adjustment is applied to odd cents (like .17 or .77) to avoid institutional piling. **Entries are canceled if the Risk/Reward ratio is < 1.5, or if buying directly into overhead Resistance.**
-                            
-                            **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR)** to account for current volatility.
-                            """
-                        )
-                        st.divider()
+                    # 🎯 Professional Trade Execution Setup
+                    st.divider()
+                    st.subheader("🎯 Trade Execution Setup")
+                    
+                    # Create a prominent container for the trade setup
+                    with st.container(border=True):
+                        # Top Metrics Row
+                        col_e, col_sl, col_rr = st.columns(3)
                         
-                        col_s, col_r = st.columns(2)
-                        raw_support = getattr(analysis, "support_levels", [])
-                        raw_resist = getattr(analysis, "resistance_levels", [])
-                        raw_hvns = getattr(analysis, "volume_profile_hvns", [])
                         raw_entry = getattr(analysis, "suggested_entry", None)
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
-                        setup_notes = getattr(analysis, "setup_notes", [])
-
-                        with col_s:
-                            st.markdown("#### 📉 Support Levels")
-                            st.markdown("**Statistical Clusters:**")
-                            if raw_support:
-                                for s in raw_support:
-                                    st.markdown(f"- \\${float(s):.2f}")
-                            else:
-                                st.markdown("- None detected")
-                                
-                            st.markdown("**High Volume Nodes (Below Price):**")
-                            hvn_supp = [h for h in raw_hvns if analysis.current_price and h < analysis.current_price]
-                            if hvn_supp:
-                                for h in sorted(hvn_supp)[-2:]:
-                                    st.markdown(f"- \\${float(h):.2f}")
-                            else:
-                                st.markdown("- None detected")
-                                
-                        with col_r:
-                            st.markdown("#### 📈 Resistance Levels")
-                            st.markdown("**Statistical Clusters:**")
-                            if raw_resist:
-                                for r in raw_resist:
-                                    st.markdown(f"- \\${float(r):.2f}")
-                            else:
-                                st.markdown("- None detected")
-                                
-                            st.markdown("**High Volume Nodes (Above Price):**")
-                            hvn_res = [h for h in raw_hvns if analysis.current_price and h > analysis.current_price]
-                            if hvn_res:
-                                for h in sorted(hvn_res)[:2]:
-                                    st.markdown(f"- \\${float(h):.2f}")
-                            else:
-                                st.markdown("- None detected")
+                        raw_target = analysis.median_price_target
                         
+                        with col_e:
+                            entry_val = f"${float(raw_entry):.2f}" if raw_entry is not None else "WAIT"
+                            st.metric("Suggested Entry", entry_val, help="Risk-adjusted entry point above clusters.")
+                            
+                        with col_sl:
+                            stop_val = f"${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
+                            st.metric("Stop Loss", stop_val, delta_color="inverse", help="ATR-adjusted exit point.")
+                            
+                        with col_rr:
+                            if raw_entry and raw_stop and raw_target:
+                                rr = (raw_target - raw_entry) / (raw_entry - raw_stop)
+                                rr_color = "normal" if rr >= 1.5 else "off"
+                                st.metric("Risk/Reward Ratio", f"{rr:.2f}x", delta="Target Reachable" if rr >= 1.5 else "Low R/R", delta_color=rr_color)
+                            else:
+                                st.metric("Risk/Reward Ratio", "N/A")
+
                         st.divider()
-                        st.markdown("#### 🎯 Smart Execution")
                         
-                        if setup_notes:
-                            for note in setup_notes:
-                                if "✅" in note:
-                                    st.success(note)
-                                elif "⚠️" in note:
-                                    st.warning(note)
-                                elif "❌" in note:
-                                    st.error(note)
-                                else:
-                                    st.info(note)
+                        # Logic and S/R Details
+                        col_logic, col_levels = st.columns([1, 1.2])
                         
-                        entry_str = f"\\${float(raw_entry):.2f}" if raw_entry is not None else "Waiting for Setup"
-                        stop_str = f"\\${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
-                        
-                        ecol1, ecol2 = st.columns(2)
-                        ecol1.metric("Suggested Entry", entry_str)
-                        ecol2.metric("Suggested Stop Loss", stop_str, delta=f"-1 ATR" if raw_stop else None, delta_color="off")
+                        with col_logic:
+                            st.markdown("#### 🧮 Decision Matrix")
+                            setup_notes = getattr(analysis, "setup_notes", [])
+                            if setup_notes:
+                                for note in setup_notes:
+                                    if "✅" in note: st.success(note)
+                                    elif "⚠️" in note: st.warning(note)
+                                    elif "❌" in note: st.error(note)
+                                    else: st.info(note)
+                            else:
+                                st.info("Waiting for trend confirmation...")
 
+                        with col_levels:
+                            st.markdown("#### 🏛️ Institutional Levels")
+                            l_col1, l_col2 = st.columns(2)
+                            
+                            raw_support = getattr(analysis, "support_levels", [])
+                            raw_resist = getattr(analysis, "resistance_levels", [])
+                            raw_hvns = getattr(analysis, "volume_profile_hvns", [])
+                            
+                            with l_col1:
+                                st.write("**Support Zones**")
+                                if raw_support:
+                                    for s in raw_support[:2]: st.code(f"${float(s):.2f}")
+                                hvn_supp = [h for h in raw_hvns if analysis.current_price and h < analysis.current_price]
+                                if hvn_supp:
+                                    st.write("*Vol Profile HVN:*")
+                                    st.code(f"${float(max(hvn_supp)):.2f}")
+                                    
+                            with l_col2:
+                                st.write("**Resistance Zones**")
+                                if raw_resist:
+                                    for r in raw_resist[:2]: st.code(f"${float(r):.2f}")
+                                hvn_res = [h for h in raw_hvns if analysis.current_price and h > analysis.current_price]
+                                if hvn_res:
+                                    st.write("*Vol Profile HVN:*")
+                                    st.code(f"${float(min(hvn_res)):.2f}")
+                                    
+                        # Expandable mathematical background
+                        with st.expander("Show Calculation Logic"):
+                            st.markdown(
+                                """
+                                **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema.
+                                **Suggested Entry:** Calculated as **0.5%** above the nearest Support level with rounding adjustments to avoid institutional piling.
+                                **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR)**.
+                                """
+                            )
+                        
                     # OHLC Details
                     st.subheader("📊 Price Details")
                     col1, col2, col3, col4 = st.columns(4)
@@ -670,25 +675,17 @@ def main():
                     # Technical Indicators
                     st.subheader("📈 Technical Indicators")
                     
-                    # Generate interactive chart
+                    # Generate unified interactive chart
                     fig = chart_gen.generate_candlestick_chart(
                         analysis,
                         show_ema=show_ema,
                         show_bollinger=show_bollinger,
                         show_support_resistance=show_support_resistance,
-                        show_trade_setup=show_trade_setup
+                        show_trade_setup=show_trade_setup,
+                        show_rsi=show_rsi,
+                        show_macd=show_macd
                     )
                     st.plotly_chart(fig, use_container_width=True)
-                    
-                    # RSI Chart
-                    if show_rsi and analysis.history is not None:
-                        fig_rsi = chart_gen.generate_rsi_chart(analysis)
-                        st.plotly_chart(fig_rsi, use_container_width=True)
-                    
-                    # MACD Chart
-                    if show_macd and analysis.history is not None:
-                        fig_macd = chart_gen.generate_macd_chart(analysis)
-                        st.plotly_chart(fig_macd, use_container_width=True)
                     
                     # Fundamental Data
                     st.subheader("💰 Fundamental Data")

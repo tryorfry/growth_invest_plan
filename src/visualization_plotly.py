@@ -19,10 +19,12 @@ class PlotlyChartGenerator:
         show_ema: bool = True,
         show_bollinger: bool = False,
         show_support_resistance: bool = False,
-        show_trade_setup: bool = False
+        show_trade_setup: bool = False,
+        show_rsi: bool = False,
+        show_macd: bool = False
     ) -> Optional[go.Figure]:
         """
-        Generate an interactive candlestick chart with technical indicators.
+        Generate an interactive candlestick chart with technical indicators and subplots.
         
         Args:
             analysis: StockAnalysis object containing historical data
@@ -30,6 +32,8 @@ class PlotlyChartGenerator:
             show_bollinger: Whether to show Bollinger Bands
             show_support_resistance: Whether to show Support/Resistance levels
             show_trade_setup: Whether to show Trade Setup (Entry/Stop)
+            show_rsi: Whether to include RSI subplot
+            show_macd: Whether to include MACD subplot
             
         Returns:
             Plotly Figure object or None if no data
@@ -39,16 +43,39 @@ class PlotlyChartGenerator:
         
         df = analysis.history.copy()
         
-        # Create figure with secondary y-axis for volume
+        # Determine number of rows and heights
+        rows = 2
+        titles = [f'{analysis.ticker} Price Chart', 'Volume']
+        row_heights = [0.5, 0.15] # Default for Price + Volume
+        
+        rsi_row = 0
+        if show_rsi and 'RSI' in df.columns:
+            rows += 1
+            rsi_row = rows
+            titles.append('RSI')
+            row_heights.append(0.175)
+            
+        macd_row = 0
+        if show_macd and 'MACD' in df.columns:
+            rows += 1
+            macd_row = rows
+            titles.append('MACD')
+            row_heights.append(0.175)
+
+        # Normalize row heights to sum to 1
+        total_height = sum(row_heights)
+        normalized_heights = [h/total_height for h in row_heights]
+        
+        # Create figure with shared x-axes
         fig = make_subplots(
-            rows=2, cols=1,
+            rows=rows, cols=1,
             shared_xaxes=True,
-            vertical_spacing=0.03,
-            row_heights=[0.7, 0.3],
-            subplot_titles=(f'{analysis.ticker} Price Chart', 'Volume')
+            vertical_spacing=0.04,
+            row_heights=normalized_heights,
+            subplot_titles=titles
         )
         
-        # Candlestick
+        # 1. Candlestick (Row 1)
         fig.add_trace(
             go.Candlestick(
                 x=df.index,
@@ -63,28 +90,28 @@ class PlotlyChartGenerator:
             row=1, col=1
         )
         
-        # EMAs
+        # EMAs (Row 1)
         if show_ema:
             if 'EMA20' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA20'], name='EMA20', 
-                              line=dict(color='blue', width=1)),
+                               line=dict(color='blue', width=1)),
                     row=1, col=1
                 )
             if 'EMA50' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA50'], name='EMA50',
-                              line=dict(color='orange', width=1)),
+                               line=dict(color='orange', width=1)),
                     row=1, col=1
                 )
             if 'EMA200' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA200'], name='EMA200',
-                              line=dict(color='red', width=1.5)),
+                               line=dict(color='red', width=1.5)),
                     row=1, col=1
                 )
         
-        # Bollinger Bands
+        # Bollinger Bands (Row 1)
         if show_bollinger and 'Bollinger_Upper' in df.columns:
             fig.add_trace(
                 go.Scatter(
@@ -104,104 +131,189 @@ class PlotlyChartGenerator:
                 row=1, col=1
             )
         
-        # Price Target Line
+        # Price Target Line (Row 1)
         if analysis.median_price_target:
-            fig.add_hline(
-                y=analysis.median_price_target,
-                line_dash="dash",
-                line_color="green",
-                annotation_text=f"Target: ${analysis.median_price_target:.2f}",
+            fig.add_trace(
+                go.Scatter(
+                    x=[df.index[0], df.index[-1]],
+                    y=[analysis.median_price_target, analysis.median_price_target],
+                    mode="lines",
+                    name=f"Target: ${analysis.median_price_target:.2f}",
+                    line=dict(color="green", width=2, dash="dash"),
+                    hoverinfo="skip"
+                ),
                 row=1, col=1
             )
             
-        # Support and Resistance
+        # Support and Resistance (Row 1)
         if show_support_resistance:
             # High Volume Nodes
-            for hvn in getattr(analysis, 'volume_profile_hvns', []):
-                fig.add_hline(
-                    y=hvn,
-                    line_dash="solid",
-                    line_color="rgba(128, 0, 128, 0.3)",
-                    line_width=4,
-                    annotation_text="HVN",
-                    annotation_position="bottom left",
+            for i, hvn in enumerate(getattr(analysis, 'volume_profile_hvns', [])):
+                fig.add_trace(
+                    go.Scatter(
+                        x=[df.index[0], df.index[-1]],
+                        y=[hvn, hvn],
+                        mode="lines",
+                        name=f"HVN {i+1}: ${hvn:.2f}",
+                        line=dict(color="rgba(128, 0, 128, 0.4)", width=3),
+                        hoverinfo="name+y"
+                    ),
                     row=1, col=1
                 )
-                
+            
             # Support levels
-            for level in getattr(analysis, 'support_levels', []):
-                fig.add_hline(
-                    y=level,
-                    line_dash="dot",
-                    line_color="green",
-                    line_width=2,
-                    opacity=0.8,
-                    annotation_text=f"Support: ${level:.2f}",
-                    annotation_position="bottom right",
+            for i, level in enumerate(getattr(analysis, 'support_levels', [])):
+                name = f"Support {i+1}: ${level:.2f}"
+                fig.add_trace(
+                    go.Scatter(
+                        x=[df.index[0], df.index[-1]],
+                        y=[level, level],
+                        mode="lines",
+                        name=name,
+                        line=dict(color="green", width=1, dash="dot"),
+                        opacity=0.8,
+                        hoverinfo="name+y"
+                    ),
                     row=1, col=1
                 )
             
             # Resistance levels
-            for level in getattr(analysis, 'resistance_levels', []):
-                fig.add_hline(
-                    y=level,
-                    line_dash="dot",
-                    line_color="red",
-                    line_width=2,
-                    opacity=0.8,
-                    annotation_text=f"Resistance: ${level:.2f}",
-                    annotation_position="top right",
+            for i, level in enumerate(getattr(analysis, 'resistance_levels', [])):
+                name = f"Resistance {i+1}: ${level:.2f}"
+                fig.add_trace(
+                    go.Scatter(
+                        x=[df.index[0], df.index[-1]],
+                        y=[level, level],
+                        mode="lines",
+                        name=name,
+                        line=dict(color="red", width=1, dash="dot"),
+                        opacity=0.8,
+                        hoverinfo="name+y"
+                    ),
                     row=1, col=1
                 )
         
-        # Trade Setup (Entry & Stop Loss)
+        # Trade Setup (Entry & Stop Loss) (Row 1)
         if show_trade_setup:
             if getattr(analysis, 'suggested_entry', None):
-                fig.add_hline(
-                    y=analysis.suggested_entry,
-                    line_dash="solid",
-                    line_color="blue",
-                    line_width=2,
-                    annotation_text=f"ENTRY: ${analysis.suggested_entry:.2f}",
-                    annotation_position="right",
+                fig.add_trace(
+                    go.Scatter(
+                        x=[df.index[0], df.index[-1]],
+                        y=[analysis.suggested_entry, analysis.suggested_entry],
+                        mode="lines",
+                        name=f"ENTRY: ${analysis.suggested_entry:.2f}",
+                        line=dict(color="#0000FF", width=2), # Bright Blue
+                        hoverinfo="name+y"
+                    ),
                     row=1, col=1
                 )
                 
             if getattr(analysis, 'suggested_stop_loss', None):
-                fig.add_hline(
-                    y=analysis.suggested_stop_loss,
-                    line_dash="solid",
-                    line_color="red",
-                    line_width=2,
-                    annotation_text=f"STOP: ${analysis.suggested_stop_loss:.2f} (ATR)",
-                    annotation_position="right",
+                fig.add_trace(
+                    go.Scatter(
+                        x=[df.index[0], df.index[-1]],
+                        y=[analysis.suggested_stop_loss, analysis.suggested_stop_loss],
+                        mode="lines",
+                        name=f"STOP: ${analysis.suggested_stop_loss:.2f}",
+                        line=dict(color="#FF0000", width=2), # Bright Red
+                        hoverinfo="name+y"
+                    ),
                     row=1, col=1
                 )
 
-        # Volume bars
+        # 2. Volume bars (Row 2)
         colors = ['red' if row['Close'] < row['Open'] else 'green' for _, row in df.iterrows()]
         fig.add_trace(
             go.Bar(x=df.index, y=df['Volume'], name='Volume', marker_color=colors, showlegend=False),
             row=2, col=1
         )
         
-        # Determine template
+        # 3. RSI (Optional Row)
+        if rsi_row:
+            fig.add_trace(
+                go.Scatter(
+                    x=df.index, y=df['RSI'], name='RSI',
+                    line=dict(color='purple', width=2)
+                ),
+                row=rsi_row, col=1
+            )
+            fig.add_hline(y=70, line_dash="dash", line_color="red", row=rsi_row, col=1, annotation_text="70")
+            fig.add_hline(y=30, line_dash="dash", line_color="green", row=rsi_row, col=1, annotation_text="30")
+        
+        # 4. MACD (Optional Row)
+        if macd_row:
+            fig.add_trace(
+                go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue', width=2)),
+                row=macd_row, col=1
+            )
+            if 'MACD_Signal' in df.columns:
+                fig.add_trace(
+                    go.Scatter(x=df.index, y=df['MACD_Signal'], name='MACD Signal', line=dict(color='orange', width=2)),
+                    row=macd_row, col=1
+                )
+                histogram = df['MACD'] - df['MACD_Signal']
+                hist_colors = ['green' if val >= 0 else 'red' for val in histogram]
+                fig.add_trace(
+                    go.Bar(x=df.index, y=histogram, name='MACD Histogram', marker_color=hist_colors, opacity=0.3),
+                    row=macd_row, col=1
+                )
+            fig.add_hline(y=0, line_dash="dash", line_color="gray", row=macd_row, col=1)
+
+        # Determine theme
         theme = st.session_state.get('theme_preference', 'dark')
         template = 'plotly_white' if theme == 'light' else 'plotly_dark'
 
-        # Update layout
+        # Overall Layout
+        total_fig_height = 800 + (200 if rsi_row else 0) + (200 if macd_row else 0)
+        
         fig.update_layout(
-            title=f'{analysis.ticker} Technical Analysis',
-            yaxis_title='Price ($)',
-            xaxis_rangeslider_visible=False,
-            height=700,
+            title=f'{analysis.ticker} Interactive Analysis',
+            height=total_fig_height,
             hovermode='x unified',
-            template=template
+            template=template,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            ),
+            margin=dict(t=100) # Give more space at top for buttons if needed
         )
         
+        # Configure X-Axes (Shared)
+        # Apply range selector to the TOP axis (Price)
+        # Apply range slider to the BOTTOM axis
+        fig.update_xaxes(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=7, label="1W", step="day", stepmode="backward"),
+                    dict(count=14, label="2W", step="day", stepmode="backward"),
+                    dict(count=1, label="1M", step="month", stepmode="backward"),
+                    dict(count=3, label="3M", step="month", stepmode="backward"),
+                    dict(count=6, label="6M", step="month", stepmode="backward"),
+                    dict(count=1, label="1Y", step="year", stepmode="backward"),
+                    dict(count=5, label="5Y", step="year", stepmode="backward"),
+                    dict(step="all", label="All")
+                ]),
+                bgcolor="rgba(150, 150, 150, 0.1)",
+                font=dict(size=11)
+            ),
+            row=1, col=1
+        )
+        
+        # Rangeslider on the bottom row
+        fig.update_xaxes(rangeslider_visible=True, row=rows, col=1)
+        
+        fig.update_yaxes(title_text="Price ($)", row=1, col=1)
         fig.update_yaxes(title_text="Volume", row=2, col=1)
+        if rsi_row:
+            fig.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
+        if macd_row:
+            fig.update_yaxes(title_text="MACD", row=macd_row, col=1)
         
         return fig
+
     
     def generate_rsi_chart(self, analysis: StockAnalysis) -> Optional[go.Figure]:
         """
