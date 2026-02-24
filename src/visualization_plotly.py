@@ -270,7 +270,9 @@ class PlotlyChartGenerator:
         fig.update_layout(
             title=dict(
                 text=f'<b>{analysis.ticker}</b> Interactive Analysis',
-                x=0.05,
+                x=0.5,
+                xanchor='center',
+                y=0.95,
                 font=dict(size=24)
             ),
             height=total_fig_height,
@@ -278,13 +280,15 @@ class PlotlyChartGenerator:
             template=template,
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=1.02,
+                yanchor="top",
+                y=-0.15, # Move legend to bottom
                 xanchor="center",
                 x=0.5,
-                bgcolor='rgba(0,0,0,0)'
+                bgcolor='rgba(0,0,0,0.3)',
+                bordercolor="rgba(128,128,128,0.2)",
+                borderwidth=1
             ),
-            margin=dict(t=120, b=50, l=50, r=50), # Decouple buttons and price chart
+            margin=dict(t=150, b=150, l=50, r=50), # Large margins for UI elements
             hoverlabel=dict(
                 bgcolor="rgba(0,0,0,0.8)" if theme == 'dark' else "rgba(255,255,255,0.8)",
                 font_size=12,
@@ -311,10 +315,11 @@ class PlotlyChartGenerator:
                     dict(count=5, label="5Y", step="year", stepmode="backward"),
                     dict(step="all", label="All")
                 ]),
-                bgcolor="rgba(150, 150, 150, 0.1)",
-                activecolor="rgba(25, 118, 210, 0.5)",
-                font=dict(size=12, weight='bold'),
-                y=1.08 # Move buttons higher to avoid clutter
+                bgcolor="rgba(150, 150, 150, 0.15)",
+                activecolor="rgba(37, 118, 210, 0.5)",
+                font=dict(size=12, family="Inter, sans-serif"),
+                y=1.02, # Position relative to the top axis
+                yanchor="bottom"
             ),
             gridcolor=grid_color,
             row=1, col=1
