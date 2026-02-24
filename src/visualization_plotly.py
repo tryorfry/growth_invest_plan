@@ -297,7 +297,10 @@ class PlotlyChartGenerator:
         )
         
         # Configure X-Axes (Shared)
+        # IMPORTANT: type='date' must be set explicitly for rangeselector step buttons
+        # (day/month/year) to work correctly.
         fig.update_xaxes(
+            type='date',
             showspikes=True,
             spikemode='across',
             spikesnap='cursor',

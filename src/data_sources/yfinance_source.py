@@ -80,8 +80,8 @@ class YFinanceSource(TechnicalDataSource):
         ranges = pd.concat([high_low, high_close, low_close], axis=1)
         true_range = ranges.max(axis=1)
         
-        # ATR 14
-        atr = true_range.ewm(span=14, adjust=False).mean()
+        # ATR 14 - using Wilder's Smoothing (com = period - 1, so alpha = 1/period)
+        atr = true_range.ewm(com=13, adjust=False).mean()
         hist['ATR'] = atr
         
         # EMAs
