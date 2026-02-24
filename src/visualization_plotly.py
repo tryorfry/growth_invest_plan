@@ -70,7 +70,7 @@ class PlotlyChartGenerator:
         fig = make_subplots(
             rows=rows, cols=1,
             shared_xaxes=True,
-            vertical_spacing=0.04,
+            vertical_spacing=0.06, # Improved spacing
             row_heights=normalized_heights,
             subplot_titles=titles
         )
@@ -355,9 +355,7 @@ class PlotlyChartGenerator:
         if macd_row:
             fig.update_yaxes(title_text="MACD", row=macd_row, col=1)
         
-        # Adjust vertical spacing for subplots
-        fig.update_layout(vertical_spacing=0.06)
-        
+        # Subplots spacing is already set in make_subplots
         return fig
 
     
