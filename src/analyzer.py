@@ -460,8 +460,8 @@ class StockAnalyzer:
             else:
                 # Risk/Reward Filter
                 rr_ratio = reward / risk if risk > 0 else 0
-                if rr_ratio < 1.5:
-                    notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 1.5+")
+                if rr_ratio < 2.0:
+                    notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 2.0+")
                 else:
                     notes.append(f"✅ Setup Valid: Risk/Reward Ratio is {rr_ratio:.2f} (Target: ${nearest_resistance:.2f})")
         else:
