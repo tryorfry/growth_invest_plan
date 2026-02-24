@@ -262,12 +262,17 @@ class PlotlyChartGenerator:
         # Determine theme
         theme = st.session_state.get('theme_preference', 'dark')
         template = 'plotly_white' if theme == 'light' else 'plotly_dark'
+        grid_color = 'rgba(128, 128, 128, 0.1)'
 
         # Overall Layout
-        total_fig_height = 800 + (200 if rsi_row else 0) + (200 if macd_row else 0)
+        total_fig_height = 850 + (200 if rsi_row else 0) + (200 if macd_row else 0)
         
         fig.update_layout(
-            title=f'{analysis.ticker} Interactive Analysis',
+            title=dict(
+                text=f'<b>{analysis.ticker}</b> Interactive Analysis',
+                x=0.05,
+                font=dict(size=24)
+            ),
             height=total_fig_height,
             hovermode='x unified',
             template=template,
@@ -275,16 +280,26 @@ class PlotlyChartGenerator:
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
-                xanchor="right",
-                x=1
+                xanchor="center",
+                x=0.5,
+                bgcolor='rgba(0,0,0,0)'
             ),
-            margin=dict(t=100) # Give more space at top for buttons if needed
+            margin=dict(t=120, b=50, l=50, r=50), # Decouple buttons and price chart
+            hoverlabel=dict(
+                bgcolor="rgba(0,0,0,0.8)" if theme == 'dark' else "rgba(255,255,255,0.8)",
+                font_size=12,
+                font_family="Inter, sans-serif"
+            )
         )
         
         # Configure X-Axes (Shared)
-        # Apply range selector to the TOP axis (Price)
-        # Apply range slider to the BOTTOM axis
         fig.update_xaxes(
+            showspikes=True,
+            spikemode='across',
+            spikesnap='cursor',
+            spikethickness=1,
+            spikedash='dash',
+            spikecolor='#999999',
             rangeselector=dict(
                 buttons=list([
                     dict(count=7, label="1W", step="day", stepmode="backward"),
@@ -297,13 +312,41 @@ class PlotlyChartGenerator:
                     dict(step="all", label="All")
                 ]),
                 bgcolor="rgba(150, 150, 150, 0.1)",
-                font=dict(size=11)
+                activecolor="rgba(25, 118, 210, 0.5)",
+                font=dict(size=12, weight='bold'),
+                y=1.08 # Move buttons higher to avoid clutter
             ),
+            gridcolor=grid_color,
             row=1, col=1
         )
         
         # Rangeslider on the bottom row
         fig.update_xaxes(rangeslider_visible=True, row=rows, col=1)
+        
+        # Configure Y-Axes with Spikelines
+        fig.update_yaxes(
+            showspikes=True,
+            spikemode='across',
+            spikethickness=1,
+            spikedash='dash',
+            spikecolor='#999999',
+            gridcolor=grid_color
+        )
+
+        # Price Annotation (Current Price)
+        fig.add_annotation(
+            xref="paper", yref="y1",
+            x=1, y=analysis.current_price,
+            text=f" <b>${analysis.current_price:.2f}</b> ",
+            showarrow=False,
+            font=dict(size=12, color="white"),
+            bgcolor="#2576d2",
+            bordercolor="#2576d2",
+            borderwidth=2,
+            borderpad=4,
+            align="left",
+            xanchor="left"
+        )
         
         fig.update_yaxes(title_text="Price ($)", row=1, col=1)
         fig.update_yaxes(title_text="Volume", row=2, col=1)
@@ -311,6 +354,9 @@ class PlotlyChartGenerator:
             fig.update_yaxes(title_text="RSI", range=[0, 100], row=rsi_row, col=1)
         if macd_row:
             fig.update_yaxes(title_text="MACD", row=macd_row, col=1)
+        
+        # Adjust vertical spacing for subplots
+        fig.update_layout(vertical_spacing=0.06)
         
         return fig
 
