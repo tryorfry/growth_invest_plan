@@ -59,10 +59,22 @@ class InsiderSource:
                     start_date = row.get('Start Date')
                     date_str = start_date.strftime('%Y-%m-%d') if pd.notna(start_date) else "Unknown"
                     
+                    # Determine buy/sell — yfinance provides 'Transaction' column
+                    txn_raw = str(row.get('Transaction', '')).strip()
+                    if 'sale' in txn_raw.lower() or 'sell' in txn_raw.lower():
+                        txn_type = "🔴 Sale"
+                    elif 'purchase' in txn_raw.lower() or 'buy' in txn_raw.lower():
+                        txn_type = "🟢 Purchase"
+                    elif txn_raw:
+                        txn_type = txn_raw
+                    else:
+                        txn_type = "Unknown"
+                    
                     result["recent_transactions"].append({
                         "date": date_str,
                         "insider": str(row.get('Insider', 'Unknown')),
                         "position": str(row.get('Position', 'Unknown')),
+                        "transaction_type": txn_type,
                         "shares": int(row.get('Shares', 0)) if pd.notna(row.get('Shares')) else 0,
                         "value": float(row.get('Value', 0.0)) if pd.notna(row.get('Value')) else 0.0
                     })

@@ -536,7 +536,8 @@ def render_advanced_analytics_page():
                             st.markdown("### Most Recent Transactions")
                             df = pd.DataFrame(insider_data['recent_transactions'])
                             
-                            df.columns = ["Date", "Executive / Insider", "Position", "Shares", "Value ($)"]
+                            df = df[["date", "insider", "position", "transaction_type", "shares", "value"]]
+                            df.columns = ["Date", "Executive / Insider", "Position", "Transaction", "Shares", "Value ($)"]
                             
                             st.dataframe(df.style.format({
                                 "Shares": "{:,.0f}",
