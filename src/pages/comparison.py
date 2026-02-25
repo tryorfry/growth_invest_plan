@@ -4,20 +4,22 @@ import streamlit as st
 import asyncio
 from src.analyzer import StockAnalyzer
 from src.visualization_advanced import AdvancedVisualizations
+from src.activity_logger import log_activity, log_page_visit
 
 
 def render_comparison_page():
     """Render the stock comparison page"""
     st.title("📈 Stock Comparison")
-    
+
     # Ticker input
     st.subheader("Select Stocks to Compare")
-    
+
     # Sidebar integration for history
     db = st.session_state.get('db')
     db_tickers = []
     if db:
         db_tickers = db.get_all_tickers()
+        log_page_visit(db, "Stock Comparison")
         
     with st.sidebar:
         st.divider()
@@ -45,6 +47,12 @@ def render_comparison_page():
         if len(tickers) < 2:
             st.error("Please enter at least 2 tickers to compare")
             return
+
+        # Log comparison run
+        user_id = st.session_state.get('user_id')
+        if db and user_id:
+            log_activity(db, user_id, "Stock Comparison", "run_comparison",
+                         ticker=",".join(tickers))
         
         with st.spinner("Analyzing stocks..."):
             analyzer = StockAnalyzer()
