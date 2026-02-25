@@ -1,0 +1,16 @@
+[server]
+# How long (ms) the server waits for a ping response before closing connection
+# 180000 ms = 3 minutes
+pingTimeout = 180000
+maxUploadSize = 200
+headless = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[runner]
+magicEnabled = true
+
+[theme]
+base = "dark"
