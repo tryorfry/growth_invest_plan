@@ -7,6 +7,7 @@ from src.analyzer import StockAnalyzer
 from src.screener_engine import ScreenerEngine
 from src.utils import render_ticker_header
 from src.database import Database
+from src.activity_logger import log_activity, log_page_visit
 
 # Some common universes for quick testing
 UNIVERSES = {
@@ -23,6 +24,10 @@ def render_screener_page():
     """Render the automated screener page"""
     st.title("🔍 Automated Screener")
     st.markdown("Scan multiple stocks simultaneously against the Growth Investment Checklist criteria.")
+    # -- Activity tracking --
+    _db = st.session_state.get('db')
+    if _db:
+        log_page_visit(_db, "Screener")
 
     # Custom button color — override Streamlit's default primary (red) with a cool teal
     st.markdown("""
@@ -130,6 +135,12 @@ def render_screener_page():
         # Run async loop
         results = asyncio.run(scan_tickers())
         st.session_state['screener_results'] = results
+        # Log screener run
+        _user_id = st.session_state.get('user_id')
+        _db = st.session_state.get('db')
+        if _db and _user_id:
+            log_activity(_db, _user_id, "Screener", "run_screener",
+                         ticker=",".join(tickers_to_scan[:5]))
         st.rerun() # Rerun to show results outside the button block
         
     # Display Results (Persistent)

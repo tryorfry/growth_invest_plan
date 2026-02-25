@@ -266,3 +266,25 @@ class Transaction(Base):
     
     def __repr__(self):
         return f"<Transaction(type='{self.type}', price={self.price}, qty={self.quantity})>"
+
+
+class UserActivity(Base):
+    """Tracks per-user feature usage for admin analytics and reporting"""
+    __tablename__ = 'user_activity'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    feature = Column(String(100), nullable=False)        # e.g. "Advanced Analytics", "Screener"
+    action = Column(String(100), nullable=False)          # e.g. "ticker_search", "tab_monte_carlo"
+    ticker = Column(String(20), nullable=True)            # optional: which stock was involved
+    duration_seconds = Column(Float, nullable=True)       # approximate time spent (may be None)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Composite index for efficient admin queries (by user, by feature, by time)
+    __table_args__ = (
+        Index('ix_useractivity_user_ts', 'user_id', 'timestamp'),
+        Index('ix_useractivity_feature_ts', 'feature', 'timestamp'),
+    )
+
+    def __repr__(self):
+        return f"<UserActivity(user_id={self.user_id}, feature='{self.feature}', action='{self.action}')>"

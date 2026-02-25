@@ -5,10 +5,15 @@ import pandas as pd
 import yfinance as yf
 from src.database import Database
 from src.portfolio_manager import PortfolioManager
+from src.activity_logger import log_page_visit
 
 def render_portfolio_tracker_page():
     st.title("💼 Portfolio Tracker")
     st.markdown("Track your actual stock positions and monitor performance vs the market.")
+    # -- Activity tracking --
+    _db = st.session_state.get('db')
+    if _db:
+        log_page_visit(_db, "Portfolio")
     
     # Get database instance
     try:

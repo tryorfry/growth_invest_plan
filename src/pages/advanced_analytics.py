@@ -20,6 +20,7 @@ from src.math_models import MonteCarloEngine
 from src.utils import render_ticker_header, save_analysis
 from src.valuations import ValuationCalculator
 from src.reporting import ReportGenerator
+from src.activity_logger import log_activity, log_page_visit
 
 
 def render_candlestick_icon(pattern_type: str):
@@ -71,6 +72,10 @@ def render_candlestick_icon(pattern_type: str):
 def render_advanced_analytics_page():
     """Render the advanced analytics page"""
     st.title("🔬 Advanced Analytics")
+    # -- Activity tracking --
+    _db = st.session_state.get('db')
+    if _db:
+        log_page_visit(_db, "Advanced Analytics")
     
     # Sidebar integration for history
     with st.sidebar:
@@ -129,6 +134,10 @@ def render_advanced_analytics_page():
                 db = st.session_state.get('db')
                 if db:
                     save_analysis(db, analysis)
+                # Log analysis run
+                _user_id = st.session_state.get('user_id')
+                if db and _user_id:
+                    log_activity(db, _user_id, "Advanced Analytics", "run_analysis", ticker=ticker)
                 
                 from src.ai_analyzer import AIAnalyzer
                 
@@ -198,8 +207,12 @@ def render_advanced_analytics_page():
                     "💰 Valuations"
                 ])
                 
+                # Activity tracking helpers for tab logging
+                _db2 = st.session_state.get('db')
+                _uid = st.session_state.get('user_id')
                 # Tab 1: Monte Carlo Probabilities
                 with tab1:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_monte_carlo", ticker=ticker)
                     st.subheader("10,000-Path Monte Carlo Price Simulation")
                     st.markdown("Projects future price probabilities based on stock's historical volatility and daily returns (Geometric Brownian Motion).")
                     
@@ -295,6 +308,7 @@ def render_advanced_analytics_page():
                         
                 # Tab 2: News Sentiment Heatmap
                 with tab2:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_news_sentiment", ticker=ticker)
                     st.subheader("📰 Local News Sentiment Analyzer")
                     st.markdown("Scans recent headlines using Natural Language Processing (TextBlob) to detect media shifts before price reacts.")
                     
@@ -357,6 +371,7 @@ def render_advanced_analytics_page():
                         
                 # Tab 3: Earnings Drift Analyzer
                 with tab3:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_earnings_drift", ticker=ticker)
                     st.subheader("📅 Post-Earnings Price Drift")
                     st.markdown("Statistically analyzes how this stock behaves on the day after (T+1) and two weeks after (T+14) earnings reports.")
                     
@@ -408,6 +423,7 @@ def render_advanced_analytics_page():
                         
                 # Tab 4: Options Data
                 with tab4:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_options", ticker=ticker)
                     st.subheader("Options Metrics")
                     
                     options_data = options_source.fetch_options_data(ticker)
@@ -506,6 +522,7 @@ def render_advanced_analytics_page():
                 
                 # Tab 5: Insider Trading
                 with tab5:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_insider_trading", ticker=ticker)
                     st.subheader("👔 C-Suite & Insider Trading Activity")
                     st.markdown("Tracks the executive buy/sell flow over the last 6 months to gauge internal confidence.")
                     
@@ -557,6 +574,7 @@ def render_advanced_analytics_page():
                 
                 # Tab 6: Whale Tracking
                 with tab6:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_whale_tracking", ticker=ticker)
                     st.subheader("Major Institutional Holders")
                     
                     with st.spinner("Fetching institutional holdings..."):
@@ -609,6 +627,7 @@ def render_advanced_analytics_page():
                 
                 # Tab 7: Short Interest
                 with tab7:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_short_interest", ticker=ticker)
                     st.subheader("Short Interest Metrics")
                     
                     short_data = short_source.fetch_short_interest(ticker)
@@ -664,6 +683,7 @@ def render_advanced_analytics_page():
                 
                 # Tab 8: Candlestick Patterns
                 with tab8:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_patterns", ticker=ticker)
                     if analysis.history is not None and not analysis.history.empty:
                         pattern_detector = PatternRecognition()
                         patterns = pattern_detector.get_recent_patterns(analysis.history, days=30)
@@ -706,6 +726,7 @@ def render_advanced_analytics_page():
                 
                 # Tab 9: Valuations
                 with tab9:
+                    if _db2 and _uid: log_activity(_db2, _uid, "Advanced Analytics", "tab_valuations", ticker=ticker)
                     st.subheader("Intrinsic Value Estimates")
                     
                     calc = ValuationCalculator()
