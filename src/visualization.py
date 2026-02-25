@@ -35,11 +35,11 @@ class ChartGenerator:
             plots = []
             
             if 'EMA20' in df.columns:
-                plots.append(mpf.make_addplot(df['EMA20'], color='blue', width=1.0))
+                plots.append(mpf.make_addplot(df['EMA20'], color='red', width=1.0))
             if 'EMA50' in df.columns:
-                plots.append(mpf.make_addplot(df['EMA50'], color='orange', width=1.0))
+                plots.append(mpf.make_addplot(df['EMA50'], color='green', width=1.0))
             if 'EMA200' in df.columns:
-                plots.append(mpf.make_addplot(df['EMA200'], color='red', width=1.5))
+                plots.append(mpf.make_addplot(df['EMA200'], color='purple', width=1.5))
                 
             # Add Median Price Target line if available
             if analysis.median_price_target:

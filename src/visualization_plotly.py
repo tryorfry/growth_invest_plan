@@ -95,19 +95,19 @@ class PlotlyChartGenerator:
             if 'EMA20' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA20'], name='EMA20', 
-                               line=dict(color='blue', width=1)),
+                               line=dict(color='red', width=1)),
                     row=1, col=1
                 )
             if 'EMA50' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA50'], name='EMA50',
-                               line=dict(color='orange', width=1)),
+                               line=dict(color='green', width=1)),
                     row=1, col=1
                 )
             if 'EMA200' in df.columns:
                 fig.add_trace(
                     go.Scatter(x=df.index, y=df['EMA200'], name='EMA200',
-                               line=dict(color='red', width=1.5)),
+                               line=dict(color='purple', width=1.5)),
                     row=1, col=1
                 )
         
@@ -170,7 +170,7 @@ class PlotlyChartGenerator:
                         y=[level, level],
                         mode="lines",
                         name=name,
-                        line=dict(color="green", width=1, dash="dot"),
+                        line=dict(color="black", width=1),
                         opacity=0.8,
                         hoverinfo="name+y"
                     ),
@@ -186,7 +186,7 @@ class PlotlyChartGenerator:
                         y=[level, level],
                         mode="lines",
                         name=name,
-                        line=dict(color="red", width=1, dash="dot"),
+                        line=dict(color="red", width=1),
                         opacity=0.8,
                         hoverinfo="name+y"
                     ),
@@ -202,7 +202,7 @@ class PlotlyChartGenerator:
                         y=[analysis.suggested_entry, analysis.suggested_entry],
                         mode="lines",
                         name=f"ENTRY: ${analysis.suggested_entry:.2f}",
-                        line=dict(color="#0000FF", width=2), # Bright Blue
+                        line=dict(color="green", width=2),
                         hoverinfo="name+y"
                     ),
                     row=1, col=1
@@ -215,7 +215,7 @@ class PlotlyChartGenerator:
                         y=[analysis.suggested_stop_loss, analysis.suggested_stop_loss],
                         mode="lines",
                         name=f"STOP: ${analysis.suggested_stop_loss:.2f}",
-                        line=dict(color="#FF0000", width=2), # Bright Red
+                        line=dict(color="red", width=2, dash="dot"),
                         hoverinfo="name+y"
                     ),
                     row=1, col=1
