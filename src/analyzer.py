@@ -12,6 +12,7 @@ from .data_sources.finviz_source import FinvizSource
 from .data_sources.marketbeat_source import MarketBeatSource
 from .data_sources.news_source import NewsSentimentSource
 from .data_sources.macro_source import MacroSource
+from .data_sources.macrotrends_source import MacrotrendsSource
 
 
 @dataclass
@@ -134,7 +135,8 @@ class StockAnalyzer:
         technical_source: Optional[DataSource] = None,
         fundamental_source: Optional[DataSource] = None,
         analyst_source: Optional[DataSource] = None,
-        news_source: Optional[DataSource] = None
+        news_source: Optional[DataSource] = None,
+        macrotrends_source: Optional[DataSource] = None
     ):
         """
         Initialize the analyzer with data sources.
@@ -152,6 +154,7 @@ class StockAnalyzer:
         self.fundamental_source = fundamental_source or FinvizSource()
         self.analyst_source = analyst_source or MarketBeatSource()
         self.news_source = news_source or NewsSentimentSource()
+        self.macrotrends_source = macrotrends_source or MacrotrendsSource()
     
     async def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
         """
@@ -180,10 +183,11 @@ class StockAnalyzer:
         technical_task = asyncio.create_task(self.technical_source.fetch(ticker))
         fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
         news_task = asyncio.create_task(self.news_source.fetch(ticker))
+        macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
         
         # Allow individual tasks to fail without cancelling others
-        results = await asyncio.gather(technical_task, fundamental_task, news_task, return_exceptions=True)
-        technical_data, fundamental_data, news_data = results
+        results = await asyncio.gather(technical_task, fundamental_task, news_task, macrotrends_task, return_exceptions=True)
+        technical_data, fundamental_data, news_data, macrotrends_data = results
         
         # Check for critical technical data failure
         if isinstance(technical_data, Exception):
@@ -211,6 +215,19 @@ class StockAnalyzer:
         if news_data:
             analysis.news_sentiment = news_data.get("news_sentiment")
             analysis.news_summary = news_data.get("news_summary")
+            
+        # 2. Process Macrotrends data (Primary for core financials)
+        if isinstance(macrotrends_data, Exception):
+            print(f"Warning: Macrotrends fetch failed: {macrotrends_data}")
+            macrotrends_data = None
+            
+        if macrotrends_data:
+            # Override with Macrotrends data if available
+            analysis.revenue = macrotrends_data.get('revenue', analysis.revenue)
+            analysis.operating_income = macrotrends_data.get('operating_income', analysis.operating_income)
+            analysis.basic_eps = macrotrends_data.get('eps_diluted', analysis.basic_eps)
+            if verbose:
+                print(f"Using Macrotrends for core financials.")
             
         # Calculate Support & Resistance if history exists
         if analysis.history is not None and not analysis.history.empty:
