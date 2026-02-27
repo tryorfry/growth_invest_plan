@@ -15,7 +15,9 @@ class TVChartGenerator:
     def generate_candlestick_chart(
         self,
         analysis: StockAnalysis,
+        timeframe: str = "D",
         show_ema: bool = True,
+        show_atr: bool = False,
         show_support_resistance: bool = True,
         show_trade_setup: bool = True,
         height: int = 600
@@ -43,12 +45,35 @@ class TVChartGenerator:
             st.warning("No complete historical data available for chart.")
             return
             
+        
         # Reset index to get Date as a column, format to string YYYY-MM-DD
         df.reset_index(inplace=True)
         # Rename date column if it was named correctly or implicitly 'Date'
         date_col = 'Date' if 'Date' in df.columns else df.columns[0]
         # Ensure we don't have NaT dates
         df = df.dropna(subset=[date_col]).copy()
+        
+        # Resample to Weekly if requested
+        if timeframe == "W":
+            # Set date as DatetimeIndex
+            df[date_col] = pd.to_datetime(df[date_col])
+            df.set_index(date_col, inplace=True)
+            
+            # Resample rule: W-FRI (weekly ending Friday)
+            weekly_df = df.resample('W-FRI').agg({
+                'Open': 'first',
+                'High': 'max',
+                'Low': 'min',
+                'Close': 'last',
+                'Volume': 'sum',
+                'EMA20': 'last',
+                'EMA50': 'last',
+                'EMA200': 'last'
+            }).dropna(subset=['Open', 'High', 'Low', 'Close'])
+            
+            df = weekly_df.reset_index()
+            date_col = df.columns[0]
+            
         df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
 
         theme = st.session_state.get('theme_preference', 'dark')
@@ -188,6 +213,29 @@ class TVChartGenerator:
                         "data": ema_data,
                         "options": {"color": "#D500F9", "lineWidth": 2, "title": "EMA200"}
                     })
+                    
+        # 2.5. ATR (Add on top of Candlesticks)
+        if show_atr and analysis.atr and analysis.history is not None:
+            # We calculate ATR 14 dynamically on the resampled timeframe for visual accuracy
+            import numpy as np
+            tr_df = df.copy()
+            tr_df['PrevClose'] = tr_df['Close'].shift(1)
+            tr_df['TR'] = np.maximum(
+                tr_df['High'] - tr_df['Low'],
+                np.maximum(
+                    abs(tr_df['High'] - tr_df['PrevClose'].fillna(0)),
+                    abs(tr_df['Low'] - tr_df['PrevClose'].fillna(0))
+                )
+            )
+            tr_df['ATR14'] = tr_df['TR'].rolling(window=14).mean()
+            
+            atr_data = [{"time": row[date_col], "value": val} for _, row in tr_df.iterrows() if pd.notna(row['ATR14']) and (val := float(row['ATR14']))]
+            if atr_data:
+                series.append({
+                    "type": 'Line',
+                    "data": atr_data,
+                    "options": {"color": "#FFC107", "lineWidth": 2, "lineStyle": 2, "title": "ATR14"}
+                })
 
         # 3. Volume Histogram (on a separate scale)
         vol_data = []
@@ -211,11 +259,83 @@ class TVChartGenerator:
                 },
             }
         })
+        
+        # 4. Markers (Earnings)
+        markers = []
+        if analysis.last_earnings_date:
+            try:
+                date_str = analysis.last_earnings_date.strftime('%Y-%m-%d')
+                if date_str in df[date_col].values:
+                    markers.append({
+                        "time": date_str,
+                        "position": 'belowBar',
+                        "color": '#2196F3',
+                        "shape": 'arrowUp',
+                        "text": 'E'
+                    })
+            except Exception:
+                pass
+                
+        if analysis.next_earnings_date:
+            try:
+                date_str = analysis.next_earnings_date.strftime('%Y-%m-%d')
+                if date_str in df[date_col].values:
+                    markers.append({
+                        "time": date_str,
+                        "position": 'belowBar',
+                        "color": '#FF9800',
+                        "shape": 'arrowUp',
+                        "text": 'E (Est)'
+                    })
+            except Exception:
+                pass
 
-        # Render Lightweight Chart Component
+        # Render Lightweight Chart Component with Custom UI Overlay
+        button_bg = "#262B33" if theme == 'dark' else "#F0F2F6"
+        button_hover = "#3A414A" if theme == 'dark' else "#E0E4EB"
+        button_text = "#FFFFFF" if theme == 'dark' else "#1E1E1E"
+        
         st.components.v1.html(
             f'''
-            <div id="tvchart-container" style="width: 100%; height: {height}px; border-radius: 8px; overflow: hidden;"></div>
+            <div style="position: relative; width: 100%; height: {height}px;">
+                <div id="tvchart-toolbar" style="
+                    position: absolute; 
+                    top: 10px; 
+                    left: 10px; 
+                    z-index: 10; 
+                    display: flex; 
+                    gap: 5px;
+                    background: {bg_color};
+                    padding: 4px;
+                    border-radius: 6px;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                ">
+                    <button class="tvc-btn" data-range="1W">1W</button>
+                    <button class="tvc-btn" data-range="2W">2W</button>
+                    <button class="tvc-btn" data-range="1M">1M</button>
+                    <button class="tvc-btn" data-range="3M">3M</button>
+                    <button class="tvc-btn" data-range="6M">6M</button>
+                    <button class="tvc-btn" data-range="1Y">1Y</button>
+                    <button class="tvc-btn" data-range="5Y">5Y</button>
+                    <button class="tvc-btn" data-range="ALL">ALL</button>
+                </div>
+                <style>
+                    .tvc-btn {{
+                        background: {button_bg};
+                        color: {button_text};
+                        border: none;
+                        padding: 4px 10px;
+                        font-size: 12px;
+                        font-family: inherit;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        transition: background 0.2s;
+                    }}
+                    .tvc-btn:hover {{ background: {button_hover}; }}
+                    .tvc-btn.active {{ background: #2962FF; color: white; }}
+                </style>
+                <div id="tvchart-container" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;"></div>
+            </div>
             <script>
                 // Include lightweight-charts script
                 const script = document.createElement('script');
@@ -235,6 +355,11 @@ class TVChartGenerator:
                                 if (s.priceLines) {{
                                     s.priceLines.forEach(pl => seriesInstance.createPriceLine(pl));
                                 }}
+                                
+                                const markers = {json.dumps(markers)};
+                                if (markers.length > 0) {{
+                                    seriesInstance.setMarkers(markers);
+                                }}
                             }} else if (s.type === 'Line') {{
                                 seriesInstance = chart.addLineSeries(s.options);
                                 seriesInstance.setData(s.data);
@@ -250,6 +375,57 @@ class TVChartGenerator:
                           const newRect = entries[0].contentRect;
                           chart.applyOptions({{ width: newRect.width, height: newRect.height }});
                         }}).observe(document.getElementById('tvchart-container'));
+                        
+                        // Setup Toolbar Buttons
+                        const btns = document.querySelectorAll('.tvc-btn');
+                        btns.forEach(btn => {{
+                            btn.addEventListener('click', (e) => {{
+                                btns.forEach(b => b.classList.remove('active'));
+                                e.target.classList.add('active');
+                                
+                                const range = e.target.getAttribute('data-range');
+                                const totalData = seriesData[0].data;
+                                if(totalData.length === 0) return;
+                                
+                                const lastDateStr = totalData[totalData.length - 1].time;
+                                const lastDate = new Date(lastDateStr);
+                                let fromDate = new Date(lastDate);
+                                
+                                if(range === '1W') fromDate.setDate(lastDate.getDate() - 7);
+                                else if(range === '2W') fromDate.setDate(lastDate.getDate() - 14);
+                                else if(range === '1M') fromDate.setMonth(lastDate.getMonth() - 1);
+                                else if(range === '3M') fromDate.setMonth(lastDate.getMonth() - 3);
+                                else if(range === '6M') fromDate.setMonth(lastDate.getMonth() - 6);
+                                else if(range === '1Y') fromDate.setFullYear(lastDate.getFullYear() - 1);
+                                else if(range === '5Y') fromDate.setFullYear(lastDate.getFullYear() - 5);
+                                else {{
+                                    // ALL
+                                    chart.timeScale().fitContent();
+                                    return;
+                                }}
+                                
+                                // Format fromDate to YYYY-MM-DD
+                                const fromStr = fromDate.toISOString().split('T')[0];
+                                chart.timeScale().setVisibleLogicalRange({{
+                                    from: chart.timeScale().coordinateToLogical(chart.timeScale().width() - 100) || 0, // Fallback
+                                    to: totalData.length - 1
+                                }}); // Temporary reset
+                                
+                                // Find closest index
+                                let closestIdx = 0;
+                                for(let i = 0; i < totalData.length; i++){{
+                                    if(new Date(totalData[i].time) >= fromDate) {{
+                                        closestIdx = i;
+                                        break;
+                                    }}
+                                }}
+                                
+                                chart.timeScale().setVisibleLogicalRange({{
+                                    from: closestIdx,
+                                    to: totalData.length + 5 // pad right
+                                }});
+                            }});
+                        }});
                     }} catch (e) {{
                         document.getElementById('tvchart-container').innerHTML = "<div style='color:#FF5252; padding: 20px; font-family: sans-serif;'><strong>Chart Error:</strong> " + e.message + "</div>";
                         console.error("TradingView Chart Error:", e);

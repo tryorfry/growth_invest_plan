@@ -453,11 +453,28 @@ def main():
         st.divider()
         
         # Chart options
+        # Chart options
         st.subheader("Chart Options")
-        show_ema = st.checkbox("Show EMAs", value=True)
-        show_rsi = st.checkbox("Show RSI", value=True)
-        show_macd = st.checkbox("Show MACD", value=True)
-        show_bollinger = st.checkbox("Show Bollinger Bands", value=False)
+        
+        # Timeframe selector
+        timeframe = st.segmented_control(
+            "Timeframe",
+            options=["D", "W"],
+            default="D",
+            format_func=lambda x: "Daily" if x == "D" else "Weekly"
+        )
+        
+        st.markdown("**Indicators**")
+        col_ind1, col_ind2 = st.columns(2)
+        with col_ind1:
+            show_ema = st.checkbox("Show EMAs", value=True)
+            show_rsi = st.checkbox("Show RSI", value=True)
+            show_macd = st.checkbox("Show MACD", value=True)
+        with col_ind2:
+            show_atr = st.checkbox("Show ATR (14)", value=False)
+            show_bollinger = st.checkbox("Show BOLL", value=False)
+            
+        st.markdown("**Core Levels**")
         show_support_resistance = st.checkbox("Show Support/Resistance", value=True)
         show_trade_setup = st.checkbox("Show Trade Setup (Entry/Stop)", value=True)
         
@@ -678,7 +695,9 @@ def main():
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
+                        timeframe=timeframe,
                         show_ema=show_ema,
+                        show_atr=show_atr,
                         show_support_resistance=show_support_resistance,
                         show_trade_setup=show_trade_setup,
                         height=600
