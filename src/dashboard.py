@@ -451,34 +451,6 @@ def main():
         analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True)
         
         st.divider()
-        
-        # Chart options
-        # Chart options
-        st.subheader("Chart Options")
-        
-        # Timeframe selector
-        timeframe = st.segmented_control(
-            "Timeframe",
-            options=["D", "W"],
-            default="D",
-            format_func=lambda x: "Daily" if x == "D" else "Weekly"
-        )
-        
-        st.markdown("**Indicators**")
-        col_ind1, col_ind2 = st.columns(2)
-        with col_ind1:
-            show_ema = st.checkbox("Show EMAs", value=True)
-            show_rsi = st.checkbox("Show RSI", value=True)
-            show_macd = st.checkbox("Show MACD", value=True)
-        with col_ind2:
-            show_atr = st.checkbox("Show ATR (14)", value=False)
-            show_bollinger = st.checkbox("Show BOLL", value=False)
-            
-        st.markdown("**Core Levels**")
-        show_support_resistance = st.checkbox("Show Support/Resistance", value=True)
-        show_trade_setup = st.checkbox("Show Trade Setup (Entry/Stop)", value=True)
-        
-        st.divider()
         st.divider()
         st.caption("Data sources: Yahoo Finance, Finviz, MarketBeat")
         
@@ -689,8 +661,32 @@ def main():
                             else:
                                 st.write("**EPS (Q):** N/A")
                     
-                    # Technical Indicators
-                    st.subheader("📈 Technical Indicators")
+                    # Technical Indicators & Chart
+                    st.subheader("📈 Technical Chart")
+                    
+                    # Moved Inline Chart Controls here
+                    st.markdown("##### Chart Controls")
+                    ctrl1, ctrl2, ctrl3, ctrl4, ctrl5 = st.columns(5)
+                    
+                    with ctrl1:
+                        timeframe = st.segmented_control(
+                            "Timeframe",
+                            options=["D", "W"],
+                            default="D",
+                            format_func=lambda x: "Daily" if x == "D" else "Weekly",
+                            label_visibility="collapsed"
+                        )
+                    with ctrl2:
+                        show_ema = st.checkbox("Show EMAs", value=True)
+                        show_atr = st.checkbox("Show ATR", value=False)
+                    with ctrl3:
+                        show_support_resistance = st.checkbox("Support/Resistance", value=True)
+                        show_trade_setup = st.checkbox("Entry/Stop", value=True)
+                    with ctrl4:
+                        show_rsi = st.checkbox("Show RSI", value=True, disabled=True) # Placeholders for future sub-panes
+                        show_macd = st.checkbox("Show MACD", value=True, disabled=True)
+                    with ctrl5:
+                        show_bollinger = st.checkbox("Show BOLL", value=False, disabled=True)
                     
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(

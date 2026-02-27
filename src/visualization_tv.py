@@ -234,7 +234,17 @@ class TVChartGenerator:
                 series.append({
                     "type": 'Line',
                     "data": atr_data,
-                    "options": {"color": "#FFC107", "lineWidth": 2, "lineStyle": 2, "title": "ATR14"}
+                    "options": {
+                        "color": "#FFC107", 
+                        "lineWidth": 2, 
+                        "lineStyle": 2, 
+                        "title": "ATR14",
+                        "priceScaleId": 'atrScale',
+                        "scaleMargins": {
+                            "top": 0.8,
+                            "bottom": 0,
+                        }
+                    }
                 })
 
         # 3. Volume Histogram (on a separate scale)
@@ -252,7 +262,7 @@ class TVChartGenerator:
             "options": {
                 "color": '#26a69a',
                 "priceFormat": {"type": 'volume'},
-                "priceScaleId": "", # Set as an overlay
+                "priceScaleId": "volScale", 
                 "scaleMargins": {
                     "top": 0.8,
                     "bottom": 0,
@@ -268,7 +278,7 @@ class TVChartGenerator:
                 if date_str in df[date_col].values:
                     markers.append({
                         "time": date_str,
-                        "position": 'belowBar',
+                        "position": 'bottom',
                         "color": '#2196F3',
                         "shape": 'arrowUp',
                         "text": 'E'
@@ -282,7 +292,7 @@ class TVChartGenerator:
                 if date_str in df[date_col].values:
                     markers.append({
                         "time": date_str,
-                        "position": 'belowBar',
+                        "position": 'bottom',
                         "color": '#FF9800',
                         "shape": 'arrowUp',
                         "text": 'E (Est)'
@@ -344,6 +354,32 @@ class TVChartGenerator:
                     try {{
                         const chartOptions = {json.dumps(chartOptions)};
                         const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
+                        
+                        // Price scales configuration
+                        // Setting right scale properties explicitly to prevent overlap
+                        chart.priceScale('right').applyOptions({
+                            scaleMargins: {
+                                top: 0.1, // Leave space for timeframe buttons
+                                bottom: 0.25, // Leave bottom 25% for sub-panes
+                            },
+                        });
+                        
+                        // Create volume pane
+                        chart.priceScale('volScale').applyOptions({
+                            scaleMargins: {
+                                top: 0.75, // Bottom 25%
+                                bottom: 0,
+                            },
+                        });
+                        
+                        // Create ATR pane (overlaps with vol but uses line instead of bars)
+                        chart.priceScale('atrScale').applyOptions({
+                            scaleMargins: {
+                                top: 0.75, 
+                                bottom: 0,
+                            },
+                            visible: false, // Don't show numeric axis values overlapping volume axis
+                        });
                         
                         const seriesData = {json.dumps(series)};
                         
