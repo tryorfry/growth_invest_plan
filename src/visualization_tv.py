@@ -29,10 +29,26 @@ class TVChartGenerator:
 
         df = analysis.history.copy()
         
+        # Clean dataframe to prevent JSON formatting errors with NaNs or NaTs that crash JS charts
+        missing_cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c not in df.columns]
+        if missing_cols:
+            st.warning(f"Missing required price columns for chart: {missing_cols}")
+            return
+            
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close']).copy()
+        if 'Volume' in df.columns:
+            df['Volume'] = df['Volume'].fillna(0)
+            
+        if df.empty:
+            st.warning("No complete historical data available for chart.")
+            return
+            
         # Reset index to get Date as a column, format to string YYYY-MM-DD
         df.reset_index(inplace=True)
         # Rename date column if it was named correctly or implicitly 'Date'
         date_col = 'Date' if 'Date' in df.columns else df.columns[0]
+        # Ensure we don't have NaT dates
+        df = df.dropna(subset=[date_col]).copy()
         df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
 
         theme = st.session_state.get('theme_preference', 'dark')
@@ -205,34 +221,42 @@ class TVChartGenerator:
                 const script = document.createElement('script');
                 script.src = "https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js";
                 script.onload = () => {{
-                    const chartOptions = {json.dumps(chartOptions)};
-                    const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
-                    
-                    const seriesData = {json.dumps(series)};
-                    
-                    seriesData.forEach(s => {{
-                        let seriesInstance;
-                        if (s.type === 'Candlestick') {{
-                            seriesInstance = chart.addCandlestickSeries(s.options);
-                            seriesInstance.setData(s.data);
-                            if (s.priceLines) {{
-                                s.priceLines.forEach(pl => seriesInstance.createPriceLine(pl));
+                    try {{
+                        const chartOptions = {json.dumps(chartOptions)};
+                        const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
+                        
+                        const seriesData = {json.dumps(series)};
+                        
+                        seriesData.forEach(s => {{
+                            let seriesInstance;
+                            if (s.type === 'Candlestick') {{
+                                seriesInstance = chart.addCandlestickSeries(s.options);
+                                seriesInstance.setData(s.data);
+                                if (s.priceLines) {{
+                                    s.priceLines.forEach(pl => seriesInstance.createPriceLine(pl));
+                                }}
+                            }} else if (s.type === 'Line') {{
+                                seriesInstance = chart.addLineSeries(s.options);
+                                seriesInstance.setData(s.data);
+                            }} else if (s.type === 'Histogram') {{
+                                seriesInstance = chart.addHistogramSeries(s.options);
+                                seriesInstance.setData(s.data);
                             }}
-                        }} else if (s.type === 'Line') {{
-                            seriesInstance = chart.addLineSeries(s.options);
-                            seriesInstance.setData(s.data);
-                        }} else if (s.type === 'Histogram') {{
-                            seriesInstance = chart.addHistogramSeries(s.options);
-                            seriesInstance.setData(s.data);
-                        }}
-                    }});
-                    
-                    // Force resize observer to adapt smoothly
-                    new ResizeObserver(entries => {{
-                      if (entries.length === 0 || entries[0].target !== document.getElementById('tvchart-container')) {{ return; }}
-                      const newRect = entries[0].contentRect;
-                      chart.applyOptions({{ width: newRect.width, height: newRect.height }});
-                    }}).observe(document.getElementById('tvchart-container'));
+                        }});
+                        
+                        // Force resize observer to adapt smoothly
+                        new ResizeObserver(entries => {{
+                          if (entries.length === 0 || entries[0].target !== document.getElementById('tvchart-container')) {{ return; }}
+                          const newRect = entries[0].contentRect;
+                          chart.applyOptions({{ width: newRect.width, height: newRect.height }});
+                        }}).observe(document.getElementById('tvchart-container'));
+                    }} catch (e) {{
+                        document.getElementById('tvchart-container').innerHTML = "<div style='color:#FF5252; padding: 20px; font-family: sans-serif;'><strong>Chart Error:</strong> " + e.message + "</div>";
+                        console.error("TradingView Chart Error:", e);
+                    }}
+                }};
+                script.onerror = () => {{
+                    document.getElementById('tvchart-container').innerHTML = "<div style='color:#FF5252; padding: 20px; font-family: sans-serif;'><strong>Network Error:</strong> Failed to fetch TradingView lightweight-charts. Check your internet connection or ad blocker.</div>";
                 }};
                 document.head.appendChild(script);
             </script>
