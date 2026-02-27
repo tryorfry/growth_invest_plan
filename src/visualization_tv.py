@@ -219,7 +219,7 @@ class TVChartGenerator:
             <script>
                 // Include lightweight-charts script
                 const script = document.createElement('script');
-                script.src = "https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js";
+                script.src = "https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js";
                 script.onload = () => {{
                     try {{
                         const chartOptions = {json.dumps(chartOptions)};
