@@ -248,19 +248,12 @@ class TVChartGenerator:
                 })
 
         # 3. Volume Histogram (on a separate scale)
-        vol_data = []
-        for _, row in df.iterrows():
-            vol_data.append({
-                "time": row[date_col],
-                "value": row['Volume'],
-                "color": 'rgba(0, 150, 136, 0.5)' if row['Close'] >= row['Open'] else 'rgba(255, 82, 82, 0.5)'
-            })
-
+        vol_data = [{"time": row[date_col], "value": row['Volume'], "color": 'rgba(38,166,154,0.3)' if row['Close'] >= row['Open'] else 'rgba(239,83,80,0.3)'} for _, row in df.iterrows()]
+        
         series.append({
             "type": 'Histogram',
             "data": vol_data,
             "options": {
-                "color": '#26a69a',
                 "priceFormat": {"type": 'volume'},
                 "priceScaleId": "volScale", 
                 "scaleMargins": {
@@ -272,13 +265,17 @@ class TVChartGenerator:
         
         # 4. Markers (Earnings)
         markers = []
-        if analysis.last_earnings_date:
+        
+        # Grab all explicitly formatted time values in the current chart dataset
+        valid_times = set(df[date_col].values)
+        
+        if getattr(analysis, 'last_earnings_date', None):
             try:
-                date_str = analysis.last_earnings_date.strftime('%Y-%m-%d')
-                if date_str in df[date_col].values:
+                date_str = pd.to_datetime(analysis.last_earnings_date).strftime('%Y-%m-%d')
+                if date_str in valid_times:
                     markers.append({
                         "time": date_str,
-                        "position": 'bottom',
+                        "position": 'belowBar',
                         "color": '#2196F3',
                         "shape": 'arrowUp',
                         "text": 'E'
@@ -286,13 +283,13 @@ class TVChartGenerator:
             except Exception:
                 pass
                 
-        if analysis.next_earnings_date:
+        if getattr(analysis, 'next_earnings_date', None):
             try:
-                date_str = analysis.next_earnings_date.strftime('%Y-%m-%d')
-                if date_str in df[date_col].values:
+                date_str = pd.to_datetime(analysis.next_earnings_date).strftime('%Y-%m-%d')
+                if date_str in valid_times:
                     markers.append({
                         "time": date_str,
-                        "position": 'bottom',
+                        "position": 'belowBar',
                         "color": '#FF9800',
                         "shape": 'arrowUp',
                         "text": 'E (Est)'
@@ -356,29 +353,30 @@ class TVChartGenerator:
                         const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
                         
                         // Price scales configuration
-                        // Setting right scale properties explicitly to prevent overlap
+                        
+                        // 1. Right scale (Main price content - restrict it to top 75% of chart)
                         chart.priceScale('right').applyOptions({
                             scaleMargins: {
-                                top: 0.1, // Leave space for timeframe buttons
-                                bottom: 0.25, // Leave bottom 25% for sub-panes
+                                top: 0.1,    // 10% from top
+                                bottom: 0.3, // Leave bottom 30% for volume/ATR
                             },
                         });
                         
-                        // Create volume pane
+                        // 2. volScale (Volume - restrict it to bottom 20%)
                         chart.priceScale('volScale').applyOptions({
                             scaleMargins: {
-                                top: 0.75, // Bottom 25%
+                                top: 0.8,    // Start 80% down
                                 bottom: 0,
                             },
                         });
                         
-                        // Create ATR pane (overlaps with vol but uses line instead of bars)
+                        // 3. atrScale (ATR - overlaps Volume)
                         chart.priceScale('atrScale').applyOptions({
                             scaleMargins: {
-                                top: 0.75, 
+                                top: 0.8, 
                                 bottom: 0,
                             },
-                            visible: false, // Don't show numeric axis values overlapping volume axis
+                            visible: false, // Don't show confusing duplicate axis numbers
                         });
                         
                         const seriesData = {json.dumps(series)};
