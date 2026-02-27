@@ -125,7 +125,8 @@ class TVChartGenerator:
                 "downColor": '#ef5350',
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
-                "wickDownColor": '#ef5350'
+                "wickDownColor": '#ef5350',
+                "priceScaleId": "right"
             }
         })
 
@@ -266,15 +267,22 @@ class TVChartGenerator:
         # 4. Markers (Earnings)
         markers = []
         
-        # Grab all explicitly formatted time values in the current chart dataset
-        valid_times = set(df[date_col].values)
+        # Helper to find closest trading day if earnings fall on weekend/holiday
+        valid_dates_dt = pd.to_datetime(list(set(df[date_col].values)))
         
+        def get_closest_trading_day(target_date):
+            if valid_dates_dt.empty: return None
+            # Find the closest date in the past or future
+            target_dt = pd.to_datetime(target_date)
+            closest_idx = (valid_dates_dt - target_dt).abs().argmin()
+            return valid_dates_dt[closest_idx].strftime('%Y-%m-%d')
+            
         if getattr(analysis, 'last_earnings_date', None):
             try:
-                date_str = pd.to_datetime(analysis.last_earnings_date).strftime('%Y-%m-%d')
-                if date_str in valid_times:
+                closest_date = get_closest_trading_day(analysis.last_earnings_date)
+                if closest_date:
                     markers.append({
-                        "time": date_str,
+                        "time": closest_date,
                         "position": 'belowBar',
                         "color": '#2196F3',
                         "shape": 'arrowUp',
@@ -285,10 +293,10 @@ class TVChartGenerator:
                 
         if getattr(analysis, 'next_earnings_date', None):
             try:
-                date_str = pd.to_datetime(analysis.next_earnings_date).strftime('%Y-%m-%d')
-                if date_str in valid_times:
+                closest_date = get_closest_trading_day(analysis.next_earnings_date)
+                if closest_date:
                     markers.append({
-                        "time": date_str,
+                        "time": closest_date,
                         "position": 'belowBar',
                         "color": '#FF9800',
                         "shape": 'arrowUp',
