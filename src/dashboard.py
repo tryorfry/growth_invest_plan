@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from src.analyzer import StockAnalyzer, StockAnalysis
 from src.database import Database
 from src.models import Stock, Analysis
-from src.visualization_plotly import PlotlyChartGenerator
+from src.visualization_tv import TVChartGenerator
 from src.utils import save_analysis, render_ticker_header
 from src.auth import AuthManager
 from src.pages.login import render_login_page
@@ -76,8 +76,8 @@ def init_analyzer():
 # Initialize chart generator
 @st.cache_resource
 def init_chart_generator():
-    """Initialize Plotly chart generator"""
-    return PlotlyChartGenerator()
+    """Initialize TV chart generator"""
+    return TVChartGenerator()
 
 # Initialize scheduler (for Streamlit Cloud support)
 @st.cache_resource
@@ -676,16 +676,13 @@ def main():
                     st.subheader("📈 Technical Indicators")
                     
                     # Generate unified interactive chart
-                    fig = chart_gen.generate_candlestick_chart(
+                    chart_gen.generate_candlestick_chart(
                         analysis,
                         show_ema=show_ema,
-                        show_bollinger=show_bollinger,
                         show_support_resistance=show_support_resistance,
                         show_trade_setup=show_trade_setup,
-                        show_rsi=show_rsi,
-                        show_macd=show_macd
+                        height=600
                     )
-                    st.plotly_chart(fig, use_container_width=True)
                     
                     # Fundamental Data
                     st.subheader("💰 Fundamental Data")
