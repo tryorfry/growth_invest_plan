@@ -212,7 +212,7 @@ class TVChartGenerator:
     def generate_candlestick_chart(
         self,
         analysis: StockAnalysis,
-        timeframe: str = "D",
+        timeframe: str = "W",
         show_ema: bool = True,
         show_atr: bool = False,
         show_support_resistance: bool = True,
@@ -388,6 +388,12 @@ class TVChartGenerator:
                             btn.classList.remove('active');
                             if(btn.getAttribute('data-tf') === currentTF) btn.classList.add('active');
                         }});
+                        
+                        // Default to 5Y zoom
+                        setTimeout(() => {{
+                            const defaultZoomBtn = document.querySelector('.tvc-btn[data-range="5Y"]');
+                            if(defaultZoomBtn) defaultZoomBtn.click();
+                        }}, 50);
 
                         // Resize observer
                         new ResizeObserver(entries => {{
