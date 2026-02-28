@@ -49,6 +49,7 @@ class StockAnalysis:
     
     # Earnings
     last_earnings_date: Any = None
+    past_earnings_dates: List[Any] = field(default_factory=list)
     next_earnings_date: Any = None
     days_until_earnings: Optional[int] = None
     
@@ -293,6 +294,7 @@ class StockAnalyzer:
         
         # Earnings
         analysis.last_earnings_date = data.get("last_earnings_date")
+        analysis.past_earnings_dates = data.get("past_earnings_dates", [])
         analysis.next_earnings_date = data.get("next_earnings_date")
         analysis.days_until_earnings = data.get("days_until_earnings")
         

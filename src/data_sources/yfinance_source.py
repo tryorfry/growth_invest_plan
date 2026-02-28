@@ -144,13 +144,14 @@ class YFinanceSource(TechnicalDataSource):
         """Extract past and future earnings dates"""
         result = {}
         
-        # Last earnings date
+        # Last earnings date and all past dates
         earnings = stock.earnings_dates
         if earnings is not None and not earnings.empty:
             now = pd.Timestamp.now(tz=earnings.index.tz)
             past_earnings = earnings[earnings.index < now]
             if not past_earnings.empty:
                 result["last_earnings_date"] = past_earnings.index[0]
+                result["past_earnings_dates"] = past_earnings.index.tolist()
         
         # Next earnings date
         next_earnings = None

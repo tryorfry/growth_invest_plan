@@ -50,7 +50,7 @@ class TVChartGenerator:
                     "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
-                    "title": "ENTRY"
+                    "title": "E"
                 })
             
             if getattr(analysis, 'suggested_stop_loss', None):
@@ -60,7 +60,17 @@ class TVChartGenerator:
                     "lineWidth": 2,
                     "lineStyle": 2, # Dashed
                     "axisLabelVisible": True,
-                    "title": "STOP"
+                    "title": "SL"
+                })
+                
+            if getattr(analysis, 'max_buy_price', None):
+                price_lines.append({
+                    "price": analysis.max_buy_price,
+                    "color": "#2196F3",
+                    "lineWidth": 2,
+                    "lineStyle": 1, # Dotted
+                    "axisLabelVisible": True,
+                    "title": "MBP"
                 })
 
         if show_support_resistance:
@@ -71,7 +81,7 @@ class TVChartGenerator:
                     "lineWidth": 1,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
-                    "title": "SUPP"
+                    "title": "S"
                 })
             for i, level in enumerate(getattr(analysis, 'resistance_levels', [])):
                 price_lines.append({
@@ -80,7 +90,7 @@ class TVChartGenerator:
                     "lineWidth": 1,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
-                    "title": "RES"
+                    "title": "R"
                 })
                 
             for hvn in getattr(analysis, 'volume_profile_hvns', []):
@@ -164,16 +174,19 @@ class TVChartGenerator:
             past_dates = [d for d in valid_dates if d <= target_str]
             return max(past_dates) if past_dates else None
 
-        if getattr(analysis, 'last_earnings_date', None):
-            closest_date = get_closest_past_trading_day(analysis.last_earnings_date)
-            if closest_date:
-                markers.append({
-                    "time": closest_date,
-                    "position": 'belowBar',
-                    "color": '#2196F3',
-                    "shape": 'arrowUp',
-                    "text": 'E'
-                })
+        if getattr(analysis, 'past_earnings_dates', []):
+            for past_date in analysis.past_earnings_dates:
+                closest_date = get_closest_past_trading_day(past_date)
+                if closest_date:
+                    # check if already in markers to avoid duplicates
+                    if not any(m['time'] == closest_date and m['text'] == 'E' for m in markers):
+                        markers.append({
+                            "time": closest_date,
+                            "position": 'belowBar',
+                            "color": '#2196F3',
+                            "shape": 'arrowUp',
+                            "text": 'E'
+                        })
                 
         if getattr(analysis, 'next_earnings_date', None):
             next_str = pd.to_datetime(analysis.next_earnings_date).strftime('%Y-%m-%d')
@@ -186,7 +199,7 @@ class TVChartGenerator:
                     "position": 'belowBar',
                     "color": '#FF9800',
                     "shape": 'arrowUp',
-                    "text": 'E (Est)'
+                    "text": 'E'
                 })
             else:
                 closest_date = get_closest_past_trading_day(analysis.next_earnings_date)
@@ -196,7 +209,7 @@ class TVChartGenerator:
                         "position": 'belowBar',
                         "color": '#FF9800',
                         "shape": 'arrowUp',
-                        "text": 'E (Est)'
+                        "text": 'E'
                     })
             
         if markers:
