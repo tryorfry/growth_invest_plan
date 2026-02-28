@@ -1,7 +1,8 @@
 """Options data source for fetching implied volatility and options metrics"""
 
 import yfinance as yf
-from typing import Dict, Any, Optional
+import pandas as pd
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 
@@ -64,3 +65,77 @@ class OptionsSource:
         except Exception as e:
             print(f"Error fetching options data for {ticker}: {e}")
             return {}
+
+    def scan_unusual_activity(self, ticker: str, min_volume: int = 500, vol_oi_ratio: float = 3.0) -> List[Dict[str, Any]]:
+        """
+        Scan all available expiration dates for a ticker to find unusual options activity.
+        Definition of Unusual: Volume > Open Interest * vol_oi_ratio AND Volume > min_volume
+        
+        Args:
+            ticker: Stock ticker
+            min_volume: Minimum contract volume to flag
+            vol_oi_ratio: Multiplier for Vol/OI
+            
+        Returns:
+            List of dictionaries containing unusual option prints.
+        """
+        results = []
+        try:
+            stock = yf.Ticker(ticker)
+            expirations = stock.options
+            
+            if not expirations:
+                return []
+                
+            current_price = stock.info.get('currentPrice', None) or stock.history(period="1d")['Close'].iloc[-1]
+            
+            for exp in expirations[:4]:  # Scan nearest 4 expirations to save API time
+                chain = stock.option_chain(exp)
+                
+                for opt_type, data in [("Call", chain.calls), ("Put", chain.puts)]:
+                    if data.empty:
+                        continue
+                        
+                    # Calculate DTE (Days to Expiration)
+                    exp_date = datetime.strptime(exp, "%Y-%m-%d")
+                    dte = (exp_date - datetime.now()).days
+                    
+                    for _, row in data.iterrows():
+                        vol = row.get('volume', 0)
+                        oi = row.get('openInterest', 0)
+                        
+                        if pd.isna(vol) or pd.isna(oi):
+                            continue
+                            
+                        # Rule for unusual activity
+                        if vol > min_volume and (oi == 0 or (vol / oi) >= vol_oi_ratio):
+                            # Calculate moneyness
+                            strike = row['strike']
+                            if opt_type == "Call":
+                                otm_pct = ((strike - current_price) / current_price * 100) if strike > current_price else 0
+                            else:
+                                otm_pct = ((current_price - strike) / current_price * 100) if strike < current_price else 0
+                                
+                            premium = vol * row.get('lastPrice', 0) * 100
+                            
+                            results.append({
+                                'type': opt_type,
+                                'strike': strike,
+                                'exp_date': exp,
+                                'dte': max(0, dte),
+                                'volume': int(vol),
+                                'open_interest': int(oi) if oi > 0 else 0,
+                                'vol_oi_ratio': round(vol / oi, 1) if oi > 0 else float('inf'),
+                                'last_price': row.get('lastPrice', 0),
+                                'implied_vol': row.get('impliedVolatility', 0),
+                                'premium_est': premium,
+                                'otm_pct': round(otm_pct, 1)
+                            })
+                            
+            # Sort by highest premium
+            results.sort(key=lambda x: x['premium_est'], reverse=True)
+            return results
+            
+        except Exception as e:
+            print(f"Error scanning unusual options for {ticker}: {e}")
+            return []

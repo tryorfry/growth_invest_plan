@@ -42,6 +42,9 @@ graph TD
             PortfolioManager --> PositionSizer["Position Sizer & Risk Math"]
             Screener --> ScreenerEngine[Screener Engine]
             ScreenerEngine --> Analyzer
+            NavRadio -->|Options Flow| OptionsFlow[Options Flow Scanner]
+            NavRadio -->|Backtester| BacktestPage[Advanced Backtester]
+            BacktestPage --> Backtester[Walk-Forward Engine<br/>Drawdown · Win Rate]
         end
 
         %% Data Sources Layer

@@ -340,7 +340,8 @@ def main():
             "📋 Watchlist",
             "🔔 Alerts",
             "📈 Comparison",
-            "🧪 Backtester"
+            "🧪 Backtester",
+            "🌊 Options Flow"
         ]
         
         # Premium and Admin Only Features
@@ -390,6 +391,11 @@ def main():
     elif page == "🧪 Backtester":
         from src.pages.backtest import render_backtesting_page
         render_backtesting_page()
+        return
+
+    elif page == "🌊 Options Flow":
+        from src.pages.options_flow import render_options_flow_page
+        render_options_flow_page()
         return
 
     elif page == "📋 Watchlist":

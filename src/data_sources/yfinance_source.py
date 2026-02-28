@@ -61,6 +61,9 @@ class YFinanceSource(TechnicalDataSource):
         # Get financial data
         financials = self._get_financial_data(stock)
         
+        # Get company info
+        company_info = self._get_company_info(stock)
+        
         # Get Insider Transaction dates
         insider_dates = {"insider_buy_dates": [], "insider_sell_dates": []}
         try:
