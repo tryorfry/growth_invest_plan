@@ -363,29 +363,29 @@ class TVChartGenerator:
                         // Price scales configuration
                         
                         // 1. Right scale (Main price content - restrict it to top 75% of chart)
-                        chart.priceScale('right').applyOptions({
-                            'scaleMargins': {
+                        chart.priceScale('right').applyOptions({{
+                            'scaleMargins': {{
                                 'top': 0.1,    // 10% from top
                                 'bottom': 0.3, // Leave bottom 30% for volume/ATR
-                            },
-                        });
+                            }},
+                        }});
                         
                         // 2. volScale (Volume - restrict it to bottom 20%)
-                        chart.priceScale('volScale').applyOptions({
-                            'scaleMargins': {
+                        chart.priceScale('volScale').applyOptions({{
+                            'scaleMargins': {{
                                 'top': 0.8,    // Start 80% down
                                 'bottom': 0,
-                            },
-                        });
+                            }},
+                        }});
                         
                         // 3. atrScale (ATR - overlaps Volume)
-                        chart.priceScale('atrScale').applyOptions({
-                            'scaleMargins': {
+                        chart.priceScale('atrScale').applyOptions({{
+                            'scaleMargins': {{
                                 'top': 0.8, 
                                 'bottom': 0,
-                            },
+                            }},
                             'visible': false, // Don't show confusing duplicate axis numbers
-                        });
+                        }});
                         
                         const seriesData = {json.dumps(series)};
                         
