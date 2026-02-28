@@ -472,11 +472,24 @@ def main():
         with st.spinner(f"Analyzing {ticker}..."):
             try:
                 # Run async analysis
-                analysis = asyncio.run(analyze_stock(ticker))
+                fetched_analysis = asyncio.run(analyze_stock(ticker))
                 
-                if analysis:
+                if fetched_analysis:
                     # Save to database
-                    save_analysis(db, analysis)
+                    save_analysis(db, fetched_analysis)
+                    st.session_state['current_analysis'] = fetched_analysis
+                    st.session_state['current_ticker'] = ticker
+                else:
+                    st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
+            except Exception as e:
+                st.error(f"An error occurred while analyzing {ticker}: {e}")
+                st.expander("Detailed Error Trace").write(e)
+
+    if True:
+        if st.session_state.get('current_analysis') and st.session_state.get('current_ticker') == ticker:
+            try:
+                if True:
+                    analysis = st.session_state['current_analysis']
                     
                     # Display header with name, timestamp, and links
                     render_ticker_header(analysis)
@@ -737,13 +750,13 @@ def main():
                         st.info("Run multiple analyses over time to see historical trends")
                     
                 else:
-                    st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
+                    pass
 
             except Exception as e:
-                st.error(f"An error occurred while analyzing {ticker}: {e}")
+                st.error(f"UI Render Error: {e}")
                 st.expander("Detailed Error Trace").write(e)
     
-    else:
+    elif not st.session_state.get('current_analysis'):
         st.info("👈 Enter a ticker symbol and click 'Analyze' to get started")
 
 
