@@ -689,13 +689,13 @@ def main():
                     
                     with ctrl1:
                         show_ema = st.checkbox("Show EMAs", value=True, key="chk_ema")
-                        show_atr = st.checkbox("Show ATR", value=False, key="chk_atr")
+                        show_atr = st.checkbox("Show ATR", value=True, key="chk_atr")
                     with ctrl2:
                         show_support_resistance = st.checkbox("Support/Resistance", value=True, key="chk_sr")
                         show_trade_setup = st.checkbox("Entry/Stop", value=True, key="chk_ts")
                     with ctrl3:
-                        show_rsi = st.checkbox("Show RSI", value=True, key="chk_rsi")
-                        show_macd = st.checkbox("Show MACD", value=True, key="chk_macd")
+                        show_rsi = st.checkbox("Show RSI", value=False, key="chk_rsi")
+                        show_macd = st.checkbox("Show MACD", value=False, key="chk_macd")
                     with ctrl4:
                         show_bollinger = st.checkbox("Show BOLL", value=False, key="chk_boll")
                     
