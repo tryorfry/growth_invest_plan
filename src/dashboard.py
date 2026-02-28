@@ -302,7 +302,7 @@ def main():
         return
         
     # Hook the global theme config early to prevent UI flickering and double-renders
-    # ThemeManager.apply_theme()
+    ThemeManager.apply_theme()
     ThemeManager.inject_custom_css()
     
     # Sidebar navigation

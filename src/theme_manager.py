@@ -16,21 +16,45 @@ class ThemeManager:
             current_theme = None
             
         # If the server's global CSS renderer isn't currently outputting the user's desired theme,
-        # force it to switch and trigger a proactive reload so the React frontend adopts it natively.
-        if current_theme != desired_theme:
-            st._config.set_option('theme.base', desired_theme)
-            
-            # Explicitly force the primary contrast colors mapping Streamlit's native theme pallets
-            if desired_theme == 'dark':
-                st._config.set_option('theme.backgroundColor', '#0e1117')
-                st._config.set_option('theme.secondaryBackgroundColor', '#262730')
-                st._config.set_option('theme.textColor', '#fafafa')
-            else:
-                st._config.set_option('theme.backgroundColor', '#ffffff')
-                st._config.set_option('theme.secondaryBackgroundColor', '#f0f2f6')
-                st._config.set_option('theme.textColor', '#31333F')
-                
-            st.rerun()
+        # Force a programmatic override via CSS mapping since Streamlit Cloud often caches the `.toml`
+        if desired_theme == 'light':
+            st.markdown("""
+                <style>
+                    :root {
+                        --primary-color: #f0f2f6;
+                        --background-color: #ffffff;
+                        --secondary-background-color: #f0f2f6;
+                        --text-color: #31333F;
+                        --font: "Inter", sans-serif;
+                    }
+                    /* Force Streamlit app background and text */
+                    .stApp {
+                        background-color: var(--background-color) !important;
+                        color: var(--text-color) !important;
+                    }
+                    
+                    /* Force text elements */
+                    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
+                        color: var(--text-color) !important;
+                    }
+                    
+                    /* Force secondary backgrounds like sidebars and containers */
+                    section[data-testid="stSidebar"],
+                    div[data-testid="stExpander"],
+                    div.stForm,
+                    div[data-testid="stMetric"] {
+                        background-color: var(--secondary-background-color) !important;
+                        border-color: #d0d2d6 !important;
+                    }
+                    
+                    /* Input elements */
+                    .stTextInput input, .stSelectbox select, .stSlider > div {
+                        background-color: #ffffff !important;
+                        color: #31333F !important;
+                        border-color: #d0d2d6 !important;
+                    }
+                </style>
+            """, unsafe_allow_html=True)
 
     @staticmethod
     def inject_custom_css():
