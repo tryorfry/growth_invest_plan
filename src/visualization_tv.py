@@ -149,11 +149,12 @@ class TVChartGenerator:
             }
         }
         
-        # Markers (Earnings) attach to Volume Histogram belowBar
+        # Markers (Earnings) attach to Candlestick belowBar to avoid Volume pane clipping
         markers = []
         valid_dates = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d').tolist()
+        max_date_str = max(valid_dates) if valid_dates else None
         
-        def get_closest_trading_day(target_date):
+        def get_closest_past_trading_day(target_date):
             if not valid_dates: return None
             # Find exact or previous closest valid date in the data
             target_str = pd.to_datetime(target_date).strftime('%Y-%m-%d')
@@ -164,7 +165,7 @@ class TVChartGenerator:
             return max(past_dates) if past_dates else None
 
         if getattr(analysis, 'last_earnings_date', None):
-            closest_date = get_closest_trading_day(analysis.last_earnings_date)
+            closest_date = get_closest_past_trading_day(analysis.last_earnings_date)
             if closest_date:
                 markers.append({
                     "time": closest_date,
@@ -175,18 +176,34 @@ class TVChartGenerator:
                 })
                 
         if getattr(analysis, 'next_earnings_date', None):
-            closest_date = get_closest_trading_day(analysis.next_earnings_date)
-            if closest_date:
+            next_str = pd.to_datetime(analysis.next_earnings_date).strftime('%Y-%m-%d')
+            # If it's in the future and not in the dataset yet, pad the datasets with whitespace!
+            if max_date_str and next_str > max_date_str:
+                series[0]["data"].append({"time": next_str})
+                vol_data.append({"time": next_str})
                 markers.append({
-                    "time": closest_date,
+                    "time": next_str,
                     "position": 'belowBar',
                     "color": '#FF9800',
                     "shape": 'arrowUp',
                     "text": 'E (Est)'
                 })
+            else:
+                closest_date = get_closest_past_trading_day(analysis.next_earnings_date)
+                if closest_date:
+                    markers.append({
+                        "time": closest_date,
+                        "position": 'belowBar',
+                        "color": '#FF9800',
+                        "shape": 'arrowUp',
+                        "text": 'E (Est)'
+                    })
             
         if markers:
-            vol_series["markers"] = markers
+            if "markers" not in series[0]:
+                series[0]["markers"] = markers
+            else:
+                series[0]["markers"].extend(markers)
             
         series.append(vol_series)
         
