@@ -53,6 +53,11 @@ class StockAnalysis:
     next_earnings_date: Any = None
     days_until_earnings: Optional[int] = None
     
+    # Dividends & Insiders
+    dividend_dates: List[str] = field(default_factory=list)
+    insider_buy_dates: List[str] = field(default_factory=list)
+    insider_sell_dates: List[str] = field(default_factory=list)
+    
     # Financials
     revenue: Optional[float] = None
     operating_income: Optional[float] = None
@@ -297,6 +302,10 @@ class StockAnalyzer:
         analysis.past_earnings_dates = data.get("past_earnings_dates", [])
         analysis.next_earnings_date = data.get("next_earnings_date")
         analysis.days_until_earnings = data.get("days_until_earnings")
+        
+        analysis.dividend_dates = data.get("dividend_dates", [])
+        analysis.insider_buy_dates = data.get("insider_buy_dates", [])
+        analysis.insider_sell_dates = data.get("insider_sell_dates", [])
         
         # Financials
         analysis.revenue = data.get("revenue")

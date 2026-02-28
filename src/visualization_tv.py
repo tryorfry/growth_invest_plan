@@ -12,7 +12,7 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_support_resistance: bool, show_trade_setup: bool) -> List[Dict[str, Any]]:
+    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_trade_setup: bool) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -119,6 +119,19 @@ class TVChartGenerator:
                 "options": {"color": color, "lineWidth": width, "title": ema}
             })
                     
+        # 2.5 BOLL
+        if show_bollinger and 'Bollinger_Upper' in df.columns and 'Bollinger_Lower' in df.columns:
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['Bollinger_Upper'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Upper'])],
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1, "lineStyle": 2, "title": "Upper BOLL"}
+            })
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['Bollinger_Lower'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Lower'])],
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1, "lineStyle": 2, "title": "Lower BOLL"}
+            })
+
         # 3. ATR
         atr_data = []
         if show_atr and analysis.atr and analysis.history is not None:
@@ -146,6 +159,43 @@ class TVChartGenerator:
                 "priceScaleId": 'atrScale',
             }
         })
+
+        # 3.1 RSI
+        if show_rsi and 'RSI' in df.columns:
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['RSI'])} for _, row in df.iterrows() if pd.notna(row['RSI'])],
+                "options": {
+                    "color": '#7E57C2', 
+                    "lineWidth": 1.5, 
+                    "title": "RSI", 
+                    "priceScaleId": 'rsiScale'
+                }
+            })
+
+        # 3.2 MACD
+        if show_macd and 'MACD' in df.columns and 'MACD_Signal' in df.columns:
+            macd_data = [{"time": row[date_col], "value": float(row['MACD'])} for _, row in df.iterrows() if pd.notna(row['MACD'])]
+            signal_data = [{"time": row[date_col], "value": float(row['MACD_Signal'])} for _, row in df.iterrows() if pd.notna(row['MACD_Signal'])]
+            hist_data = [{"time": row[date_col], "value": float(row['MACD'] - row['MACD_Signal']), 
+                          "color": 'rgba(38,166,154,0.6)' if float(row['MACD'] - row['MACD_Signal']) >= 0 else 'rgba(239,83,80,0.6)'} 
+                         for _, row in df.iterrows() if pd.notna(row['MACD']) and pd.notna(row['MACD_Signal'])]
+            
+            series.append({
+                "type": 'Histogram',
+                "data": hist_data,
+                "options": {"priceScaleId": 'macdScale', "color": '#26A69A', "title": "MACD Hist"}
+            })
+            series.append({
+                "type": 'Line',
+                "data": macd_data,
+                "options": {"color": '#2962FF', "lineWidth": 1.5, "title": "MACD", "priceScaleId": 'macdScale'}
+            })
+            series.append({
+                "type": 'Line',
+                "data": signal_data,
+                "options": {"color": '#FF6D00', "lineWidth": 1.5, "title": "Signal", "priceScaleId": 'macdScale'}
+            })
 
         # 4. Volume Histogram
         vol_data = [{"time": row[date_col], "value": row['Volume'], "color": 'rgba(38,166,154,0.3)' if row['Close'] >= row['Open'] else 'rgba(239,83,80,0.3)'} for _, row in df.iterrows()]
@@ -212,6 +262,30 @@ class TVChartGenerator:
                         "text": 'E'
                     })
             
+        if getattr(analysis, 'dividend_dates', []):
+            for d_date in analysis.dividend_dates:
+                closest_date = get_closest_past_trading_day(d_date)
+                if closest_date and not any(m['time'] == closest_date and m['text'] == 'D' for m in markers):
+                    markers.append({
+                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": 'D'
+                    })
+
+        if getattr(analysis, 'insider_buy_dates', []):
+            for buy_date in analysis.insider_buy_dates:
+                closest_date = get_closest_past_trading_day(buy_date)
+                if closest_date and not any(m['time'] == closest_date and 'Insider' in m['text'] for m in markers):
+                    markers.append({
+                        "time": closest_date, "position": 'aboveBar', "color": '#4CAF50', "shape": 'arrowDown', "text": 'Insider Buy'
+                    })
+
+        if getattr(analysis, 'insider_sell_dates', []):
+            for sell_date in analysis.insider_sell_dates:
+                closest_date = get_closest_past_trading_day(sell_date)
+                if closest_date and not any(m['time'] == closest_date and 'Insider' in m['text'] for m in markers):
+                    markers.append({
+                        "time": closest_date, "position": 'aboveBar', "color": '#F44336', "shape": 'arrowDown', "text": 'Insider Sell'
+                    })
+                    
         if markers:
             if "markers" not in series[0]:
                 series[0]["markers"] = markers
@@ -228,6 +302,9 @@ class TVChartGenerator:
         timeframe: str = "W",
         show_ema: bool = True,
         show_atr: bool = False,
+        show_rsi: bool = True,
+        show_macd: bool = True,
+        show_bollinger: bool = False,
         show_support_resistance: bool = True,
         show_trade_setup: bool = True,
         height: int = 600
@@ -261,7 +338,7 @@ class TVChartGenerator:
         # Determine Daily Series
         daily_df = df.copy()
         daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_support_resistance, show_trade_setup)
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_trade_setup)
         
         # Determine Weekly Series
         weekly_df = df.copy()
@@ -269,13 +346,13 @@ class TVChartGenerator:
         weekly_df.set_index(date_col, inplace=True)
         
         agg_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'}
-        for col in ['EMA20', 'EMA50', 'EMA200']:
+        for col in ['EMA20', 'EMA50', 'EMA200', 'ATR14', 'RSI', 'MACD', 'MACD_Signal', 'Bollinger_Upper', 'Bollinger_Lower']:
             if col in weekly_df.columns:
                 agg_dict[col] = 'last'
                 
         weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
         weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_support_resistance, show_trade_setup)
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_trade_setup)
 
         theme = st.session_state.get('theme_preference', 'dark')
         bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'
@@ -331,7 +408,9 @@ class TVChartGenerator:
                     .tvc-btn:hover, .tvc-tf-btn:hover {{ background: {button_hover}; }}
                     .tvc-btn.active, .tvc-tf-btn.active {{ background: #2962FF; color: white; }}
                 </style>
-                <div id="tvchart-container" style="flex: 1; width: 100%; overflow: hidden;"></div>
+                <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
+                    <div id="tvc-tooltip" style="position: absolute; display: none; padding: 8px; box-sizing: border-box; font-size: 13px; font-family: sans-serif; color: {text_color}; background-color: {bg_color}; opacity: 0.9; z-index: 1000; top: 12px; left: 12px; pointer-events: none; border-radius: 4px; border: 1px solid {grid_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+                </div>
             </div>
             <script>
                 const script = document.createElement('script');
@@ -343,19 +422,35 @@ class TVChartGenerator:
                         
                         // Distinct Panes Setup using Scale Margins
                         const hasAtr = {str(show_atr).lower()};
+                        const hasRsi = {str(show_rsi).lower()};
+                        const hasMacd = {str(show_macd).lower()};
+                        
+                        const activeSubpanes = [];
+                        if (hasAtr) activeSubpanes.push('atrScale');
+                        if (hasRsi) activeSubpanes.push('rsiScale');
+                        if (hasMacd) activeSubpanes.push('macdScale');
+                        
+                        const numSubpanes = activeSubpanes.length;
+                        const paneHeight = 0.20; // 20% height for each subpane
+                        const totalSubpaneHeight = numSubpanes * paneHeight;
+                        
+                        const mainBottomMargin = Math.min(0.10 + totalSubpaneHeight, 0.85); // buffer for scale minimums
                         
                         chart.priceScale('right').applyOptions({{
-                            scaleMargins: {{ top: 0.05, bottom: hasAtr ? 0.35 : 0.25 }},
+                            scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
                         }});
                         
                         chart.priceScale('volScale').applyOptions({{
-                            scaleMargins: {{ top: hasAtr ? 0.70 : 0.80, bottom: hasAtr ? 0.15 : 0 }},
+                            scaleMargins: {{ top: 1.0 - mainBottomMargin - 0.15, bottom: mainBottomMargin }},
                         }});
                         
-                        chart.priceScale('atrScale').applyOptions({{
-                            scaleMargins: {{ top: 0.88, bottom: 0 }},
-                            visible: true, // Show ATR scale separately at the bottom
-                            borderColor: '{grid_color}',
+                        activeSubpanes.forEach((scaleId, index) => {{
+                            const startTop = 1.0 - totalSubpaneHeight + (index * paneHeight);
+                            chart.priceScale(scaleId).applyOptions({{
+                                scaleMargins: {{ top: startTop + 0.02, bottom: 1.0 - (startTop + paneHeight) + 0.02 }},
+                                visible: true,
+                                borderColor: '{grid_color}',
+                            }});
                         }});
                         
                         const datasets = {{
@@ -395,6 +490,59 @@ class TVChartGenerator:
                         
                         initSeries();
                         applyData(currentTF);
+                        
+                        // Interactive Tooltip
+                        const tooltip = document.getElementById('tvc-tooltip');
+                        
+                        chart.subscribeCrosshairMove(param => {{
+                            if (
+                                param.point === undefined ||
+                                !param.time ||
+                                param.point.x < 0 ||
+                                param.point.x > document.getElementById('tvchart-container').clientWidth ||
+                                param.point.y < 0 ||
+                                param.point.y > document.getElementById('tvchart-container').clientHeight
+                            ) {{
+                                tooltip.style.display = 'none';
+                                return;
+                            }}
+                            
+                            // Get candle data
+                            const data = param.seriesData.get(seriesInstances[0]);
+                            if (!data) {{
+                                tooltip.style.display = 'none';
+                                return;
+                            }}
+                            
+                            // Format date
+                            const dateStr = typeof param.time === 'string' ? param.time : new Date(param.time * 1000).toLocaleDateString({{ month: 'short', day: 'numeric', year: 'numeric' }});
+                            
+                            // Set tooltip content
+                            tooltip.innerHTML = `
+                                <div style="font-weight: bold; margin-bottom: 4px;">${{dateStr}}</div>
+                                <div>O: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.open.toFixed(2)}}</span></div>
+                                <div>H: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.high.toFixed(2)}}</span></div>
+                                <div>L: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.low.toFixed(2)}}</span></div>
+                                <div>C: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.close.toFixed(2)}}</span></div>
+                            `;
+                            
+                            // Position tooltip dynamically
+                            const y = param.point.y;
+                            
+                            let left = param.point.x + 15;
+                            if (left > document.getElementById('tvchart-container').clientWidth - 100) {{
+                                left = param.point.x - 105;
+                            }}
+                            
+                            let top = y + 15;
+                            if (top > document.getElementById('tvchart-container').clientHeight - 100) {{
+                                top = y - 105;
+                            }}
+                            
+                            tooltip.style.left = left + 'px';
+                            tooltip.style.top = top + 'px';
+                            tooltip.style.display = 'block';
+                        }});
                         
                         // Set active toggle visually based on python prop
                         document.querySelectorAll('.tvc-tf-btn').forEach(btn => {{

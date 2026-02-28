@@ -61,14 +61,29 @@ class YFinanceSource(TechnicalDataSource):
         # Get financial data
         financials = self._get_financial_data(stock)
         
-        # Get company info (sector, industry)
-        company_info = self._get_company_info(stock)
+        # Get Insider Transaction dates
+        insider_dates = {"insider_buy_dates": [], "insider_sell_dates": []}
+        try:
+            txns = stock.insider_transactions
+            if txns is not None and not txns.empty:
+                for _, row in txns.head(50).iterrows():
+                    start_date = row.get('Start Date')
+                    if pd.notna(start_date):
+                        date_str = start_date.strftime('%Y-%m-%d')
+                        txn_raw = str(row.get('Transaction', '')).lower()
+                        if 'purchase' in txn_raw or 'buy' in txn_raw:
+                            insider_dates["insider_buy_dates"].append(date_str)
+                        elif 'sale' in txn_raw or 'sell' in txn_raw:
+                            insider_dates["insider_sell_dates"].append(date_str)
+        except Exception as e:
+            print(f"Error fetching insider dates: {e}")
             
         return {
             **technical,
             **earnings,
             **financials,
-            **company_info
+            **company_info,
+            **insider_dates
         }
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
@@ -121,7 +136,11 @@ class YFinanceSource(TechnicalDataSource):
         latest = hist.iloc[-1]
         latest_date = hist.index[-1]
         
+        # Dividends
+        dividend_dates = hist[hist['Dividends'] > 0].index.strftime('%Y-%m-%d').tolist() if 'Dividends' in hist.columns else []
+
         return {
+            "dividend_dates": dividend_dates,
             "history": hist,
             "atr": atr.iloc[-1],
             "ema20": ema20.iloc[-1],

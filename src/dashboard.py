@@ -669,25 +669,28 @@ def main():
                     ctrl1, ctrl2, ctrl3, ctrl4 = st.columns(4)
                     
                     with ctrl1:
-                        show_ema = st.checkbox("Show EMAs", value=True)
-                        show_atr = st.checkbox("Show ATR", value=False)
+                        show_ema = st.checkbox("Show EMAs", value=True, key="chk_ema")
+                        show_atr = st.checkbox("Show ATR", value=False, key="chk_atr")
                     with ctrl2:
-                        show_support_resistance = st.checkbox("Support/Resistance", value=True)
-                        show_trade_setup = st.checkbox("Entry/Stop", value=True)
+                        show_support_resistance = st.checkbox("Support/Resistance", value=True, key="chk_sr")
+                        show_trade_setup = st.checkbox("Entry/Stop", value=True, key="chk_ts")
                     with ctrl3:
-                        show_rsi = st.checkbox("Show RSI", value=True, disabled=True) # Placeholders for future sub-panes
-                        show_macd = st.checkbox("Show MACD", value=True, disabled=True)
+                        show_rsi = st.checkbox("Show RSI", value=True, key="chk_rsi")
+                        show_macd = st.checkbox("Show MACD", value=True, key="chk_macd")
                     with ctrl4:
-                        show_bollinger = st.checkbox("Show BOLL", value=False, disabled=True)
+                        show_bollinger = st.checkbox("Show BOLL", value=False, key="chk_boll")
                     
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
                         show_ema=show_ema,
                         show_atr=show_atr,
+                        show_rsi=show_rsi,
+                        show_macd=show_macd,
+                        show_bollinger=show_bollinger,
                         show_support_resistance=show_support_resistance,
                         show_trade_setup=show_trade_setup,
-                        height=600
+                        height=600 if show_rsi or show_macd else 500
                     )
                     
                     # Fundamental Data
