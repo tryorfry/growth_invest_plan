@@ -109,7 +109,7 @@ class TVChartGenerator:
         series.append(candlestick_series)
 
         # 2. EMAs
-        for ema, color, width in [('EMA20', '#FF6D00', 1), ('EMA50', '#00E676', 1), ('EMA200', '#D500F9', 1)]:
+        for ema, color, width in [('EMA20', '#FF6D00', 1), ('EMA50', '#00E676', 2), ('EMA200', '#D500F9', 2)]:
             ema_data = []
             if show_ema and ema in df.columns:
                 ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
