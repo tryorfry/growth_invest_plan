@@ -68,18 +68,20 @@ class TVChartGenerator:
                     "price": analysis.max_buy_price,
                     "color": "#2196F3",
                     "lineWidth": 1.5,
-                    "lineStyle": 1, # Dotted
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
                     "title": "MBP"
                 })
 
         if show_support_resistance:
+            theme = st.session_state.get('theme_preference', 'dark')
+            support_color = "#FFFFFF" if theme == 'dark' else "#000000"
             for i, level in enumerate(getattr(analysis, 'support_levels', [])):
                 price_lines.append({
                     "price": level,
-                    "color": "#000000", # Pitch Black
+                    "color": support_color, # White in Dark Mode, Black in Light Mode
                     "lineWidth": 2, # Thicker for visibility
-                    "lineStyle": 1, # Dotted
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
                     "title": "S"
                 })
@@ -88,7 +90,7 @@ class TVChartGenerator:
                     "price": level,
                     "color": "#B71C1C", # Dark Red
                     "lineWidth": 2, # Thicker for visibility
-                    "lineStyle": 1, # Dotted
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
                     "title": "R"
                 })
