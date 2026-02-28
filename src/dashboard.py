@@ -21,7 +21,7 @@ from src.models import Stock, Analysis
 from src.visualization_tv import TVChartGenerator
 from src.utils import save_analysis, render_ticker_header
 from src.auth import AuthManager
-from src.pages.login import render_login_page
+from src.views.login import render_login_page
 from src.theme_manager import ThemeManager
 
 
@@ -374,47 +374,47 @@ def main():
             
     # Route to selected page
     if page == "🌍 Market Pulse":
-        from src.pages.market_pulse import render_market_pulse_page
+        from src.views.market_pulse import render_market_pulse_page
         render_market_pulse_page()
         return
 
     elif page == "🔍 Screener":
-        from src.pages.screener import render_screener_page
+        from src.views.screener import render_screener_page
         render_screener_page()
         return
 
     elif page == "💼 Portfolio":
-        from src.pages.portfolio_tracker import render_portfolio_tracker_page
+        from src.views.portfolio_tracker import render_portfolio_tracker_page
         render_portfolio_tracker_page()
         return
 
     elif page == "🧪 Backtester":
-        from src.pages.backtest import render_backtesting_page
+        from src.views.backtest import render_backtesting_page
         render_backtesting_page()
         return
 
     elif page == "🌊 Options Flow":
-        from src.pages.options_flow import render_options_flow_page
+        from src.views.options_flow import render_options_flow_page
         render_options_flow_page()
         return
 
     elif page == "📋 Watchlist":
-        from src.pages.watchlist import render_watchlist_page
+        from src.views.watchlist import render_watchlist_page
         render_watchlist_page()
         return
     
     elif page == "🔔 Alerts":
-        from src.pages.alerts import render_alerts_page
+        from src.views.alerts import render_alerts_page
         render_alerts_page()
         return
     
     elif page == "🔬 Advanced Analytics":
-        from src.pages.advanced_analytics import render_advanced_analytics_page
+        from src.views.advanced_analytics import render_advanced_analytics_page
         render_advanced_analytics_page()
         return
         
     elif page == "🛡️ Admin Dashboard":
-        from src.pages.admin_dashboard import show_admin_dashboard
+        from src.views.admin_dashboard import show_admin_dashboard
         # The admin dashboard signature needs db and session.
         # Let's initialize a session specifically for it or modify the function signature.
         from src.database import Database
@@ -423,7 +423,7 @@ def main():
             show_admin_dashboard(db, session)
         return
     elif page == "📈 Comparison":
-        from src.pages.comparison import render_comparison_page
+        from src.views.comparison import render_comparison_page
         render_comparison_page()
         return
     
