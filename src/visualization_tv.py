@@ -12,98 +12,7 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def generate_candlestick_chart(
-        self,
-        analysis: StockAnalysis,
-        timeframe: str = "D",
-        show_ema: bool = True,
-        show_atr: bool = False,
-        show_support_resistance: bool = True,
-        show_trade_setup: bool = True,
-        height: int = 600
-    ) -> None:
-        """
-        Renders an interactive TradingView lightweight chart directly into Streamlit.
-        """
-        if analysis.history is None or analysis.history.empty:
-            st.warning("No historical data available for chart.")
-            return
-
-        df = analysis.history.copy()
-        
-        # Clean dataframe to prevent JSON formatting errors with NaNs or NaTs that crash JS charts
-        missing_cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c not in df.columns]
-        if missing_cols:
-            st.warning(f"Missing required price columns for chart: {missing_cols}")
-            return
-            
-        df = df.dropna(subset=['Open', 'High', 'Low', 'Close']).copy()
-        if 'Volume' in df.columns:
-            df['Volume'] = df['Volume'].fillna(0)
-            
-        if df.empty:
-            st.warning("No complete historical data available for chart.")
-            return
-            
-        
-        # Reset index to get Date as a column, format to string YYYY-MM-DD
-        df.reset_index(inplace=True)
-        # Rename date column if it was named correctly or implicitly 'Date'
-        date_col = 'Date' if 'Date' in df.columns else df.columns[0]
-        # Ensure we don't have NaT dates
-        df = df.dropna(subset=[date_col]).copy()
-        
-        # Resample to Weekly if requested
-        if timeframe == "W":
-            # Set date as DatetimeIndex
-            df[date_col] = pd.to_datetime(df[date_col])
-            df.set_index(date_col, inplace=True)
-            
-            # Resample rule: W-FRI (weekly ending Friday)
-            weekly_df = df.resample('W-FRI').agg({
-                'Open': 'first',
-                'High': 'max',
-                'Low': 'min',
-                'Close': 'last',
-                'Volume': 'sum',
-                'EMA20': 'last',
-                'EMA50': 'last',
-                'EMA200': 'last'
-            }).dropna(subset=['Open', 'High', 'Low', 'Close'])
-            
-            df = weekly_df.reset_index()
-            date_col = df.columns[0]
-            
-        df[date_col] = pd.to_datetime(df[date_col]).dt.strftime('%Y-%m-%d')
-
-        theme = st.session_state.get('theme_preference', 'dark')
-        bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'
-        text_color = '#FFFFFF' if theme == 'dark' else '#1E1E1E'
-        grid_color = '#1E2229' if theme == 'dark' else '#E0E0E0'
-
-        # Overall Chart Options
-        chartOptions = {
-            "layout": {
-                "textColor": text_color,
-                "background": {"type": "solid", "color": bg_color},
-            },
-            "grid": {
-                "vertLines": {"color": grid_color, "style": 1},
-                "horzLines": {"color": grid_color, "style": 1},
-            },
-            "crosshair": {
-                "mode": 1, # 0 for "Normal", 1 for "Magnet"
-            },
-            "priceScale": {
-                "borderColor": grid_color,
-            },
-            "timeScale": {
-                "borderColor": grid_color,
-                "timeVisible": True,
-                "rightOffset": 15,
-            }
-        }
-
+    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_support_resistance: bool, show_trade_setup: bool) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -117,7 +26,7 @@ class TVChartGenerator:
                 "close": row['Close'],
             })
             
-        series.append({
+        candlestick_series = {
             "type": 'Candlestick',
             "data": candles_data,
             "options": {
@@ -128,9 +37,8 @@ class TVChartGenerator:
                 "wickDownColor": '#ef5350',
                 "priceScaleId": "right"
             }
-        })
+        }
 
-        # Base series price scale configuration
         # Price lines (Horizontal markers) for candlestick overlay
         price_lines = []
 
@@ -186,93 +94,66 @@ class TVChartGenerator:
                 })
 
         if price_lines:
-            series[0]["priceLines"] = price_lines
-
-        # 2. EMAs (Add on top of Candlesticks)
-        if show_ema:
-            if 'EMA20' in df.columns:
-                ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row['EMA20']) and (val := float(row['EMA20']))]
-                if ema_data:
-                    series.append({
-                        "type": 'Line',
-                        "data": ema_data,
-                        "options": {"color": "#FF6D00", "lineWidth": 1, "title": "EMA20"}
-                    })
-            if 'EMA50' in df.columns:
-                ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row['EMA50']) and (val := float(row['EMA50']))]
-                if ema_data:
-                    series.append({
-                        "type": 'Line',
-                        "data": ema_data,
-                        "options": {"color": "#00E676", "lineWidth": 1, "title": "EMA50"}
-                    })
-            if 'EMA200' in df.columns:
-                ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row['EMA200']) and (val := float(row['EMA200']))]
-                if ema_data:
-                    series.append({
-                        "type": 'Line',
-                        "data": ema_data,
-                        "options": {"color": "#D500F9", "lineWidth": 2, "title": "EMA200"}
-                    })
-                    
-        # 2.5. ATR (Add on top of Candlesticks)
-        if show_atr and analysis.atr and analysis.history is not None:
-            # We calculate ATR 14 dynamically on the resampled timeframe for visual accuracy
-            import numpy as np
-            tr_df = df.copy()
-            tr_df['PrevClose'] = tr_df['Close'].shift(1)
-            tr_df['TR'] = np.maximum(
-                tr_df['High'] - tr_df['Low'],
-                np.maximum(
-                    abs(tr_df['High'] - tr_df['PrevClose'].fillna(0)),
-                    abs(tr_df['Low'] - tr_df['PrevClose'].fillna(0))
-                )
-            )
-            tr_df['ATR14'] = tr_df['TR'].rolling(window=14).mean()
+            candlestick_series["priceLines"] = price_lines
             
-            atr_data = [{"time": row[date_col], "value": val} for _, row in tr_df.iterrows() if pd.notna(row['ATR14']) and (val := float(row['ATR14']))]
-            if atr_data:
-                series.append({
-                    "type": 'Line',
-                    "data": atr_data,
-                    "options": {
-                        "color": "#FFC107", 
-                        "lineWidth": 2, 
-                        "lineStyle": 2, 
-                        "title": "ATR14",
-                        "priceScaleId": 'atrScale',
-                        "scaleMargins": {
-                            "top": 0.8,
-                            "bottom": 0,
-                        }
-                    }
-                })
+        series.append(candlestick_series)
 
-        # 3. Volume Histogram (on a separate scale)
+        # 2. EMAs
+        for ema, color, width in [('EMA20', '#FF6D00', 1), ('EMA50', '#00E676', 1), ('EMA200', '#D500F9', 2)]:
+            ema_data = []
+            if show_ema and ema in df.columns:
+                ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
+            series.append({
+                "type": 'Line',
+                "data": ema_data,
+                "options": {"color": color, "lineWidth": width, "title": ema}
+            })
+                    
+        # 3. ATR
+        atr_data = []
+        if show_atr and analysis.atr and analysis.history is not None:
+             import numpy as np
+             tr_df = df.copy()
+             tr_df['PrevClose'] = tr_df['Close'].shift(1)
+             tr_df['TR'] = np.maximum(
+                 tr_df['High'] - tr_df['Low'],
+                 np.maximum(
+                     abs(tr_df['High'] - tr_df['PrevClose'].fillna(0)),
+                     abs(tr_df['Low'] - tr_df['PrevClose'].fillna(0))
+                 )
+             )
+             tr_df['ATR14'] = tr_df['TR'].rolling(window=14).mean()
+             atr_data = [{"time": row[date_col], "value": val} for _, row in tr_df.iterrows() if pd.notna(row['ATR14']) and (val := float(row['ATR14']))]
+             
+        series.append({
+            "type": 'Line',
+            "data": atr_data,
+            "options": {
+                "color": "#FFC107", 
+                "lineWidth": 2, 
+                "lineStyle": 2, 
+                "title": "ATR14",
+                "priceScaleId": 'atrScale',
+            }
+        })
+
+        # 4. Volume Histogram
         vol_data = [{"time": row[date_col], "value": row['Volume'], "color": 'rgba(38,166,154,0.3)' if row['Close'] >= row['Open'] else 'rgba(239,83,80,0.3)'} for _, row in df.iterrows()]
         
-        series.append({
+        vol_series = {
             "type": 'Histogram',
             "data": vol_data,
             "options": {
                 "priceFormat": {"type": 'volume'},
                 "priceScaleId": "volScale", 
-                "scaleMargins": {
-                    "top": 0.8,
-                    "bottom": 0,
-                },
             }
-        })
+        }
         
-        # 4. Markers (Earnings)
+        # Markers (Earnings) attach to X-axis by defaulting to Histogram belowBar
         markers = []
-        
-        # Helper to find closest trading day if earnings fall on weekend/holiday
         valid_dates_dt = pd.to_datetime(list(set(df[date_col].values)))
-        
         def get_closest_trading_day(target_date):
             if valid_dates_dt.empty: return None
-            # Find the closest date in the past or future
             target_dt = pd.to_datetime(target_date)
             closest_idx = (valid_dates_dt - target_dt).abs().argmin()
             return valid_dates_dt[closest_idx].strftime('%Y-%m-%d')
@@ -288,8 +169,7 @@ class TVChartGenerator:
                         "shape": 'arrowUp',
                         "text": 'E'
                     })
-            except Exception:
-                pass
+            except Exception: pass
                 
         if getattr(analysis, 'next_earnings_date', None):
             try:
@@ -302,57 +182,127 @@ class TVChartGenerator:
                         "shape": 'arrowUp',
                         "text": 'E (Est)'
                     })
-            except Exception:
-                pass
+            except Exception: pass
+            
+        if markers:
+            vol_series["markers"] = markers
+            
+        series.append(vol_series)
+        
+        return series
 
-        # Render Lightweight Chart Component with Custom UI Overlay
+    def generate_candlestick_chart(
+        self,
+        analysis: StockAnalysis,
+        timeframe: str = "D",
+        show_ema: bool = True,
+        show_atr: bool = False,
+        show_support_resistance: bool = True,
+        show_trade_setup: bool = True,
+        height: int = 600
+    ) -> None:
+        """
+        Renders an interactive TradingView lightweight chart directly into Streamlit.
+        """
+        if analysis.history is None or analysis.history.empty:
+            st.warning("No historical data available for chart.")
+            return
+
+        df = analysis.history.copy()
+        
+        missing_cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c not in df.columns]
+        if missing_cols:
+            st.warning(f"Missing required price columns for chart: {missing_cols}")
+            return
+            
+        df = df.dropna(subset=['Open', 'High', 'Low', 'Close']).copy()
+        if 'Volume' in df.columns:
+            df['Volume'] = df['Volume'].fillna(0)
+            
+        if df.empty:
+            st.warning("No complete historical data available for chart.")
+            return
+            
+        df.reset_index(inplace=True)
+        date_col = 'Date' if 'Date' in df.columns else df.columns[0]
+        df = df.dropna(subset=[date_col]).copy()
+        
+        # Determine Daily Series
+        daily_df = df.copy()
+        daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_support_resistance, show_trade_setup)
+        
+        # Determine Weekly Series
+        weekly_df = df.copy()
+        weekly_df[date_col] = pd.to_datetime(weekly_df[date_col])
+        weekly_df.set_index(date_col, inplace=True)
+        
+        agg_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'}
+        for col in ['EMA20', 'EMA50', 'EMA200']:
+            if col in weekly_df.columns:
+                agg_dict[col] = 'last'
+                
+        weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
+        weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_support_resistance, show_trade_setup)
+
+        theme = st.session_state.get('theme_preference', 'dark')
+        bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'
+        text_color = '#FFFFFF' if theme == 'dark' else '#1E1E1E'
+        grid_color = '#1E2229' if theme == 'dark' else '#E0E0E0'
+
+        chartOptions = {
+            "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
+            "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
+            "crosshair": { "mode": 1 },
+            "priceScale": { "borderColor": grid_color },
+            "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 15 }
+        }
+
         button_bg = "#262B33" if theme == 'dark' else "#F0F2F6"
         button_hover = "#3A414A" if theme == 'dark' else "#E0E4EB"
         button_text = "#FFFFFF" if theme == 'dark' else "#1E1E1E"
         
         st.components.v1.html(
             f'''
-            <div style="position: relative; width: 100%; height: {height}px;">
+            <div style="flex-direction: column; width: 100%; height: {height}px; display: flex; background: {bg_color}; border-radius: 8px; border: 1px solid {grid_color};">
                 <div id="tvchart-toolbar" style="
-                    position: absolute; 
-                    top: 10px; 
-                    left: 10px; 
-                    z-index: 10; 
                     display: flex; 
-                    gap: 5px;
-                    background: {bg_color};
-                    padding: 4px;
-                    border-radius: 6px;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    gap: 10px;
+                    padding: 8px 15px;
+                    border-bottom: 1px solid {grid_color};
+                    align-items: center;
+                    justify-content: space-between;
                 ">
-                    <button class="tvc-btn" data-range="1W">1W</button>
-                    <button class="tvc-btn" data-range="2W">2W</button>
-                    <button class="tvc-btn" data-range="1M">1M</button>
-                    <button class="tvc-btn" data-range="3M">3M</button>
-                    <button class="tvc-btn" data-range="6M">6M</button>
-                    <button class="tvc-btn" data-range="1Y">1Y</button>
-                    <button class="tvc-btn" data-range="5Y">5Y</button>
-                    <button class="tvc-btn" data-range="ALL">ALL</button>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Views:</span>
+                        <button class="tvc-tf-btn active" data-tf="D">Daily</button>
+                        <button class="tvc-tf-btn" data-tf="W">Weekly</button>
+                    </div>
+                    <div style="display: flex; gap: 5px; align-items: center;">
+                        <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Zoom:</span>
+                        <button class="tvc-btn" data-range="1W">1W</button>
+                        <button class="tvc-btn" data-range="2W">2W</button>
+                        <button class="tvc-btn" data-range="1M">1M</button>
+                        <button class="tvc-btn" data-range="3M">3M</button>
+                        <button class="tvc-btn" data-range="6M">6M</button>
+                        <button class="tvc-btn" data-range="1Y">1Y</button>
+                        <button class="tvc-btn" data-range="5Y">5Y</button>
+                        <button class="tvc-btn" data-range="ALL">ALL</button>
+                    </div>
                 </div>
                 <style>
-                    .tvc-btn {{
-                        background: {button_bg};
-                        color: {button_text};
-                        border: none;
-                        padding: 4px 10px;
-                        font-size: 12px;
-                        font-family: inherit;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        transition: background 0.2s;
+                    .tvc-btn, .tvc-tf-btn {{
+                        background: {button_bg}; color: {button_text}; border: none;
+                        padding: 4px 10px; font-size: 12px; font-family: inherit;
+                        border-radius: 4px; cursor: pointer; transition: background 0.2s;
                     }}
-                    .tvc-btn:hover {{ background: {button_hover}; }}
-                    .tvc-btn.active {{ background: #2962FF; color: white; }}
+                    .tvc-btn:hover, .tvc-tf-btn:hover {{ background: {button_hover}; }}
+                    .tvc-btn.active, .tvc-tf-btn.active {{ background: #2962FF; color: white; }}
                 </style>
-                <div id="tvchart-container" style="width: 100%; height: 100%; border-radius: 8px; overflow: hidden;"></div>
+                <div id="tvchart-container" style="flex: 1; width: 100%; overflow: hidden;"></div>
             </div>
             <script>
-                // Include lightweight-charts script
                 const script = document.createElement('script');
                 script.src = "https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js";
                 script.onload = () => {{
@@ -360,65 +310,87 @@ class TVChartGenerator:
                         const chartOptions = {json.dumps(chartOptions)};
                         const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
                         
-                        // Price scales configuration
+                        // Distinct Panes Setup using Scale Margins
+                        const hasAtr = {str(show_atr).lower()};
                         
-                        // 1. Right scale (Main price content - restrict it to top 75% of chart)
                         chart.priceScale('right').applyOptions({{
-                            'scaleMargins': {{
-                                'top': 0.1,    // 10% from top
-                                'bottom': 0.3, // Leave bottom 30% for volume/ATR
-                            }},
+                            scaleMargins: {{ top: 0.05, bottom: hasAtr ? 0.35 : 0.25 }},
                         }});
                         
-                        // 2. volScale (Volume - restrict it to bottom 20%)
                         chart.priceScale('volScale').applyOptions({{
-                            'scaleMargins': {{
-                                'top': 0.8,    // Start 80% down
-                                'bottom': 0,
-                            }},
+                            scaleMargins: {{ top: hasAtr ? 0.70 : 0.80, bottom: hasAtr ? 0.15 : 0 }},
                         }});
                         
-                        // 3. atrScale (ATR - overlaps Volume)
                         chart.priceScale('atrScale').applyOptions({{
-                            'scaleMargins': {{
-                                'top': 0.8, 
-                                'bottom': 0,
-                            }},
-                            'visible': false, // Don't show confusing duplicate axis numbers
+                            scaleMargins: {{ top: 0.88, bottom: 0 }},
+                            visible: true, // Show ATR scale separately at the bottom
+                            borderColor: '{grid_color}',
                         }});
                         
-                        const seriesData = {json.dumps(series)};
+                        const datasets = {{
+                            "D": {json.dumps(series_daily)},
+                            "W": {json.dumps(series_weekly)}
+                        }};
                         
-                        seriesData.forEach(s => {{
-                            let seriesInstance;
-                            if (s.type === 'Candlestick') {{
-                                seriesInstance = chart.addCandlestickSeries(s.options);
-                                seriesInstance.setData(s.data);
-                                if (s.priceLines) {{
-                                    s.priceLines.forEach(pl => seriesInstance.createPriceLine(pl));
+                        let seriesInstances = [];
+                        let currentTF = "{timeframe}";
+                        if (!datasets[currentTF]) currentTF = "D";
+                        
+                        // Initialization routine
+                        function initSeries() {{
+                            datasets[currentTF].forEach((s, idx) => {{
+                                let inst;
+                                if (s.type === 'Candlestick') {{
+                                    inst = chart.addCandlestickSeries(s.options);
+                                    if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
+                                }} else if (s.type === 'Line') {{
+                                    inst = chart.addLineSeries(s.options);
+                                }} else if (s.type === 'Histogram') {{
+                                    inst = chart.addHistogramSeries(s.options);
                                 }}
-                                
-                                const markers = {json.dumps(markers)};
-                                if (markers.length > 0) {{
-                                    seriesInstance.setMarkers(markers);
+                                seriesInstances.push(inst);
+                            }});
+                        }}
+                        
+                        function applyData(tf) {{
+                            datasets[tf].forEach((s, idx) => {{
+                                seriesInstances[idx].setData(s.data);
+                                if (s.type === 'Candlestick' || s.type === 'Histogram') {{
+                                    if (s.markers) seriesInstances[idx].setMarkers(s.markers);
+                                    else seriesInstances[idx].setMarkers([]); // clear explicit empty markers
                                 }}
-                            }} else if (s.type === 'Line') {{
-                                seriesInstance = chart.addLineSeries(s.options);
-                                seriesInstance.setData(s.data);
-                            }} else if (s.type === 'Histogram') {{
-                                seriesInstance = chart.addHistogramSeries(s.options);
-                                seriesInstance.setData(s.data);
-                            }}
+                            }});
+                        }}
+                        
+                        initSeries();
+                        applyData(currentTF);
+                        
+                        // Set active toggle visually based on python prop
+                        document.querySelectorAll('.tvc-tf-btn').forEach(btn => {{
+                            btn.classList.remove('active');
+                            if(btn.getAttribute('data-tf') === currentTF) btn.classList.add('active');
                         }});
-                        
-                        // Force resize observer to adapt smoothly
+
+                        // Resize observer
                         new ResizeObserver(entries => {{
-                          if (entries.length === 0 || entries[0].target !== document.getElementById('tvchart-container')) {{ return; }}
+                          if (entries.length === 0 || entries[0].target !== document.getElementById('tvchart-container')) return;
                           const newRect = entries[0].contentRect;
                           chart.applyOptions({{ width: newRect.width, height: newRect.height }});
                         }}).observe(document.getElementById('tvchart-container'));
                         
-                        // Setup Toolbar Buttons
+                        // Timeframe Toggles JS
+                        document.querySelectorAll('.tvc-tf-btn').forEach(btn => {{
+                            btn.addEventListener('click', (e) => {{
+                                document.querySelectorAll('.tvc-tf-btn').forEach(b => b.classList.remove('active'));
+                                e.target.classList.add('active');
+                                const tf = e.target.getAttribute('data-tf');
+                                applyData(tf);
+                                currentTF = tf;
+                                chart.timeScale().fitContent();
+                            }});
+                        }});
+                        
+                        // Range Toggles
                         const btns = document.querySelectorAll('.tvc-btn');
                         btns.forEach(btn => {{
                             btn.addEventListener('click', (e) => {{
@@ -426,7 +398,7 @@ class TVChartGenerator:
                                 e.target.classList.add('active');
                                 
                                 const range = e.target.getAttribute('data-range');
-                                const totalData = seriesData[0].data;
+                                const totalData = datasets[currentTF][0].data; // candlestick data
                                 if(totalData.length === 0) return;
                                 
                                 const lastDateStr = totalData[totalData.length - 1].time;
@@ -441,19 +413,10 @@ class TVChartGenerator:
                                 else if(range === '1Y') fromDate.setFullYear(lastDate.getFullYear() - 1);
                                 else if(range === '5Y') fromDate.setFullYear(lastDate.getFullYear() - 5);
                                 else {{
-                                    // ALL
                                     chart.timeScale().fitContent();
                                     return;
                                 }}
                                 
-                                // Format fromDate to YYYY-MM-DD
-                                const fromStr = fromDate.toISOString().split('T')[0];
-                                chart.timeScale().setVisibleLogicalRange({{
-                                    from: chart.timeScale().coordinateToLogical(chart.timeScale().width() - 100) || 0, // Fallback
-                                    to: totalData.length - 1
-                                }}); // Temporary reset
-                                
-                                // Find closest index
                                 let closestIdx = 0;
                                 for(let i = 0; i < totalData.length; i++){{
                                     if(new Date(totalData[i].time) >= fromDate) {{
@@ -463,9 +426,16 @@ class TVChartGenerator:
                                 }}
                                 
                                 chart.timeScale().setVisibleLogicalRange({{
-                                    from: closestIdx,
-                                    to: totalData.length + 5 // pad right
-                                }});
+                                    from: chart.timeScale().coordinateToLogical(chart.timeScale().width() - 100) || 0,
+                                    to: totalData.length - 1
+                                }}); // Force refresh buffer
+                                
+                                setTimeout(() => {{
+                                    chart.timeScale().setVisibleLogicalRange({{
+                                        from: closestIdx,
+                                        to: totalData.length + 5
+                                    }});
+                                }}, 10);
                             }});
                         }});
                     }} catch (e) {{
@@ -474,7 +444,7 @@ class TVChartGenerator:
                     }}
                 }};
                 script.onerror = () => {{
-                    document.getElementById('tvchart-container').innerHTML = "<div style='color:#FF5252; padding: 20px; font-family: sans-serif;'><strong>Network Error:</strong> Failed to fetch TradingView lightweight-charts. Check your internet connection or ad blocker.</div>";
+                    document.getElementById('tvchart-container').innerHTML = "<div style='color:#FF5252; padding: 20px; font-family: sans-serif;'><strong>Network Error:</strong> Failed to load charts.</div>";
                 }};
                 document.head.appendChild(script);
             </script>

@@ -666,32 +666,23 @@ def main():
                     
                     # Moved Inline Chart Controls here
                     st.markdown("##### Chart Controls")
-                    ctrl1, ctrl2, ctrl3, ctrl4, ctrl5 = st.columns(5)
+                    ctrl1, ctrl2, ctrl3, ctrl4 = st.columns(4)
                     
                     with ctrl1:
-                        timeframe = st.segmented_control(
-                            "Timeframe",
-                            options=["D", "W"],
-                            default="D",
-                            format_func=lambda x: "Daily" if x == "D" else "Weekly",
-                            label_visibility="collapsed"
-                        )
-                    with ctrl2:
                         show_ema = st.checkbox("Show EMAs", value=True)
                         show_atr = st.checkbox("Show ATR", value=False)
-                    with ctrl3:
+                    with ctrl2:
                         show_support_resistance = st.checkbox("Support/Resistance", value=True)
                         show_trade_setup = st.checkbox("Entry/Stop", value=True)
-                    with ctrl4:
+                    with ctrl3:
                         show_rsi = st.checkbox("Show RSI", value=True, disabled=True) # Placeholders for future sub-panes
                         show_macd = st.checkbox("Show MACD", value=True, disabled=True)
-                    with ctrl5:
+                    with ctrl4:
                         show_bollinger = st.checkbox("Show BOLL", value=False, disabled=True)
                     
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
-                        timeframe=timeframe,
                         show_ema=show_ema,
                         show_atr=show_atr,
                         show_support_resistance=show_support_resistance,
