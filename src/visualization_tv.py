@@ -97,7 +97,7 @@ class TVChartGenerator:
                  price_lines.append({
                     "price": hvn,
                     "color": "rgba(91, 33, 182, 0.7)", # Purple
-                    "lineWidth": 3,
+                    "lineWidth": 1,
                     "lineStyle": 0,
                     "axisLabelVisible": False,
                     "title": "HVN"
