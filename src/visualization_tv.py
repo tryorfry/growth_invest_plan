@@ -46,8 +46,8 @@ class TVChartGenerator:
             if getattr(analysis, 'suggested_entry', None):
                 price_lines.append({
                     "price": analysis.suggested_entry,
-                    "color": "#00E676",
-                    "lineWidth": 1.5,
+                    "color": "#00C853", # Darker Green
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
                     "title": "E"
@@ -56,8 +56,8 @@ class TVChartGenerator:
             if getattr(analysis, 'suggested_stop_loss', None):
                 price_lines.append({
                     "price": analysis.suggested_stop_loss,
-                    "color": "#FF5252",
-                    "lineWidth": 1.5,
+                    "color": "#D50000", # Darker Red
+                    "lineWidth": 2,
                     "lineStyle": 2, # Dashed
                     "axisLabelVisible": True,
                     "title": "SL"
@@ -77,8 +77,8 @@ class TVChartGenerator:
             for i, level in enumerate(getattr(analysis, 'support_levels', [])):
                 price_lines.append({
                     "price": level,
-                    "color": "#000000",
-                    "lineWidth": 1.5,
+                    "color": "#000000", # Pitch Black
+                    "lineWidth": 2, # Thicker for visibility
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": "S"
@@ -86,8 +86,8 @@ class TVChartGenerator:
             for i, level in enumerate(getattr(analysis, 'resistance_levels', [])):
                 price_lines.append({
                     "price": level,
-                    "color": "#E57373",
-                    "lineWidth": 1.5,
+                    "color": "#B71C1C", # Dark Red
+                    "lineWidth": 2, # Thicker for visibility
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": "R"

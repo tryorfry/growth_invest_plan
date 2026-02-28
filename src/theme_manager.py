@@ -20,38 +20,65 @@ class ThemeManager:
         if desired_theme == 'light':
             st.markdown("""
                 <style>
-                    :root {
-                        --primary-color: #f0f2f6;
-                        --background-color: #ffffff;
-                        --secondary-background-color: #f0f2f6;
-                        --text-color: #31333F;
-                        --font: "Inter", sans-serif;
-                    }
                     /* Force Streamlit app background and text */
-                    .stApp {
-                        background-color: var(--background-color) !important;
-                        color: var(--text-color) !important;
-                    }
-                    
-                    /* Force text elements */
-                    h1, h2, h3, h4, h5, h6, p, span, label, .stMarkdown {
-                        color: var(--text-color) !important;
-                    }
-                    
-                    /* Force secondary backgrounds like sidebars and containers */
-                    section[data-testid="stSidebar"],
-                    div[data-testid="stExpander"],
-                    div.stForm,
-                    div[data-testid="stMetric"] {
-                        background-color: var(--secondary-background-color) !important;
-                        border-color: #d0d2d6 !important;
-                    }
-                    
-                    /* Input elements */
-                    .stTextInput input, .stSelectbox select, .stSlider > div {
+                    .stApp, [data-testid="stAppViewContainer"] {
                         background-color: #ffffff !important;
                         color: #31333F !important;
-                        border-color: #d0d2d6 !important;
+                    }
+                    
+                    /* Force secondary backgrounds like sidebars */
+                    [data-testid="stSidebar"], [data-testid="stHeader"] {
+                        background-color: #f0f2f6 !important;
+                    }
+                    
+                    /* Text elements: headers, paragraphs, labels, markdown (excluding buttons) */
+                    .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, 
+                    .stApp label, div[data-testid="stMarkdownContainer"] > p {
+                        color: #31333F !important;
+                    }
+                    
+                    /* Fix Inputs & Selectboxes (BaseWeb components) */
+                    div[data-baseweb="select"] > div,
+                    div[data-baseweb="input"] > div,
+                    .stTextInput input {
+                        background-color: #ffffff !important;
+                        border: 1px solid #d0d2d6 !important;
+                        color: #31333F !important;
+                    }
+                    
+                    /* Ensure selected text in dropdowns and inputs is dark */
+                    div[data-baseweb="select"] span,
+                    div[data-baseweb="select"] li,
+                    div[data-baseweb="input"] input {
+                        color: #31333F !important;
+                    }
+                    
+                    /* Dropdown menu background list */
+                    ul[data-baseweb="menu"] {
+                        background-color: #ffffff !important;
+                    }
+
+                    /* Buttons General (Secondary by default) */
+                    .stButton > button {
+                        background-color: #ffffff !important;
+                        border: 1px solid #d0d2d6 !important;
+                    }
+                    .stButton > button p {
+                        color: #31333F !important;
+                    }
+                    
+                    /* Primary Buttons explicitly */
+                    .stButton > button[kind="primary"] {
+                        background-color: #FF4B4B !important;
+                        border: 1px solid #FF4B4B !important;
+                    }
+                    .stButton > button[kind="primary"] p {
+                        color: #ffffff !important;
+                    }
+                    
+                    /* Metrics and dataframes */
+                    [data-testid="stMetricValue"], [data-testid="stMetricLabel"] {
+                        color: #31333F !important;
                     }
                 </style>
             """, unsafe_allow_html=True)
