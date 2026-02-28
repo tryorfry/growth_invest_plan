@@ -47,7 +47,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_entry,
                     "color": "#00E676",
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
                     "title": "E"
@@ -57,7 +57,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_stop_loss,
                     "color": "#FF5252",
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 2, # Dashed
                     "axisLabelVisible": True,
                     "title": "SL"
@@ -67,7 +67,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.max_buy_price,
                     "color": "#2196F3",
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": "MBP"
@@ -78,7 +78,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": "#000000",
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": "S"
@@ -87,7 +87,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": "#E57373",
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": "R"
@@ -97,7 +97,7 @@ class TVChartGenerator:
                  price_lines.append({
                     "price": hvn,
                     "color": "rgba(91, 33, 182, 0.7)", # Purple
-                    "lineWidth": 1,
+                    "lineWidth": 1.5,
                     "lineStyle": 0,
                     "axisLabelVisible": False,
                     "title": "HVN"
@@ -109,7 +109,7 @@ class TVChartGenerator:
         series.append(candlestick_series)
 
         # 2. EMAs
-        for ema, color, width in [('EMA20', '#FF6D00', 1), ('EMA50', '#00E676', 2), ('EMA200', '#D500F9', 2)]:
+        for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
             ema_data = []
             if show_ema and ema in df.columns:
                 ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
@@ -124,12 +124,12 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Upper'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Upper'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1, "lineStyle": 2, "title": "Upper BOLL"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL"}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Lower'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Lower'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1, "lineStyle": 2, "title": "Lower BOLL"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL"}
             })
 
         # 3. ATR
@@ -153,7 +153,7 @@ class TVChartGenerator:
             "data": atr_data,
             "options": {
                 "color": "#FFC107", 
-                "lineWidth": 1, 
+                "lineWidth": 1.5, 
                 "lineStyle": 2, 
                 "title": "ATR14",
                 "priceScaleId": 'atrScale',
@@ -167,7 +167,7 @@ class TVChartGenerator:
                 "data": [{"time": row[date_col], "value": float(row['RSI'])} for _, row in df.iterrows() if pd.notna(row['RSI'])],
                 "options": {
                     "color": '#7E57C2', 
-                    "lineWidth": 1, 
+                    "lineWidth": 1.5, 
                     "title": "RSI", 
                     "priceScaleId": 'rsiScale'
                 }
@@ -189,12 +189,12 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": macd_data,
-                "options": {"color": '#2962FF', "lineWidth": 1, "title": "MACD", "priceScaleId": 'macdScale'}
+                "options": {"color": '#2962FF', "lineWidth": 1.5, "title": "MACD", "priceScaleId": 'macdScale'}
             })
             series.append({
                 "type": 'Line',
                 "data": signal_data,
-                "options": {"color": '#FF6D00', "lineWidth": 1, "title": "Signal", "priceScaleId": 'macdScale'}
+                "options": {"color": '#FF6D00', "lineWidth": 1.5, "title": "Signal", "priceScaleId": 'macdScale'}
             })
 
         # 4. Volume Histogram
