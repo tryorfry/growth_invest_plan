@@ -43,11 +43,70 @@ class YFinanceSource(TechnicalDataSource):
         # Synchronous fetch logic for thread execution
         # Let exceptions bubble up to be handled by the caller or UI
         stock = yf.Ticker(ticker)
-        hist = stock.history(period=self.period)
+        
+        try:
+            hist = stock.history(period=self.period)
+            if hist.empty:
+                raise ValueError("hist is empty")
+        except Exception as e:
+            # Fallback direct request if yfinance fails to parse (NoneType bug)
+            print(f"yfinance failed, attempting direct fetch for {ticker}: {e}")
+            import requests
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            })
+            url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range={self.period}&interval=1d"
+            r = session.get(url)
+            data = r.json()
+            if 'chart' in data and data['chart']['result']:
+                result = data['chart']['result'][0]
+                timestamps = result['timestamp']
+                quote = result['indicators']['quote'][0]
+                hist = pd.DataFrame({
+                    'Open': quote['open'],
+                    'High': quote['high'],
+                    'Low': quote['low'],
+                    'Close': quote['close'],
+                    'Volume': quote['volume']
+                }, index=pd.to_datetime(timestamps, unit='s', utc=True))
+                # yfinance returns timezone-aware localized series, so we convert back to simple naive dates based on market tz
+                hist.index = hist.index.tz_convert('America/New_York')
+            else:
+                hist = pd.DataFrame()
         
         if hist.empty:
             raise ValueError(f"No price data found for {ticker}")
-        
+            
+        # LIVE PRICE INJECTION:
+        # yfinance daily history often lacks the *current* intraday price during market hours
+        # or caches heavily. We fetch the live quote and update the last row if it's today.
+        try:
+            # fast_info is much faster than info dict
+            live_price = stock.fast_info.get("lastPrice")
+            if live_price is not None:
+                now_tz = pd.Timestamp.now(tz=hist.index.tz) if hist.index.tz else pd.Timestamp.now()
+                # Check if the last row in history is from today
+                last_date = hist.index[-1]
+                
+                if last_date.date() == now_tz.date():
+                    # Update today's existing row
+                    hist.loc[last_date, 'Close'] = live_price
+                    hist.loc[last_date, 'High'] = max(hist.loc[last_date, 'High'], live_price)
+                    hist.loc[last_date, 'Low'] = min(hist.loc[last_date, 'Low'], live_price)
+                else:
+                    # Append a new row for today
+                    new_row = pd.DataFrame({
+                        'Open': [live_price],
+                        'High': [live_price],
+                        'Low': [live_price],
+                        'Close': [live_price],
+                        'Volume': [0]  # We don't have accurate live daily volume here easily, but price is key
+                    }, index=[now_tz])
+                    hist = pd.concat([hist, new_row])
+        except Exception as e:
+            print(f"Warning: Failed to fetch/inject live price for {ticker}: {e}")
+            
         # Calculate technical indicators
         technical = self._calculate_technical_indicators(hist)
         

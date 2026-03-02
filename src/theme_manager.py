@@ -53,9 +53,34 @@ class ThemeManager:
                         color: #31333F !important;
                     }
                     
-                    /* Dropdown menu background list */
-                    ul[data-baseweb="menu"] {
+                    /* Dropdown menu background list and specific options */
+                    ul[data-baseweb="menu"],
+                    div[data-baseweb="popover"] > div {
                         background-color: #ffffff !important;
+                    }
+                    li[role="option"] {
+                        background-color: #ffffff !important;
+                        color: #31333F !important;
+                    }
+                    li[role="option"]:hover, li[aria-selected="true"] {
+                        background-color: #f0f2f6 !important;
+                    }
+
+                    /* Expanders */
+                    [data-testid="stExpander"], [data-testid="stExpander"] details, [data-testid="stExpander"] summary {
+                        background-color: #ffffff !important;
+                        border-color: #d0d2d6 !important;
+                        color: #31333F !important;
+                    }
+                    [data-testid="stExpander"] div[role="button"], 
+                    [data-testid="stExpander"] div[role="button"] p,
+                    [data-testid="stExpanderToggle"] {
+                        background-color: #ffffff !important;
+                        color: #31333F !important;
+                    }
+                    [data-testid="stExpander"] div[data-testid="stExpanderDetails"] {
+                        background-color: #ffffff !important;
+                        color: #31333F !important;
                     }
 
                     /* Buttons General (Secondary by default) */
