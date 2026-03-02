@@ -215,7 +215,7 @@ def render_screener_page():
                 del st.session_state['screener_results']
                 st.rerun()
         else:
-            st.warning("No stocks passed the strict Growth Checklist + Risk/Reward filters today.")
+            st.warning("No stocks passed the strict Growth Checklist + Resistance Ceiling filters today.")
             if st.button("🗑️ Clear Results"):
                 del st.session_state['screener_results']
                 st.rerun()

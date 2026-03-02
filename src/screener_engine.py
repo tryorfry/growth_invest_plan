@@ -24,7 +24,7 @@ class ScreenerEngine:
             (is_passing, score, max_score, list_of_reasons)
         """
         score = 0
-        max_score = 9
+        max_score = 8
         reasons = []
         
         # 1. Market Cap > 2B
@@ -96,21 +96,19 @@ class ScreenerEngine:
         else:
             reasons.append("P/E > 30 and PEG > 2")
             
-        # 9. Risk/Reward >= 1.5 (From setup_notes)
-        rr_pass = False
+        # 9. Setup/Ceiling Check (From setup_notes)
+        setup_pass = False
         setup_notes = getattr(analysis, 'setup_notes', [])
         for note in setup_notes:
-            if "Risk/Reward Ratio is" in note and "✅" in note:
-                rr_pass = True
-            if "Blue Sky" in note and "✅" in note:
-                rr_pass = True
+            if "Setup Valid" in note and "✅" in note:
+                setup_pass = True
                 
-        if rr_pass:
+        if setup_pass:
             score += 1
         else:
-            reasons.append("Poor Risk/Reward or Resistance Ceiling")
+            reasons.append("Rejected by Ceiling or Setup check")
             
-        # Determination: Pass if score >= 7 and RR passes
-        is_passing = (score >= 7) and rr_pass
+        # Determination: Pass if score >= 7 and Setup passes
+        is_passing = (score >= 7) and setup_pass
         
         return is_passing, score, max_score, reasons

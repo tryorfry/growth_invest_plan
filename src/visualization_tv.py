@@ -289,10 +289,14 @@ class TVChartGenerator:
                     })
                     
         if markers:
-            if "markers" not in series[0]:
-                series[0]["markers"] = markers
-            else:
-                series[0]["markers"].extend(markers)
+            # Find the candlestick series and attach markers to it
+            for s in series:
+                if s["type"] == 'Candlestick':
+                    if "markers" not in s:
+                        s["markers"] = markers
+                    else:
+                        s["markers"].extend(markers)
+                    break
             
         series.append(vol_series)
         
@@ -585,7 +589,15 @@ class TVChartGenerator:
                                 e.target.classList.add('active');
                                 
                                 const range = e.target.getAttribute('data-range');
-                                const totalData = datasets[currentTF][0].data; // candlestick data
+                                
+                                // Find the candlestick series dynamically instead of hardcoding [0]
+                                let totalData = [];
+                                datasets[currentTF].forEach(s => {{
+                                    if(s.type === 'Candlestick') {{
+                                        totalData = s.data;
+                                    }}
+                                }});
+                                
                                 if(totalData.length === 0) return;
                                 
                                 const lastDateStr = totalData[totalData.length - 1].time;

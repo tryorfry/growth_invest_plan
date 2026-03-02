@@ -64,7 +64,7 @@ class AIAnalyzer:
                         "You are an elite, no-nonsense Wall Street quantitative analyst. "
                         "Write strictly ONE concise, hard-hitting executive summary paragraph (max 4-5 sentences) "
                         "detailing the outlook for the provided stock. "
-                        "Focus exclusively on the technical levels, implied sentiment, and risk/reward ratio. "
+                        "Focus exclusively on the technical levels and implied sentiment. "
                         "Do not use bullet points. Do not give financial advice. Give a raw read on the data."
                     ),
                     temperature=0.3, # Keep it analytical and grounded

@@ -486,12 +486,7 @@ class StockAnalyzer:
             if (nearest_resistance - price) / price < 0.015:
                 notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
             else:
-                # Risk/Reward Filter
-                rr_ratio = reward / risk if risk > 0 else 0
-                if rr_ratio < 2.0:
-                    notes.append(f"❌ Rejected: Poor Risk/Reward Ratio ({rr_ratio:.2f}). Required: 2.0+")
-                else:
-                    notes.append(f"✅ Setup Valid: Risk/Reward Ratio is {rr_ratio:.2f} (Target: ${nearest_resistance:.2f})")
+                notes.append(f"✅ Setup Valid: Clear room before next resistance target (${nearest_resistance:.2f})")
         else:
             notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
             

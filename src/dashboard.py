@@ -561,7 +561,7 @@ def main():
                     # Create a prominent container for the trade setup
                     with st.container(border=True):
                         # Top Metrics Row
-                        col_e, col_sl, col_rr = st.columns(3)
+                        col_e, col_sl = st.columns(2)
                         
                         raw_entry = getattr(analysis, "suggested_entry", None)
                         raw_stop = getattr(analysis, "suggested_stop_loss", None)
@@ -574,14 +574,6 @@ def main():
                         with col_sl:
                             stop_val = f"${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                             st.metric("Stop Loss", stop_val, delta_color="inverse", help="ATR-adjusted exit point.")
-                            
-                        with col_rr:
-                            if raw_entry and raw_stop and raw_target:
-                                rr = (raw_target - raw_entry) / (raw_entry - raw_stop)
-                                rr_color = "normal" if rr >= 2.0 else "off"
-                                st.metric("Risk/Reward Ratio", f"{rr:.2f}x", delta="Target Reachable" if rr >= 2.0 else "Low R/R", delta_color=rr_color)
-                            else:
-                                st.metric("Risk/Reward Ratio", "N/A")
 
                         st.divider()
                         
