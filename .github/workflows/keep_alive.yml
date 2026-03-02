@@ -10,4 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Streamlit App
-        run: curl -sL https://growmoney.streamlit.app > /dev/null
+        # Streamlit apps often redirect to auth, which can cause exit code 47 (maximum redirects).
+        # We append || true to ensure the workflow succeeds even if the redirect limit is reached,
+        # because the initial ping is still enough to keep the app awake.
+        run: curl -sL --max-redirs 5 https://growmoney.streamlit.app > /dev/null || true
