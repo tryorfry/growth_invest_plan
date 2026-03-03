@@ -105,6 +105,8 @@ class TVChartGenerator:
                     "title": "HVN"
                 })
 
+        series.append(candlestick_series)
+
         if price_lines:
             # PriceLines natively inherit the exact axis of their parent series. 
             # Because Candlesticks are forced Left, we instead bootstrap an invisible ghost line 
@@ -121,8 +123,6 @@ class TVChartGenerator:
                 },
                 "priceLines": price_lines
             })
-            
-        series.append(candlestick_series)
 
         # 2. EMAs
         for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
@@ -509,6 +509,7 @@ class TVChartGenerator:
                                     if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
                                 }} else if (s.type === 'Line') {{
                                     inst = tChart.addLineSeries(s.options);
+                                    if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
                                 }} else if (s.type === 'Histogram') {{
                                     inst = tChart.addHistogramSeries(s.options);
                                 }}
