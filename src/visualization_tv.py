@@ -109,17 +109,21 @@ class TVChartGenerator:
 
         if price_lines:
             # PriceLines natively inherit the exact axis of their parent series. 
-            # Because Candlesticks are forced Left, we instead bootstrap an invisible ghost line 
-            # assigned to the Right axis, solely to anchor these horizontal lines!
+            # Because Candlesticks are forced Left, we instead bootstrap an invisible ghost Candlestick
+            # assigned to the Right axis, solely to anchor these horizontal lines and match scales!
             series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": 0} for _, row in df.iterrows()], # Dummy data
+                "type": 'Candlestick',
+                "data": candles_data, # Exact same data as primary candlestick to sync scales
                 "options": {
-                    "color": 'transparent', 
-                    "lineWidth": 0, 
+                    "upColor": 'transparent',
+                    "downColor": 'transparent',
+                    "borderVisible": False,
+                    "wickUpColor": 'transparent',
+                    "wickDownColor": 'transparent',
                     "priceScaleId": "right",
                     "lastValueVisible": False, 
-                    "priceLineVisible": False
+                    "priceLineVisible": False,
+                    "crosshairMarkerVisible": False
                 },
                 "priceLines": price_lines
             })
