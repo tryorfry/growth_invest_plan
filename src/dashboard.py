@@ -690,6 +690,7 @@ def main():
                         show_macd = st.checkbox("Show MACD", value=False, key="chk_macd")
                     with ctrl4:
                         show_bollinger = st.checkbox("Show BOLL", value=False, key="chk_boll")
+                        show_hvn = st.checkbox("Show HVN", value=True, key="chk_hvn")
                     
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
@@ -700,6 +701,7 @@ def main():
                         show_macd=show_macd,
                         show_bollinger=show_bollinger,
                         show_support_resistance=show_support_resistance,
+                        show_hvn=show_hvn,
                         show_trade_setup=show_trade_setup,
                         height=600 if show_rsi or show_macd else 500
                     )

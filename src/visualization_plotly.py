@@ -19,6 +19,7 @@ class PlotlyChartGenerator:
         show_ema: bool = True,
         show_bollinger: bool = False,
         show_support_resistance: bool = False,
+        show_hvn: bool = True,
         show_trade_setup: bool = False,
         show_rsi: bool = False,
         show_macd: bool = False
@@ -31,6 +32,7 @@ class PlotlyChartGenerator:
             show_ema: Whether to show EMA lines
             show_bollinger: Whether to show Bollinger Bands
             show_support_resistance: Whether to show Support/Resistance levels
+            show_hvn: Whether to show High Volume Nodes
             show_trade_setup: Whether to show Trade Setup (Entry/Stop)
             show_rsi: Whether to include RSI subplot
             show_macd: Whether to include MACD subplot
@@ -145,8 +147,7 @@ class PlotlyChartGenerator:
                 row=1, col=1
             )
             
-        # Support and Resistance (Row 1)
-        if show_support_resistance:
+        if show_hvn:
             # High Volume Nodes
             for i, hvn in enumerate(getattr(analysis, 'volume_profile_hvns', [])):
                 fig.add_trace(
@@ -160,8 +161,8 @@ class PlotlyChartGenerator:
                     ),
                     row=1, col=1
                 )
-            
-            # Support levels
+        # Support and Resistance (Row 1)
+        if show_support_resistance:
             for i, level in enumerate(getattr(analysis, 'support_levels', [])):
                 name = f"Support {i+1}: ${level:.2f}"
                 fig.add_trace(
