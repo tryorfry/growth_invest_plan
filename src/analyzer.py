@@ -421,8 +421,12 @@ class StockAnalyzer:
         clustered_resistances = cluster_levels(pivot_highs, 0.02)
         
         # Filter for top 3 nearest
-        supports = sorted([s for s in clustered_supports if s < current_price])
-        resistances = sorted([r for r in clustered_resistances if r > current_price])
+        raw_supports = sorted([s for s in clustered_supports if s < current_price])
+        raw_resistances = sorted([r for r in clustered_resistances if r > current_price])
+        
+        # Apply psychological integer rounding
+        supports = sorted(list(set([self._apply_smart_rounding(s) for s in raw_supports])))
+        resistances = sorted(list(set([self._apply_smart_rounding(r) for r in raw_resistances])))
         
         analysis.support_levels = supports[-3:] if supports else []
         analysis.resistance_levels = resistances[:3] if resistances else []
@@ -469,14 +473,16 @@ class StockAnalyzer:
             
         # Calculate raw entry and stop
         raw_entry = nearest_support * 1.005 # 0.5% buffer above nearest floor
-        entry = self._apply_smart_rounding(raw_entry)
+        entry = self._adjust_decimals(raw_entry, is_entry=True)
         
-        stop_loss = round(nearest_support - atr, 2)
+        stop_loss_raw = nearest_support - atr
+        stop_loss = self._adjust_decimals(stop_loss_raw, is_entry=False)
         risk = entry - stop_loss
         
         # Set values anyway for the sizer (even if rejected later)
         analysis.suggested_entry = entry
         analysis.suggested_stop_loss = stop_loss
+        analysis.max_buy_price = self._adjust_decimals(entry * 1.05, is_entry=True)
         
         # 4. Ceiling Check & Risk/Reward Filter
         if nearest_resistance:
@@ -494,24 +500,75 @@ class StockAnalyzer:
             
     def _apply_smart_rounding(self, price: float) -> float:
         """
-        Round price to specific 'odd' decimals (.13, .17, .37, .77) 
-        to avoid round number clustering (.00, .10, .50).
+        Round Support/Resistance to psychological numbers if they are close enough (within ~2.0%).
+        Psychological integers: multiples of 100, 50, 20, 10, or 5 depending safely on scale.
+        Otherwise, clamp firmly to the nearest whole integer.
         """
-        # Get the integer part and the decimal part
-        integer_part = int(price)
-        decimal_part = price - integer_part
+        if price <= 0:
+            return 0.0
+            
+        # Allowed deviation to snap to a psychological level (e.g., 2.0%)
+        max_deviation = 0.02
         
-        # Define target endings
-        targets = [0.13, 0.17, 0.37, 0.43, 0.77, 0.83, 0.97]
-        
-        # Find closest target
-        best_target = targets[0]
-        min_diff = abs(decimal_part - targets[0])
-        
-        for t in targets:
-            diff = abs(decimal_part - t)
-            if diff < min_diff:
-                min_diff = diff
-                best_target = t
+        # Determine the "major" psychological steps based on price magnitude
+        if price >= 100:
+            steps = [100, 50, 20, 10, 5]
+        elif price >= 20:
+            steps = [10, 5]
+        elif price >= 5:
+            steps = [5]
+        else:
+            steps = []
+            
+        # Scan steps from largest psychological impact downwards
+        for step in steps:
+            nearest_psycho = round(price / step) * step
+            # If the nearest psychological multiple is within allowed % deviation, snap to it!
+            if nearest_psycho > 0 and abs(price - nearest_psycho) / price <= max_deviation:
+                return float(nearest_psycho)
                 
-        return integer_part + best_target
+        # If it doesn't cleanly snap to a major multiple safely, just return nearest whole number
+        return float(round(price))
+        
+    def _adjust_decimals(self, price: float, is_entry: bool = True) -> float:
+        """
+        Enforce 2 decimal places using exactly repeating digits (e.g. .11, .22, .33, .44, .66, .77, .88, .99)
+        to cleanly repeat the 1st decimal digit while avoiding round number clustering and retail slippage traps.
+        """
+        import math
+        
+        valid_cents = [11, 22, 33, 44, 66, 77, 88, 99]
+        
+        if is_entry:
+            # We want the lowest valid repeating decimal that is >= the actual price
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in valid_cents:
+                if v >= cents:
+                    chosen_cent = v
+                    break
+            
+            if chosen_cent is None:
+                int_part += 1
+                chosen_cent = 11
+                
+            return float(int_part) + (chosen_cent / 100.0)
+            
+        else:
+            # Stop loss: want the highest valid repeating decimal that is <= the actual price
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in reversed(valid_cents):
+                if v <= cents:
+                    chosen_cent = v
+                    break
+                    
+            if chosen_cent is None:
+                int_part -= 1
+                chosen_cent = 99
+                
+            return float(int_part) + (chosen_cent / 100.0)

@@ -35,7 +35,7 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
-                "priceScaleId": "right"
+                "priceScaleId": "left"
             }
         }
 
@@ -230,14 +230,15 @@ class TVChartGenerator:
             for past_date in analysis.past_earnings_dates:
                 closest_date = get_closest_past_trading_day(past_date)
                 if closest_date:
+                    exact_date_str = pd.to_datetime(past_date).strftime('%m/%d')
                     # check if already in markers to avoid duplicates
-                    if not any(m['time'] == closest_date and m['text'] == 'E' for m in markers):
+                    if not any(m['time'] == closest_date and m['text'].startswith('E') for m in markers):
                         markers.append({
                             "time": closest_date,
                             "position": 'belowBar',
                             "color": '#2196F3',
                             "shape": 'arrowUp',
-                            "text": 'E'
+                            "text": f'E ({exact_date_str})'
                         })
                 
         if getattr(analysis, 'next_earnings_date', None):
@@ -251,7 +252,7 @@ class TVChartGenerator:
                     "position": 'belowBar',
                     "color": '#FF9800',
                     "shape": 'arrowUp',
-                    "text": 'E'
+                    "text": f'E ({pd.to_datetime(analysis.next_earnings_date).strftime("%m/%d")})'
                 })
             else:
                 closest_date = get_closest_past_trading_day(analysis.next_earnings_date)
@@ -261,15 +262,16 @@ class TVChartGenerator:
                         "position": 'belowBar',
                         "color": '#FF9800',
                         "shape": 'arrowUp',
-                        "text": 'E'
+                        "text": f'E ({pd.to_datetime(analysis.next_earnings_date).strftime("%m/%d")})'
                     })
             
         if getattr(analysis, 'dividend_dates', []):
             for d_date in analysis.dividend_dates:
                 closest_date = get_closest_past_trading_day(d_date)
-                if closest_date and not any(m['time'] == closest_date and m['text'] == 'D' for m in markers):
+                exact_d_str = pd.to_datetime(d_date).strftime('%m/%d')
+                if closest_date and not any(m['time'] == closest_date and m['text'].startswith('D') for m in markers):
                     markers.append({
-                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": 'D'
+                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": f'D ({exact_d_str})'
                     })
 
         if getattr(analysis, 'insider_buy_dates', []):
@@ -369,7 +371,8 @@ class TVChartGenerator:
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
             "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
             "crosshair": { "mode": 1 },
-            "priceScale": { "borderColor": grid_color },
+            "rightPriceScale": { "borderColor": grid_color, "visible": True },
+            "leftPriceScale": { "borderColor": grid_color, "visible": True },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 15 }
         }
 
@@ -417,6 +420,7 @@ class TVChartGenerator:
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
                     <div id="tvc-tooltip" style="position: absolute; display: none; padding: 8px; box-sizing: border-box; font-size: 13px; font-family: sans-serif; color: {text_color}; background-color: {bg_color}; opacity: 0.9; z-index: 1000; top: 12px; left: 12px; pointer-events: none; border-radius: 4px; border: 1px solid {grid_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
                 </div>
+                <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
             <script>
                 const script = document.createElement('script');
@@ -425,6 +429,17 @@ class TVChartGenerator:
                     try {{
                         const chartOptions = {json.dumps(chartOptions)};
                         const chart = LightweightCharts.createChart(document.getElementById('tvchart-container'), chartOptions);
+                        
+                        const volOptions = JSON.parse(JSON.stringify(chartOptions));
+                        const volChart = LightweightCharts.createChart(document.getElementById('tvchart-volume-container'), volOptions);
+                        
+                        // Sync Zooming across both canvases seamlessly
+                        chart.timeScale().subscribeVisibleLogicalRangeChange(range => {{
+                            if (range) volChart.timeScale().setVisibleLogicalRange(range);
+                        }});
+                        volChart.timeScale().subscribeVisibleLogicalRangeChange(range => {{
+                            if (range) chart.timeScale().setVisibleLogicalRange(range);
+                        }});
                         
                         // Distinct Panes Setup using Scale Margins
                         const hasAtr = {str(show_atr).lower()};
@@ -446,8 +461,9 @@ class TVChartGenerator:
                             scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
                         }});
                         
-                        chart.priceScale('volScale').applyOptions({{
-                            scaleMargins: {{ top: 1.0 - mainBottomMargin - 0.15, bottom: mainBottomMargin }},
+                        // Volume has its own native chart space now
+                        volChart.priceScale('volScale').applyOptions({{
+                            scaleMargins: {{ top: 0.1, bottom: 0.0 }},
                         }});
                         
                         activeSubpanes.forEach((scaleId, index) => {{
@@ -472,24 +488,26 @@ class TVChartGenerator:
                         function initSeries() {{
                             datasets[currentTF].forEach((s, idx) => {{
                                 let inst;
+                                let tChart = (s.type === 'Histogram' && s.options.priceScaleId === 'volScale') ? volChart : chart;
+                                
                                 if (s.type === 'Candlestick') {{
-                                    inst = chart.addCandlestickSeries(s.options);
+                                    inst = tChart.addCandlestickSeries(s.options);
                                     if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
                                 }} else if (s.type === 'Line') {{
-                                    inst = chart.addLineSeries(s.options);
+                                    inst = tChart.addLineSeries(s.options);
                                 }} else if (s.type === 'Histogram') {{
-                                    inst = chart.addHistogramSeries(s.options);
+                                    inst = tChart.addHistogramSeries(s.options);
                                 }}
-                                seriesInstances.push(inst);
+                                seriesInstances.push({{ inst: inst, parent: tChart }});
                             }});
                         }}
                         
                         function applyData(tf) {{
                             datasets[tf].forEach((s, idx) => {{
-                                seriesInstances[idx].setData(s.data);
+                                seriesInstances[idx].inst.setData(s.data);
                                 if (s.type === 'Candlestick' || s.type === 'Histogram') {{
-                                    if (s.markers) seriesInstances[idx].setMarkers(s.markers);
-                                    else seriesInstances[idx].setMarkers([]); // clear explicit empty markers
+                                    if (s.markers) seriesInstances[idx].inst.setMarkers(s.markers);
+                                    else seriesInstances[idx].inst.setMarkers([]); // clear explicit empty markers
                                 }}
                             }});
                         }}
@@ -514,7 +532,7 @@ class TVChartGenerator:
                             }}
                             
                             // Get candle data
-                            const data = param.seriesData.get(seriesInstances[0]);
+                            const data = param.seriesData.get(seriesInstances[0].inst);
                             if (!data) {{
                                 tooltip.style.display = 'none';
                                 return;
@@ -564,10 +582,20 @@ class TVChartGenerator:
 
                         // Resize observer
                         new ResizeObserver(entries => {{
-                          if (entries.length === 0 || entries[0].target !== document.getElementById('tvchart-container')) return;
-                          const newRect = entries[0].contentRect;
-                          chart.applyOptions({{ width: newRect.width, height: newRect.height }});
+                          entries.forEach(entry => {{
+                              if (entry.target.id === 'tvchart-container') {{
+                                  chart.applyOptions({{ width: entry.contentRect.width, height: entry.contentRect.height }});
+                              }}
+                          }});
                         }}).observe(document.getElementById('tvchart-container'));
+                        
+                        new ResizeObserver(entries => {{
+                          entries.forEach(entry => {{
+                              if (entry.target.id === 'tvchart-volume-container') {{
+                                  volChart.applyOptions({{ width: entry.contentRect.width, height: entry.contentRect.height }});
+                              }}
+                          }});
+                        }}).observe(document.getElementById('tvchart-volume-container'));
                         
                         // Timeframe Toggles JS
                         document.querySelectorAll('.tvc-tf-btn').forEach(btn => {{
