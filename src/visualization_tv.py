@@ -475,6 +475,9 @@ class TVChartGenerator:
                         
                         const mainBottomMargin = Math.min(0.10 + totalSubpaneHeight, 0.85); // buffer for scale minimums
                         
+                        chart.priceScale('left').applyOptions({{
+                            scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
+                        }});
                         chart.priceScale('right').applyOptions({{
                             scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
                         }});
