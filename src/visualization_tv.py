@@ -106,7 +106,21 @@ class TVChartGenerator:
                 })
 
         if price_lines:
-            candlestick_series["priceLines"] = price_lines
+            # PriceLines natively inherit the exact axis of their parent series. 
+            # Because Candlesticks are forced Left, we instead bootstrap an invisible ghost line 
+            # assigned to the Right axis, solely to anchor these horizontal lines!
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": 0} for _, row in df.iterrows()], # Dummy data
+                "options": {
+                    "color": 'transparent', 
+                    "lineWidth": 0, 
+                    "priceScaleId": "right",
+                    "lastValueVisible": False, 
+                    "priceLineVisible": False
+                },
+                "priceLines": price_lines
+            })
             
         series.append(candlestick_series)
 
@@ -118,7 +132,7 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": ema_data,
-                "options": {"color": color, "lineWidth": width, "title": ema}
+                "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "right"}
             })
                     
         # 2.5 BOLL
@@ -126,12 +140,12 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Upper'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Upper'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL", "priceScaleId": "right"}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Lower'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Lower'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "right"}
             })
 
         # 3. ATR
