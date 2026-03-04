@@ -115,7 +115,12 @@ class Database:
             # Sentiment and targets
             ("analyses", "news_sentiment", "FLOAT"),
             ("analyses", "news_summary", "TEXT"),
-            ("analyses", "median_price_target", "FLOAT")
+            ("analyses", "median_price_target", "FLOAT"),
+            
+            # User profile updates
+            ("users", "tier", "VARCHAR(20) DEFAULT 'free'"),
+            ("users", "theme_preference", "VARCHAR(20) DEFAULT 'dark'"),
+            ("users", "show_hvn", "INTEGER DEFAULT 1")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
@@ -123,6 +128,7 @@ class Database:
         existing_cols_analyses = {col['name'] for col in inspector.get_columns('analyses')}
         existing_cols_stocks = {col['name'] for col in inspector.get_columns('stocks')}
         existing_cols_portfolios = {col['name'] for col in inspector.get_columns('portfolios')}
+        existing_cols_users = {col['name'] for col in inspector.get_columns('users')}
         
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
@@ -132,6 +138,8 @@ class Database:
                     existing = existing_cols_analyses
                 elif table == 'portfolios':
                     existing = existing_cols_portfolios
+                elif table == 'users':
+                    existing = existing_cols_users
                 else:
                     existing = set()
                     
