@@ -131,6 +131,13 @@ def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
 async def analyze_stock(ticker: str, trading_style: str = "Growth Investing"):
     """Analyze a stock ticker"""
     analyzer = init_analyzer()
+    # Debug: print signature to console/logs
+    try:
+        import inspect
+        sig = inspect.signature(analyzer.analyze)
+        print(f"[DEBUG] analyzer.analyze signature: {sig}")
+    except Exception:
+        pass
     return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False)
 
 
@@ -450,6 +457,18 @@ def main():
     with st.sidebar:
         from src import __version__
         st.caption(f"v{__version__}")
+        
+        # Deployment Debugger
+        with st.expander("🔍 Debug Deployment"):
+            import os, datetime
+            for fname in ["src/analyzer.py", "src/models.py", "src/dashboard.py"]:
+                try:
+                    mtime = os.path.getmtime(fname)
+                    dt = datetime.datetime.fromtimestamp(mtime)
+                    st.text(f"{fname.split('/')[-1]}: {dt.strftime('%H:%M:%S')}")
+                except:
+                    st.text(f"{fname}: Error")
+                    
         st.header("⚙️ Settings")
         
         # Ticker History Dropdown
