@@ -45,15 +45,18 @@ def init_database():
     db = Database("stock_analysis.db")
     db.init_db()
     
-    # Self-healing migration: ensure theme_preference column exists (added after initial deployment)
+    # Self-healing migration: ensure theme_preference and show_hvn columns exist
     try:
         import sqlite3 as _sqlite3
         _conn = _sqlite3.connect("stock_analysis.db")
         _cur = _conn.cursor()
         _cur.execute("PRAGMA table_info(users)")
         _cols = [row[1] for row in _cur.fetchall()]
-        if 'theme_preference' not in _cols and _cols:  # only if table exists
-            _cur.execute("ALTER TABLE users ADD COLUMN theme_preference VARCHAR(20) DEFAULT 'dark'")
+        if _cols:  # only if table exists
+            if 'theme_preference' not in _cols:
+                _cur.execute("ALTER TABLE users ADD COLUMN theme_preference VARCHAR(20) DEFAULT 'dark'")
+            if 'show_hvn' not in _cols:
+                _cur.execute("ALTER TABLE users ADD COLUMN show_hvn INTEGER DEFAULT 1")
             _conn.commit()
         _conn.close()
     except Exception:
@@ -291,6 +294,18 @@ def main():
     
     # Initialize session state for auth
     AuthManager.init_session_state()
+    
+    # Initialize session state for chart preferences (local UI state)
+    if 'chart_prefs' not in st.session_state:
+        st.session_state['chart_prefs'] = {
+            'ema': True,
+            'atr': True,
+            'sr': True,
+            'ts': True,
+            'rsi': False,
+            'macd': False,
+            'boll': False
+        }
     
     # Store in session state
     if 'db' not in st.session_state:
@@ -680,17 +695,37 @@ def main():
                     ctrl1, ctrl2, ctrl3, ctrl4 = st.columns(4)
                     
                     with ctrl1:
-                        show_ema = st.checkbox("Show EMAs", value=True, key="chk_ema")
-                        show_atr = st.checkbox("Show ATR (14w)", value=True, key="chk_atr")
+                        show_ema = st.checkbox("Show EMAs", value=st.session_state['chart_prefs']['ema'], key="chk_ema")
+                        show_atr = st.checkbox("Show ATR (14w)", value=st.session_state['chart_prefs']['atr'], key="chk_atr")
                     with ctrl2:
-                        show_support_resistance = st.checkbox("Support/Resistance", value=True, key="chk_sr")
-                        show_trade_setup = st.checkbox("Entry/Stop", value=True, key="chk_ts")
+                        show_support_resistance = st.checkbox("Support/Resistance", value=st.session_state['chart_prefs']['sr'], key="chk_sr")
+                        show_trade_setup = st.checkbox("Entry/Stop", value=st.session_state['chart_prefs']['ts'], key="chk_ts")
                     with ctrl3:
-                        show_rsi = st.checkbox("Show RSI", value=False, key="chk_rsi")
-                        show_macd = st.checkbox("Show MACD", value=False, key="chk_macd")
+                        show_rsi = st.checkbox("Show RSI", value=st.session_state['chart_prefs']['rsi'], key="chk_rsi")
+                        show_macd = st.checkbox("Show MACD", value=st.session_state['chart_prefs']['macd'], key="chk_macd")
                     with ctrl4:
-                        show_bollinger = st.checkbox("Show BOLL", value=False, key="chk_boll")
-                        show_hvn = st.checkbox("Show HVN", value=True, key="chk_hvn")
+                        show_bollinger = st.checkbox("Show BOLL", value=st.session_state['chart_prefs']['boll'], key="chk_boll")
+                        
+                        # HVN is synced to global database preferences
+                        current_hvn = st.session_state.get('show_hvn', True)
+                        show_hvn = st.checkbox("Show HVN", value=current_hvn, key="chk_hvn")
+                        
+                        if show_hvn != current_hvn:
+                            with db.get_session() as session:
+                                if AuthManager.update_hvn_preference(session, st.session_state['user_id'], show_hvn):
+                                    st.session_state['show_hvn'] = show_hvn
+                                    st.rerun()
+                        
+                    # Save local UI states back to prefs immediately
+                    st.session_state['chart_prefs'].update({
+                        'ema': show_ema,
+                        'atr': show_atr,
+                        'sr': show_support_resistance,
+                        'ts': show_trade_setup,
+                        'rsi': show_rsi,
+                        'macd': show_macd,
+                        'boll': show_bollinger
+                    })
                     
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(

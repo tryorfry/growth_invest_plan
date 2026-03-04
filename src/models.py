@@ -18,6 +18,7 @@ class User(Base):
     password_hash = Column(String(128), nullable=False)
     tier = Column(String(20), default='free') # 'free', 'premium', 'admin'
     theme_preference = Column(String(20), default='dark')
+    show_hvn = Column(Integer, default=1) # 1 for True, 0 for False
     created_at = Column(DateTime, default=datetime.utcnow)
     
     def __repr__(self):

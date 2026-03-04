@@ -91,6 +91,8 @@ class AuthManager:
             st.session_state['user_tier'] = None
         if 'theme_preference' not in st.session_state:
             st.session_state['theme_preference'] = 'dark'
+        if 'show_hvn' not in st.session_state:
+            st.session_state['show_hvn'] = True
 
     @staticmethod
     def login(user: User):
@@ -100,6 +102,8 @@ class AuthManager:
         st.session_state['username'] = user.username
         st.session_state['user_tier'] = user.tier
         st.session_state['theme_preference'] = getattr(user, 'theme_preference', 'dark')
+        # Convert integer 1/0 to bool
+        st.session_state['show_hvn'] = bool(getattr(user, 'show_hvn', 1))
 
     @staticmethod
     def logout():
@@ -109,6 +113,7 @@ class AuthManager:
         st.session_state['username'] = None
         st.session_state['user_tier'] = None
         st.session_state['theme_preference'] = 'dark'
+        st.session_state['show_hvn'] = True
         # Rerun to refresh the UI
         st.rerun()
 
@@ -129,6 +134,20 @@ class AuthManager:
                 user.theme_preference = new_theme
                 db_session.commit()
                 st.session_state['theme_preference'] = new_theme
+                return True
+        except Exception:
+            db_session.rollback()
+        return False
+
+    @staticmethod
+    def update_hvn_preference(db_session: Session, user_id: int, show_hvn: bool) -> bool:
+        """Update a user's HVN chart preference and sync to session cache"""
+        try:
+            user = db_session.query(User).filter(User.id == user_id).first()
+            if user:
+                user.show_hvn = 1 if show_hvn else 0
+                db_session.commit()
+                st.session_state['show_hvn'] = show_hvn
                 return True
         except Exception:
             db_session.rollback()
