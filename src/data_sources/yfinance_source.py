@@ -169,8 +169,8 @@ class YFinanceSource(TechnicalDataSource):
         wlow_close = (weekly_hist['Low'] - weekly_hist['Close'].shift()).abs()
         wtrue_range = pd.concat([whigh_low, whigh_close, wlow_close], axis=1).max(axis=1)
         
-        # Use Simple Moving Average for ATR to precisely match the previous chart logic
-        watr = wtrue_range.rolling(window=14).mean()
+        # Use Wilder's Smoothing (RMA) for ATR to match industry standards
+        watr = wtrue_range.ewm(alpha=1/14, adjust=False).mean()
         
         # Broadcast weekly ATR back to daily indices via forward fill
         atr = watr.reindex(hist.index, method='ffill')
