@@ -448,6 +448,8 @@ def main():
     
     # Sidebar
     with st.sidebar:
+        from src import __version__
+        st.caption(f"v{__version__}")
         st.header("⚙️ Settings")
         
         # Ticker History Dropdown
