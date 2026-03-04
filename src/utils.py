@@ -24,6 +24,8 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             low=_safe_float(analysis.low),
             close=_safe_float(analysis.close),
             atr=_safe_float(analysis.atr),
+            atr_daily=_safe_float(analysis.atr_daily),
+            trading_style=analysis.trading_style,
             ema20=_safe_float(analysis.ema20),
             ema50=_safe_float(analysis.ema50),
             ema200=_safe_float(analysis.ema200),

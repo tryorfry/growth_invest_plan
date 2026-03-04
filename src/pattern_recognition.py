@@ -135,3 +135,96 @@ class PatternRecognition:
         recent = [p for p in all_patterns if p['date'] >= cutoff_date]
         
         return recent
+        
+    def detect_trend_patterns(self, df: pd.DataFrame, supports: List[float], resistances: List[float], days: int = 14) -> List[Dict[str, Any]]:
+        """
+        Detect macro/swing patterns: Bounces, Breakouts, and S/R Flips against horizontal levels.
+        Returns a rich dictionary containing the isolated price slice for mini-chart plotting.
+        """
+        if df.empty or (not supports and not resistances):
+            return []
+            
+        patterns = []
+        # Look only at the recent N window for the triggering event
+        cutoff_date = df.index[-1] - pd.Timedelta(days=days)
+        recent_df = df[df.index >= cutoff_date]
+        
+        if recent_df.empty:
+            return []
+            
+        buffer_pct = 0.015  # 1.5% interaction zone
+        
+        for level in supports:
+            # 1. Support Bounce
+            # Did price dip into support zone and close higher recently?
+            for i in range(1, len(recent_df)):
+                curr = recent_df.iloc[i]
+                prev = recent_df.iloc[i-1]
+                
+                in_zone_curr = abs(curr['Low'] - level) / level <= buffer_pct
+                in_zone_prev = abs(prev['Low'] - level) / level <= buffer_pct
+                
+                bullish_close = curr['Close'] > curr['Open'] and curr['Close'] > level
+                
+                if (in_zone_curr or in_zone_prev) and bullish_close:
+                    # Capture the surrounding 10 days for plotting
+                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
+                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    patterns.append({
+                        'date': curr.name,
+                        'pattern': 'Support Bounce',
+                        'level': level,
+                        'signal': 'Bullish Swing',
+                        'price': curr['Close'],
+                        'plot_data': plot_slice[['Close']].copy()
+                    })
+                    break # Only flag the most recent distinct event per level
+                    
+        for level in resistances:
+            # 2. Resistance Breakout / S/R Flip
+            # Did price cross strongly above a resistance level it was previously below?
+            for i in range(1, len(recent_df)):
+                curr = recent_df.iloc[i]
+                prev = recent_df.iloc[i-1]
+                
+                crossed_above = prev['Close'] < level and curr['Close'] > level
+                strong_close = (curr['Close'] - level) / level > 0.005 # At least 0.5% above to confirm
+                
+                if crossed_above and strong_close:
+                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
+                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    patterns.append({
+                        'date': curr.name,
+                        'pattern': 'Resistance Breakout (S/R Flip)',
+                        'level': level,
+                        'signal': 'Strong Bullish',
+                        'price': curr['Close'],
+                        'plot_data': plot_slice[['Close']].copy()
+                    })
+                    break
+                    
+            # 3. Resistance Rejection (Downtrend Swing)
+            for i in range(1, len(recent_df)):
+                curr = recent_df.iloc[i]
+                prev = recent_df.iloc[i-1]
+                
+                in_zone_curr = abs(curr['High'] - level) / level <= buffer_pct
+                in_zone_prev = abs(prev['High'] - level) / level <= buffer_pct
+                
+                bearish_close = curr['Close'] < curr['Open'] and curr['Close'] < level
+                
+                if (in_zone_curr or in_zone_prev) and bearish_close:
+                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
+                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    patterns.append({
+                        'date': curr.name,
+                        'pattern': 'Resistance Rejection',
+                        'level': level,
+                        'signal': 'Bearish Swing',
+                        'price': curr['Close'],
+                        'plot_data': plot_slice[['Close']].copy()
+                    })
+                    break
+
+        # Sort by most recent
+        return sorted(patterns, key=lambda x: x['date'], reverse=True)

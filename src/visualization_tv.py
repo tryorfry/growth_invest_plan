@@ -72,6 +72,16 @@ class TVChartGenerator:
                     "axisLabelVisible": True,
                     "title": "MBP"
                 })
+                
+            if getattr(analysis, 'target_price', None) and analysis.trading_style == 'Swing Trading':
+                price_lines.append({
+                    "price": analysis.target_price,
+                    "color": "#00E5FF", # Cyan for profit target
+                    "lineWidth": 2,
+                    "lineStyle": 1, # Dotted
+                    "axisLabelVisible": True,
+                    "title": "Target"
+                })
 
         if show_support_resistance:
             theme = st.session_state.get('theme_preference', 'dark')
@@ -155,8 +165,12 @@ class TVChartGenerator:
 
         # 3. ATR
         atr_data = []
-        if show_atr and 'ATR' in df.columns:
-             atr_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row['ATR']) and (val := float(row['ATR']))]
+        is_swing = getattr(analysis, 'trading_style', '') == 'Swing Trading'
+        atr_col = 'ATR_Daily' if is_swing else 'ATR'
+        atr_label = 'ATR (14d)' if is_swing else 'ATR (14w)'
+        
+        if show_atr and atr_col in df.columns:
+             atr_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[atr_col]) and (val := float(row[atr_col]))]
              
         series.append({
             "type": 'Line',
@@ -165,7 +179,7 @@ class TVChartGenerator:
                 "color": "#FFC107", 
                 "lineWidth": 1.5, 
                 "lineStyle": 2, 
-                "title": "ATR (14w)",
+                "title": atr_label,
                 "priceScaleId": 'atrScale',
             }
         })

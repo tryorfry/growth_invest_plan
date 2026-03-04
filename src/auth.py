@@ -93,6 +93,8 @@ class AuthManager:
             st.session_state['theme_preference'] = 'dark'
         if 'show_hvn' not in st.session_state:
             st.session_state['show_hvn'] = True
+        if 'can_use_swing_trading' not in st.session_state:
+            st.session_state['can_use_swing_trading'] = False
 
     @staticmethod
     def login(user: User):
@@ -104,6 +106,7 @@ class AuthManager:
         st.session_state['theme_preference'] = getattr(user, 'theme_preference', 'dark')
         # Convert integer 1/0 to bool
         st.session_state['show_hvn'] = bool(getattr(user, 'show_hvn', 1))
+        st.session_state['can_use_swing_trading'] = bool(getattr(user, 'can_use_swing_trading', 0))
 
     @staticmethod
     def logout():
@@ -114,6 +117,7 @@ class AuthManager:
         st.session_state['user_tier'] = None
         st.session_state['theme_preference'] = 'dark'
         st.session_state['show_hvn'] = True
+        st.session_state['can_use_swing_trading'] = False
         # Rerun to refresh the UI
         st.rerun()
 

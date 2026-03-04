@@ -1,0 +1,156 @@
+import math
+from typing import Dict, Any, List
+from .base import TradingStyleStrategy
+
+class GrowthStyle(TradingStyleStrategy):
+    """
+    Original Growth Investing Strategy.
+    Looks for Long-term trends (EMA50 > EMA200).
+    Entries: Near major Support floors.
+    Stops: Below Support - 1 Weekly ATR.
+    """
+    
+    @property
+    def style_name(self) -> str:
+        return "Growth Investing"
+        
+    def _apply_smart_rounding(self, price: float) -> float:
+        """Original psychological rounding logic for Support/Resistance"""
+        if price <= 0:
+            return 0.0
+            
+        max_deviation = 0.02
+        
+        if price >= 100:
+            steps = [100, 50, 20, 10, 5]
+        elif price >= 20:
+            steps = [10, 5]
+        elif price >= 5:
+            steps = [5]
+        else:
+            steps = []
+            
+        for step in steps:
+            nearest_psycho = round(price / step) * step
+            if nearest_psycho > 0 and abs(price - nearest_psycho) / price <= max_deviation:
+                return float(nearest_psycho)
+                
+        return float(round(price))
+        
+    def _adjust_decimals(self, price: float, is_entry: bool = True) -> float:
+        """Original repeating decimal logic (.11, .22, etc)"""
+        valid_cents = [11, 22, 33, 44, 66, 77, 88, 99]
+        
+        if is_entry:
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in valid_cents:
+                if v >= cents:
+                    chosen_cent = v
+                    break
+            
+            if chosen_cent is None:
+                int_part += 1
+                chosen_cent = 11
+                
+            return float(int_part) + (chosen_cent / 100.0)
+            
+        else:
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in reversed(valid_cents):
+                if v <= cents:
+                    chosen_cent = v
+                    break
+                    
+            if chosen_cent is None:
+                int_part -= 1
+                chosen_cent = 99
+                
+            return float(int_part) + (chosen_cent / 100.0)
+
+    def calculate_trade_setup(self, analysis: Any) -> None:
+        """
+        Original calculate_trade_setup logic from analyzer.py
+        Calculates suggested entry and stop loss based on Growth parameters.
+        """
+        price = analysis.current_price
+        ema50 = analysis.ema50
+        ema200 = analysis.ema200
+        atr = analysis.atr  # Weekly ATR
+        notes = []
+        
+        # 1. Determine Trend (Long-term EMA cross)
+        if price > ema50 and ema50 > ema200:
+            analysis.market_trend = "Uptrend"
+        elif price < ema50 and ema50 < ema200:
+            analysis.market_trend = "Downtrend"
+        else:
+            analysis.market_trend = "Sideways"
+            
+        # 2. Compile Support and Resistance
+        all_supports = sorted(getattr(analysis, 'support_levels', []) + getattr(analysis, 'volume_profile_hvns', []))
+        all_resistances = sorted(getattr(analysis, 'resistance_levels', []) + getattr(analysis, 'volume_profile_hvns', []))
+        
+        valid_supports = [s for s in all_supports if s < price]
+        valid_resistances = [r for r in all_resistances if r > price]
+        
+        nearest_support = valid_supports[-1] if valid_supports else None
+        nearest_resistance = valid_resistances[0] if valid_resistances else None
+        
+        # 3. Check for structural overextension
+        if valid_supports and getattr(analysis, 'volume_profile_hvns', []):
+            highest_hvn_support = max([h for h in analysis.volume_profile_hvns if h < price], default=None)
+            if highest_hvn_support and (price - highest_hvn_support) / highest_hvn_support > 0.20:
+                notes.append(f"⚠️ Warning: Price is >20% overextended from highest HVN base (${highest_hvn_support:.2f}).")
+        
+        if not nearest_support or atr <= 0:
+            notes.append("❌ Rejected: Insufficient support data or volatility.")
+            analysis.setup_notes = notes
+            return
+            
+        # Execute Entry math
+        raw_entry = nearest_support * 1.005 # 0.5% buffer above nearest floor
+        entry = self._adjust_decimals(raw_entry, is_entry=True)
+        
+        # Execute Stop Loss math
+        stop_loss_raw = nearest_support - atr
+        stop_loss = self._adjust_decimals(stop_loss_raw, is_entry=False)
+        
+        analysis.suggested_entry = entry
+        analysis.suggested_stop_loss = stop_loss
+        
+        # Maximum buy ceiling
+        if hasattr(analysis, 'median_price_target') and analysis.median_price_target:
+            analysis.max_buy_price = analysis.median_price_target / 1.15
+        else:
+            analysis.max_buy_price = self._adjust_decimals(entry * 1.05, is_entry=True)
+            
+        # 4. Ceiling Check
+        if nearest_resistance:
+            if (nearest_resistance - price) / price < 0.015:
+                notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
+            else:
+                notes.append(f"✅ Setup Valid: Clear room before next resistance target (${nearest_resistance:.2f})")
+        else:
+            notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
+            
+        analysis.setup_notes = notes
+        
+    def get_chart_defaults(self) -> Dict[str, Any]:
+        """Returns standard UI state preferences for Growth Investing."""
+        return {
+            'timeframe': 'D',
+            'zoom': '5Y',
+            'ema': True,
+            'atr': True,
+            'sr': True,
+            'ts': True,
+            'rsi': False,
+            'macd': False,
+            'boll': False
+        }

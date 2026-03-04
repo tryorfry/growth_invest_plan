@@ -348,6 +348,7 @@ def show_admin_dashboard(db: Database, session: Session):
                 "Username": user.username,
                 "Email": user.email,
                 "Tier": user.tier,
+                "Swing Access": "✅" if user.can_use_swing_trading else "❌",
                 "Events (Period)": event_count,
                 "Joined": user.created_at.strftime("%Y-%m-%d") if user.created_at else "N/A"
             })
@@ -383,3 +384,18 @@ def show_admin_dashboard(db: Database, session: Session):
                 st.rerun()
             elif current_tier == new_tier:
                 st.info("No changes made.")
+
+        st.divider()
+        st.subheader("Feature Permissions")
+        if target_user:
+            swing_access = st.checkbox(
+                "Enable Swing Trading Access", 
+                value=target_user.can_use_swing_trading,
+                key="mgmt_swing_access"
+            )
+            if swing_access != target_user.can_use_swing_trading:
+                if st.button("Save Permissions", type="secondary"):
+                    target_user.can_use_swing_trading = swing_access
+                    session.commit()
+                    st.success(f"✅ Updated Swing Trading access for {target_username}!")
+                    st.rerun()

@@ -13,6 +13,7 @@ from .data_sources.marketbeat_source import MarketBeatSource
 from .data_sources.news_source import NewsSentimentSource
 from .data_sources.macro_source import MacroSource
 from .data_sources.macrotrends_source import MacrotrendsSource
+from .trading_styles.factory import get_trading_style
 
 
 @dataclass
@@ -38,6 +39,7 @@ class StockAnalysis:
     low: float = 0.0
     close: float = 0.0
     atr: float = 0.0
+    atr_daily: float = 0.0  # Used for Swing Trading
     ema20: float = 0.0
     ema50: float = 0.0
     ema200: float = 0.0
@@ -120,10 +122,14 @@ class StockAnalysis:
     resistance_levels: List[float] = field(default_factory=list)
     
     # Advanced Trade Setup
+    trading_style: str = "Growth Investing"
     market_trend: Optional[str] = "Sideways" # Uptrend, Downtrend, Sideways
     suggested_entry: Optional[float] = None
     suggested_stop_loss: Optional[float] = None
+    target_price: Optional[float] = None
+    reward_to_risk: Optional[float] = None
     setup_notes: List[str] = field(default_factory=list)
+    swing_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
@@ -162,12 +168,13 @@ class StockAnalyzer:
         self.news_source = news_source or NewsSentimentSource()
         self.macrotrends_source = macrotrends_source or MacrotrendsSource()
     
-    async def analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         
         Args:
             ticker: Stock ticker symbol
+            trading_style_name: Trading style (e.g. "Growth Investing" or "Swing Trading")
             verbose: Print progress messages
             
         Returns:
@@ -175,9 +182,12 @@ class StockAnalyzer:
         """
         import asyncio
         
+        style_strategy = get_trading_style(trading_style_name)
+        
         ticker = ticker.upper()
         analysis = StockAnalysis(
             ticker=ticker,
+            trading_style=style_strategy.style_name,
             analysis_timestamp=datetime.now()
         )
         
@@ -238,7 +248,8 @@ class StockAnalyzer:
         # Calculate Support & Resistance if history exists
         if analysis.history is not None and not analysis.history.empty:
             self._calculate_support_resistance(analysis)
-            self._calculate_trade_setup(analysis)
+            # Execute Strategy Pattern Trade Setup
+            style_strategy.calculate_trade_setup(analysis)
             
         # 2. Fetch Analyst Targets (Dependent on earnings date from technical data)
         if analysis.last_earnings_date:
@@ -287,6 +298,7 @@ class StockAnalyzer:
         analysis.low = data.get("low", 0.0)
         analysis.close = data.get("close", 0.0)
         analysis.atr = data.get("atr", 0.0)
+        analysis.atr_daily = data.get("atr_daily", 0.0)
         analysis.ema20 = data.get("ema20", 0.0)
         analysis.ema50 = data.get("ema50", 0.0)
         analysis.ema200 = data.get("ema200", 0.0)
@@ -424,151 +436,13 @@ class StockAnalyzer:
         raw_supports = sorted([s for s in clustered_supports if s < current_price])
         raw_resistances = sorted([r for r in clustered_resistances if r > current_price])
         
+        # Get strategy rounding logic dynamically
+        from .trading_styles.growth import GrowthStyle # Fallback
+        rounding_helper = GrowthStyle()
+        
         # Apply psychological integer rounding
-        supports = sorted(list(set([self._apply_smart_rounding(s) for s in raw_supports])))
-        resistances = sorted(list(set([self._apply_smart_rounding(r) for r in raw_resistances])))
+        supports = sorted(list(set([rounding_helper._apply_smart_rounding(s) for s in raw_supports])))
+        resistances = sorted(list(set([rounding_helper._apply_smart_rounding(r) for r in raw_resistances])))
         
         analysis.support_levels = supports[-3:] if supports else []
         analysis.resistance_levels = resistances[:3] if resistances else []
-
-    def _calculate_trade_setup(self, analysis: StockAnalysis) -> None:
-        """
-        Determine market trend and calculate smart entry/exit points with Risk Management.
-        Entry is rejected if there is poor Risk/Reward or if buying into a Resistance ceiling.
-        """
-        price = analysis.current_price
-        ema50 = analysis.ema50
-        ema200 = analysis.ema200
-        atr = analysis.atr
-        notes = []
-        
-        # 1. Determine Trend
-        if price > ema50 and ema50 > ema200:
-            analysis.market_trend = "Uptrend"
-        elif price < ema50 and ema50 < ema200:
-            analysis.market_trend = "Downtrend"
-        else:
-            analysis.market_trend = "Sideways"
-            
-        # Compile all support and resistance points (Statistical + HVNs)
-        all_supports = sorted(analysis.support_levels + analysis.volume_profile_hvns)
-        all_resistances = sorted(analysis.resistance_levels + analysis.volume_profile_hvns)
-        
-        valid_supports = [s for s in all_supports if s < price]
-        valid_resistances = [r for r in all_resistances if r > price]
-        
-        nearest_support = valid_supports[-1] if valid_supports else None
-        nearest_resistance = valid_resistances[0] if valid_resistances else None
-        
-        # 3. Check for structural overextension
-        if valid_supports and analysis.volume_profile_hvns:
-            highest_hvn_support = max([h for h in analysis.volume_profile_hvns if h < price], default=None)
-            if highest_hvn_support and (price - highest_hvn_support) / highest_hvn_support > 0.20:
-                notes.append(f"⚠️ Warning: Price is >20% overextended from highest HVN base (${highest_hvn_support:.2f}).")
-        
-        if not nearest_support or atr <= 0:
-            notes.append("❌ Rejected: Insufficient support data or volatility.")
-            analysis.setup_notes = notes
-            return
-            
-        # Calculate raw entry and stop
-        raw_entry = nearest_support * 1.005 # 0.5% buffer above nearest floor
-        entry = self._adjust_decimals(raw_entry, is_entry=True)
-        
-        stop_loss_raw = nearest_support - atr
-        stop_loss = self._adjust_decimals(stop_loss_raw, is_entry=False)
-        risk = entry - stop_loss
-        
-        # Set values anyway for the sizer (even if rejected later)
-        analysis.suggested_entry = entry
-        analysis.suggested_stop_loss = stop_loss
-        analysis.max_buy_price = self._adjust_decimals(entry * 1.05, is_entry=True)
-        
-        # 4. Ceiling Check & Risk/Reward Filter
-        if nearest_resistance:
-            reward = nearest_resistance - entry
-            
-            # Ceiling Check
-            if (nearest_resistance - price) / price < 0.015:
-                notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
-            else:
-                notes.append(f"✅ Setup Valid: Clear room before next resistance target (${nearest_resistance:.2f})")
-        else:
-            notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
-            
-        analysis.setup_notes = notes
-            
-    def _apply_smart_rounding(self, price: float) -> float:
-        """
-        Round Support/Resistance to psychological numbers if they are close enough (within ~2.0%).
-        Psychological integers: multiples of 100, 50, 20, 10, or 5 depending safely on scale.
-        Otherwise, clamp firmly to the nearest whole integer.
-        """
-        if price <= 0:
-            return 0.0
-            
-        # Allowed deviation to snap to a psychological level (e.g., 2.0%)
-        max_deviation = 0.02
-        
-        # Determine the "major" psychological steps based on price magnitude
-        if price >= 100:
-            steps = [100, 50, 20, 10, 5]
-        elif price >= 20:
-            steps = [10, 5]
-        elif price >= 5:
-            steps = [5]
-        else:
-            steps = []
-            
-        # Scan steps from largest psychological impact downwards
-        for step in steps:
-            nearest_psycho = round(price / step) * step
-            # If the nearest psychological multiple is within allowed % deviation, snap to it!
-            if nearest_psycho > 0 and abs(price - nearest_psycho) / price <= max_deviation:
-                return float(nearest_psycho)
-                
-        # If it doesn't cleanly snap to a major multiple safely, just return nearest whole number
-        return float(round(price))
-        
-    def _adjust_decimals(self, price: float, is_entry: bool = True) -> float:
-        """
-        Enforce 2 decimal places using exactly repeating digits (e.g. .11, .22, .33, .44, .66, .77, .88, .99)
-        to cleanly repeat the 1st decimal digit while avoiding round number clustering and retail slippage traps.
-        """
-        import math
-        
-        valid_cents = [11, 22, 33, 44, 66, 77, 88, 99]
-        
-        if is_entry:
-            # We want the lowest valid repeating decimal that is >= the actual price
-            int_part = int(math.floor(price))
-            cents = round((price - int_part) * 100)
-            
-            chosen_cent = None
-            for v in valid_cents:
-                if v >= cents:
-                    chosen_cent = v
-                    break
-            
-            if chosen_cent is None:
-                int_part += 1
-                chosen_cent = 11
-                
-            return float(int_part) + (chosen_cent / 100.0)
-            
-        else:
-            # Stop loss: want the highest valid repeating decimal that is <= the actual price
-            int_part = int(math.floor(price))
-            cents = round((price - int_part) * 100)
-            
-            chosen_cent = None
-            for v in reversed(valid_cents):
-                if v <= cents:
-                    chosen_cent = v
-                    break
-                    
-            if chosen_cent is None:
-                int_part -= 1
-                chosen_cent = 99
-                
-            return float(int_part) + (chosen_cent / 100.0)

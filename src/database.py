@@ -120,7 +120,12 @@ class Database:
             # User profile updates
             ("users", "tier", "VARCHAR(20) DEFAULT 'free'"),
             ("users", "theme_preference", "VARCHAR(20) DEFAULT 'dark'"),
-            ("users", "show_hvn", "INTEGER DEFAULT 1")
+            ("users", "show_hvn", "INTEGER DEFAULT 1"), # 1 for True, 0 for False
+            ("users", "can_use_swing_trading", "INTEGER DEFAULT 0"), # Admin Swing Trading feature flag
+            
+            # Trading Style Extensions
+            ("analyses", "trading_style", "VARCHAR(50) DEFAULT 'Growth Investing'"),
+            ("analyses", "atr_daily", "FLOAT DEFAULT 0.0")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls

@@ -19,6 +19,7 @@ class User(Base):
     tier = Column(String(20), default='free') # 'free', 'premium', 'admin'
     theme_preference = Column(String(20), default='dark')
     show_hvn = Column(Integer, default=1) # 1 for True, 0 for False
+    can_use_swing_trading = Column(Integer, default=0) # 1 for True, 0 for False
     created_at = Column(DateTime, default=datetime.utcnow)
     
     def __repr__(self):
@@ -51,6 +52,7 @@ class Analysis(Base):
     stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False)
     timestamp = Column(DateTime, nullable=False, index=True)
     analysis_timestamp = Column(DateTime)  # Actual time of analysis
+    trading_style = Column(String(50), default="Growth Investing") # e.g. "Growth Investing" or "Swing Trading"
     
     # Price data
     current_price = Column(Float)
@@ -61,6 +63,7 @@ class Analysis(Base):
     
     # Technical indicators
     atr = Column(Float)
+    atr_daily = Column(Float, default=0.0) # Used for Swing Trading
     ema20 = Column(Float)
     ema50 = Column(Float)
     ema200 = Column(Float)

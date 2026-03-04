@@ -176,6 +176,10 @@ class YFinanceSource(TechnicalDataSource):
         atr = watr.reindex(hist.index, method='ffill')
         hist['ATR'] = atr
         
+        # Daily ATR 14d - using Wilder's Smoothing on daily data for Swing Trading
+        datr = true_range.ewm(alpha=1/14, adjust=False).mean()
+        hist['ATR_Daily'] = datr
+        
         # EMAs
         ema20 = hist['Close'].ewm(span=20, adjust=False).mean()
         ema50 = hist['Close'].ewm(span=50, adjust=False).mean()
@@ -220,6 +224,7 @@ class YFinanceSource(TechnicalDataSource):
             "dividend_dates": dividend_dates,
             "history": hist,
             "atr": atr.iloc[-1],
+            "atr_daily": datr.iloc[-1] if 'ATR_Daily' in hist else 0.0,
             "ema20": ema20.iloc[-1],
             "ema50": ema50.iloc[-1],
             "ema200": ema200.iloc[-1],

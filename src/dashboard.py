@@ -128,10 +128,10 @@ def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
         session.close()
 
 
-async def analyze_stock(ticker: str):
+async def analyze_stock(ticker: str, trading_style: str = "Growth Investing"):
     """Analyze a stock ticker"""
     analyzer = init_analyzer()
-    return await analyzer.analyze(ticker, verbose=False)
+    return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False)
 
 
 def _safe_float_parse(val_str: str) -> Optional[float]:
@@ -469,7 +469,50 @@ def main():
         if not ticker:
             ticker = default_ticker
             
-        analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True)
+        st.divider()
+        st.subheader("📈 Trading Strategy")
+        
+        # Access control for Swing Trading
+        can_swing = st.session_state.get('can_use_swing_trading', False) or st.session_state.get('user_tier') == 'admin'
+        
+        style_options = ["Growth Investing", "Swing Trading"]
+        selected_style = st.selectbox(
+            "Select Style",
+            options=style_options,
+            index=0,
+            help="Choose your investment/trading strategy"
+        )
+        
+        
+        if selected_style == "Swing Trading" and not can_swing:
+            st.warning("🔒 Swing Trading is a premium feature. Contact admin for access.")
+            analyze_disabled = True
+        else:
+            analyze_disabled = False
+            
+            # Apply Style Defaults if style changed
+            if 'active_trading_style' not in st.session_state or st.session_state['active_trading_style'] != selected_style:
+                from src.trading_styles.factory import get_trading_style
+                style_strategy = get_trading_style(selected_style)
+                defaults = style_strategy.get_chart_defaults()
+                st.session_state['chart_prefs'].update({
+                    'ema': defaults.get('ema', True),
+                    'atr': defaults.get('atr', True),
+                    'sr': defaults.get('sr', True),
+                    'ts': defaults.get('ts', True),
+                    'rsi': defaults.get('rsi', False),
+                    'macd': defaults.get('macd', False),
+                    'boll': defaults.get('boll', False)
+                })
+                st.session_state['active_trading_style'] = selected_style
+                
+                # Log the style change
+                _uid = st.session_state.get('user_id')
+                if _uid and db:
+                    from src.activity_logger import log_activity
+                    log_activity(db, _uid, "Trading Style", f"switch_to_{selected_style.lower().replace(' ', '_')}")
+            
+        analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True, disabled=analyze_disabled)
         
         st.divider()
         st.divider()
@@ -487,13 +530,19 @@ def main():
         with st.spinner(f"Analyzing {ticker}..."):
             try:
                 # Run async analysis
-                fetched_analysis = asyncio.run(analyze_stock(ticker))
+                fetched_analysis = asyncio.run(analyze_stock(ticker, selected_style))
                 
                 if fetched_analysis:
                     # Save to database
                     save_analysis(db, fetched_analysis)
                     st.session_state['current_analysis'] = fetched_analysis
                     st.session_state['current_ticker'] = ticker
+                    
+                    # Log activity
+                    _uid = st.session_state.get('user_id')
+                    if _uid:
+                        from src.activity_logger import log_activity
+                        log_activity(db, _uid, "Dashboard", f"analyze_{selected_style.lower().replace(' ', '_')}", ticker=ticker)
                 else:
                     st.error(f"Failed to analyze {ticker}. Please check the ticker symbol.")
             except Exception as e:
@@ -527,9 +576,14 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        st.metric("ATR (14w)", f"{analysis.atr:.2f}")
+                        atr_val = analysis.atr_daily if analysis.trading_style == "Swing Trading" else analysis.atr
+                        atr_label = "ATR (14d)" if analysis.trading_style == "Swing Trading" else "ATR (14w)"
+                        st.metric(atr_label, f"{atr_val:.2f}")
                     with col5:
-                        if analysis.news_sentiment:
+                        if analysis.trading_style == "Swing Trading" and getattr(analysis, 'target_price', None):
+                            upside_swing = ((analysis.target_price - analysis.current_price) / analysis.current_price) * 100
+                            st.metric("Swing Target", f"${analysis.target_price:.2f}", f"{upside_swing:+.1f}%")
+                        elif analysis.news_sentiment:
                             sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
                             st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
                         else:
@@ -590,6 +644,17 @@ def main():
                             stop_val = f"${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                             st.metric("Stop Loss", stop_val, delta_color="inverse", help="ATR-adjusted exit point.")
 
+                        if analysis.trading_style == "Swing Trading" and getattr(analysis, 'reward_to_risk', None):
+                            st.divider()
+                            col_rr, col_pt = st.columns(2)
+                            with col_rr:
+                                rr_val = analysis.reward_to_risk
+                                rr_color = "normal" if rr_val >= 2.0 else "inverse"
+                                st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=">= 2.0x required", delta_color=rr_color)
+                            with col_pt:
+                                target_val = f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A"
+                                st.metric("Profit Target", target_val)
+
                         st.divider()
                         
                         # Logic and S/R Details
@@ -606,6 +671,14 @@ def main():
                                     else: st.info(note)
                             else:
                                 st.info("Waiting for trend confirmation...")
+                                
+                            # Pattern Mini-Charts (New!)
+                            if analysis.trading_style == "Swing Trading" and getattr(analysis, 'swing_patterns', []):
+                                st.markdown("#### 📉 Pattern Confirmation")
+                                for pattern in analysis.swing_patterns[:2]: # Show top 2
+                                    with st.container(border=True):
+                                        st.caption(f"**{pattern['pattern']}** at ${pattern['level']:.2f}")
+                                        st.line_chart(pattern['plot_data'], height=150)
 
                         with col_levels:
                             st.markdown("#### 🏛️ Institutional Levels")
@@ -638,8 +711,9 @@ def main():
                             st.markdown(
                                 """
                                 **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema.
-                                **Suggested Entry:** Calculated as **0.5%** above the nearest Support level with rounding adjustments to avoid institutional piling.
-                                **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR 14w)**.
+                                **Suggested Entry:** Calculated as **0.35%** buffer above/below Support/Resistance based on trend.
+                                **Suggested Stop Loss:** Calculated using **ATR ({'14d' if analysis.trading_style == 'Swing Trading' else '14w'})**.
+                                **Reward/Risk:** Minimum **2.0x** requirement enforced for valid setups.
                                 """
                             )
                         
