@@ -333,6 +333,7 @@ class TVChartGenerator:
         show_macd: bool = True,
         show_bollinger: bool = False,
         show_support_resistance: bool = True,
+        show_hvn: bool = True,
         show_trade_setup: bool = True,
         height: int = 600
     ) -> None:
