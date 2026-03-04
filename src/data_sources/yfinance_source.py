@@ -157,8 +157,22 @@ class YFinanceSource(TechnicalDataSource):
         ranges = pd.concat([high_low, high_close, low_close], axis=1)
         true_range = ranges.max(axis=1)
         
-        # ATR 14 - using Wilder's Smoothing (com = period - 1, so alpha = 1/period)
-        atr = true_range.ewm(com=13, adjust=False).mean()
+        # Weekly ATR 14w - using Wilder's Smoothing on weekly data
+        weekly_hist = hist.resample('W-FRI').agg({
+            'High': 'max',
+            'Low': 'min',
+            'Close': 'last'
+        }).dropna()
+        
+        whigh_low = weekly_hist['High'] - weekly_hist['Low']
+        whigh_close = (weekly_hist['High'] - weekly_hist['Close'].shift()).abs()
+        wlow_close = (weekly_hist['Low'] - weekly_hist['Close'].shift()).abs()
+        wtrue_range = pd.concat([whigh_low, whigh_close, wlow_close], axis=1).max(axis=1)
+        
+        watr = wtrue_range.ewm(com=13, adjust=False).mean()
+        
+        # Broadcast weekly ATR back to daily indices via forward fill
+        atr = watr.reindex(hist.index, method='ffill')
         hist['ATR'] = atr
         
         # EMAs

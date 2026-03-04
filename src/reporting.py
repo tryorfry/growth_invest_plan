@@ -65,7 +65,7 @@ class ReportGenerator:
             
             # 3. Technicals Sheet
             technical_data = {
-                'Indicator': ['ATR', 'EMA20', 'EMA50', 'EMA200', 'RSI', 'MACD', 'Bollinger Upper', 'Bollinger Lower'],
+                'Indicator': ['ATR (14w)', 'EMA20', 'EMA50', 'EMA200', 'RSI', 'MACD', 'Bollinger Upper', 'Bollinger Lower'],
                 'Value': [
                     analysis.atr, analysis.ema20, analysis.ema50, analysis.ema200,
                     analysis.rsi, analysis.macd, analysis.bollinger_upper, analysis.bollinger_lower

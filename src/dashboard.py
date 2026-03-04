@@ -512,7 +512,7 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        st.metric("ATR (14)", f"{analysis.atr:.2f}")
+                        st.metric("ATR (14w)", f"{analysis.atr:.2f}")
                     with col5:
                         if analysis.news_sentiment:
                             sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
@@ -624,7 +624,7 @@ def main():
                                 """
                                 **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema.
                                 **Suggested Entry:** Calculated as **0.5%** above the nearest Support level with rounding adjustments to avoid institutional piling.
-                                **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR)**.
+                                **Suggested Stop Loss:** Calculated as **Nearest Support - 1 Average True Range (ATR 14w)**.
                                 """
                             )
                         
@@ -681,7 +681,7 @@ def main():
                     
                     with ctrl1:
                         show_ema = st.checkbox("Show EMAs", value=True, key="chk_ema")
-                        show_atr = st.checkbox("Show ATR", value=True, key="chk_atr")
+                        show_atr = st.checkbox("Show ATR (14w)", value=True, key="chk_atr")
                     with ctrl2:
                         show_support_resistance = st.checkbox("Support/Resistance", value=True, key="chk_sr")
                         show_trade_setup = st.checkbox("Entry/Stop", value=True, key="chk_ts")

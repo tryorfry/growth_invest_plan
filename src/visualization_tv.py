@@ -155,19 +155,8 @@ class TVChartGenerator:
 
         # 3. ATR
         atr_data = []
-        if show_atr and analysis.atr and analysis.history is not None:
-             import numpy as np
-             tr_df = df.copy()
-             tr_df['PrevClose'] = tr_df['Close'].shift(1)
-             tr_df['TR'] = np.maximum(
-                 tr_df['High'] - tr_df['Low'],
-                 np.maximum(
-                     abs(tr_df['High'] - tr_df['PrevClose'].fillna(0)),
-                     abs(tr_df['Low'] - tr_df['PrevClose'].fillna(0))
-                 )
-             )
-             tr_df['ATR14'] = tr_df['TR'].rolling(window=14).mean()
-             atr_data = [{"time": row[date_col], "value": val} for _, row in tr_df.iterrows() if pd.notna(row['ATR14']) and (val := float(row['ATR14']))]
+        if show_atr and 'ATR' in df.columns:
+             atr_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row['ATR']) and (val := float(row['ATR']))]
              
         series.append({
             "type": 'Line',
@@ -176,7 +165,7 @@ class TVChartGenerator:
                 "color": "#FFC107", 
                 "lineWidth": 1.5, 
                 "lineStyle": 2, 
-                "title": "ATR14",
+                "title": "ATR (14w)",
                 "priceScaleId": 'atrScale',
             }
         })
@@ -374,7 +363,7 @@ class TVChartGenerator:
         weekly_df.set_index(date_col, inplace=True)
         
         agg_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'}
-        for col in ['EMA20', 'EMA50', 'EMA200', 'ATR14', 'RSI', 'MACD', 'MACD_Signal', 'Bollinger_Upper', 'Bollinger_Lower']:
+        for col in ['EMA20', 'EMA50', 'EMA200', 'ATR', 'RSI', 'MACD', 'MACD_Signal', 'Bollinger_Upper', 'Bollinger_Lower']:
             if col in weekly_df.columns:
                 agg_dict[col] = 'last'
                 

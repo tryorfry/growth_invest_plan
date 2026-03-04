@@ -54,7 +54,7 @@ class AnalysisFormatter:
         print("-" * 30)
         
         # Technical indicators
-        print(f"ATR (14):   {fmt.format_number(analysis.atr)}")
+        print(f"ATR (14w):  {fmt.format_number(analysis.atr)}")
         print(f"EMA 20:     {fmt.format_number(analysis.ema20)}")
         print(f"EMA 50:     {fmt.format_number(analysis.ema50)}")
         print(f"EMA 200:    {fmt.format_number(analysis.ema200)}")

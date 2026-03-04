@@ -132,7 +132,7 @@ class ExcelExporter:
         row += 1
         
         technical_data = [
-            ("ATR (14)", f"{analysis.atr:.2f}" if analysis.atr else "N/A"),
+            ("ATR (14w)", f"{analysis.atr:.2f}" if analysis.atr else "N/A"),
             ("EMA 20", f"${analysis.ema20:.2f}" if analysis.ema20 else "N/A"),
             ("EMA 50", f"${analysis.ema50:.2f}" if analysis.ema50 else "N/A"),
             ("EMA 200", f"${analysis.ema200:.2f}" if analysis.ema200 else "N/A"),

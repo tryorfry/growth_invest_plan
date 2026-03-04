@@ -210,7 +210,7 @@ def render_portfolio_tracker_page():
                             st.write(f"- EMA 200: ${getattr(analysis, 'ema200', 0):.2f}")
                         with c2:
                             st.markdown("**Volatility & Range**")
-                            st.write(f"- ATR (14): ${getattr(analysis, 'atr', 0):.2f}")
+                            st.write(f"- ATR (14w): ${getattr(analysis, 'atr', 0):.2f}")
                             bb_upper = getattr(analysis, 'bollinger_upper', 0)
                             bb_lower = getattr(analysis, 'bollinger_lower', 0)
                             st.write(f"- Bollinger Upper: ${bb_upper:.2f}")
