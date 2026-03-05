@@ -144,7 +144,7 @@ class GrowthStyle(TradingStyleStrategy):
     def get_chart_defaults(self) -> Dict[str, Any]:
         """Returns standard UI state preferences for Growth Investing."""
         return {
-            'timeframe': 'D',
+            'timeframe': 'W',
             'zoom': '5Y',
             'ema': True,
             'atr': True,

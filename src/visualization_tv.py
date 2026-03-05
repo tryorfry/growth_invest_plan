@@ -679,7 +679,6 @@ class TVChartGenerator:
                                 else if(range === '1Y') fromDate.setFullYear(lastDate.getFullYear() - 1);
                                 else if(range === '5Y') fromDate.setFullYear(lastDate.getFullYear() - 5);
                                 else {{
-                                else {{
                                     chart.timeScale().fitContent();
                                     return;
                                 }}
@@ -692,17 +691,11 @@ class TVChartGenerator:
                                     }}
                                 }}
                                 
+                                // Safe zoom without relying on uninitialized pixel coordinates
                                 chart.timeScale().setVisibleLogicalRange({{
-                                    from: chart.timeScale().coordinateToLogical(chart.timeScale().width() - 100) || 0,
-                                    to: totalData.length - 1
-                                }}); // Force refresh buffer
-                                
-                                setTimeout(() => {{
-                                    chart.timeScale().setVisibleLogicalRange({{
-                                        from: closestIdx,
-                                        to: totalData.length + 5
-                                    }});
-                                }}, 10);
+                                    from: closestIdx,
+                                    to: totalData.length + 5
+                                }});
                             }});
                         }});
                     }} catch (e) {{
