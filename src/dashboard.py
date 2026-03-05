@@ -694,7 +694,9 @@ def main():
                                     elif "⚠️" in note: st.warning(note)
                                     elif "❌" in note: st.error(note)
                                     else: st.info(note)
-                                st.metric("Probability Score", f"{analysis.buy_score:.0%}")
+                                buy_score = getattr(analysis, 'buy_score', None)
+                                if buy_score is not None:
+                                    st.metric("Probability Score", f"{buy_score:.0%}")
                             else:
                                 st.info("Waiting for trend confirmation...")
                                 
