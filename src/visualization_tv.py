@@ -330,6 +330,7 @@ class TVChartGenerator:
         self,
         analysis: StockAnalysis,
         timeframe: str = "W",
+        default_range: str = "5Y",
         show_ema: bool = True,
         show_atr: bool = False,
         show_rsi: bool = True,
@@ -416,7 +417,7 @@ class TVChartGenerator:
                 ">
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Views:</span>
-                        <button class="tvc-tf-btn active" data-tf="D">Daily</button>
+                        <button class="tvc-tf-btn" data-tf="D">Daily</button>
                         <button class="tvc-tf-btn" data-tf="W">Weekly</button>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">
@@ -508,7 +509,7 @@ class TVChartGenerator:
                         
                         let seriesInstances = [];
                         let currentTF = "{timeframe}";
-                        if (!datasets[currentTF]) currentTF = "D";
+                        if (!datasets[currentTF]) currentTF = "W";
                         
                         // Initialization routine
                         function initSeries() {{
@@ -601,9 +602,9 @@ class TVChartGenerator:
                             if(btn.getAttribute('data-tf') === currentTF) btn.classList.add('active');
                         }});
                         
-                        // Default to 5Y zoom
+                        // Apply Default Range Zoom
                         setTimeout(() => {{
-                            const defaultZoomBtn = document.querySelector('.tvc-btn[data-range="5Y"]');
+                            const defaultZoomBtn = document.querySelector(`.tvc-btn[data-range="{default_range}"]`);
                             if(defaultZoomBtn) defaultZoomBtn.click();
                         }}, 50);
 

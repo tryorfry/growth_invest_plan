@@ -450,7 +450,9 @@ def main():
         return
     
     # Home page (original dashboard)
-    st.title("📊 Growth Investment Analyzer")
+    # Dynamic title based on style
+    selected_style = st.session_state.get('active_trading_style', "Growth Investing")
+    st.title(f"📊 {selected_style} Analyzer")
     st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
     
     # Sidebar
@@ -693,13 +695,49 @@ def main():
                             else:
                                 st.info("Waiting for trend confirmation...")
                                 
-                            # Pattern Mini-Charts (New!)
                             if analysis.trading_style == "Swing Trading" and getattr(analysis, 'swing_patterns', []):
                                 st.markdown("#### 📉 Pattern Confirmation")
+                                import plotly.graph_objects as go
                                 for idx, pattern in enumerate(analysis.swing_patterns[:2]): # Show top 2
                                     with st.container(border=True):
                                         st.caption(f"**P{idx+1}: {pattern['pattern']}** at ${pattern['level']:.2f}")
-                                        st.line_chart(pattern['plot_data'], height=150)
+                                        
+                                        plot_df = pattern['plot_data']
+                                        level = float(pattern['level'])
+                                        
+                                        fig = go.Figure()
+                                        
+                                        # Price Line
+                                        fig.add_trace(go.Scatter(
+                                            x=plot_df.index, y=plot_df['Close'],
+                                            name="Price", line=dict(color='#2196F3', width=2),
+                                            mode='lines'
+                                        ))
+                                        
+                                        # Level Line (Dashed)
+                                        fig.add_trace(go.Scatter(
+                                            x=plot_df.index, y=[level] * len(plot_df),
+                                            name="Level", line=dict(color='#FF5252', width=1, dash='dash'),
+                                            mode='lines'
+                                        ))
+                                        
+                                        # Calculate tight zoom around level
+                                        prices = plot_df['Close'].tolist()
+                                        p_min, p_max = min(prices), max(prices)
+                                        y_min = min(p_min, level) * 0.995
+                                        y_max = max(p_max, level) * 1.005
+                                        
+                                        fig.update_layout(
+                                            height=180,
+                                            margin=dict(l=10, r=10, t=10, b=10),
+                                            showlegend=False,
+                                            xaxis=dict(showgrid=False, rangeslider=dict(visible=False), showticklabels=False),
+                                            yaxis=dict(range=[y_min, y_max], showgrid=True, gridcolor='rgba(128,128,128,0.1)'),
+                                            paper_bgcolor='rgba(0,0,0,0)',
+                                            plot_bgcolor='rgba(0,0,0,0)',
+                                        )
+                                        
+                                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
                         with col_levels:
                             st.markdown("#### 🏛️ Institutional Levels")
@@ -822,9 +860,16 @@ def main():
                         'boll': show_bollinger
                     })
                     
+                    # Get defaults for the current style
+                    from src.trading_styles.factory import get_trading_style
+                    style_strategy = get_trading_style(analysis.trading_style)
+                    style_defaults = style_strategy.get_chart_defaults()
+                    
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
+                        timeframe=style_defaults.get('timeframe', 'W'),
+                        default_range=style_defaults.get('zoom', '5Y'),
                         show_ema=show_ema,
                         show_atr=show_atr,
                         show_rsi=show_rsi,
