@@ -739,11 +739,20 @@ def main():
                                             mode='lines'
                                         ))
                                         
-                                        # Level Line (Dashed)
+                                        # Level Line (Solid Black/White for S, Solid Red for R)
+                                        is_support = "Support" in pattern['pattern']
+                                        theme = st.session_state.get('theme_preference', 'dark')
+                                        s_color = '#FFFFFF' if theme == 'dark' else '#000000'
+                                        line_color = s_color if is_support else '#FF0000'
+                                        line_name = 'S' if is_support else 'R'
+                                        
                                         fig.add_trace(go.Scatter(
                                             x=plot_df.index, y=[level] * len(plot_df),
-                                            name="Level", line=dict(color='#FF5252', width=1, dash='dash'),
-                                            mode='lines'
+                                            name=line_name, line=dict(color=line_color, width=2, dash='solid'),
+                                            mode='lines+text',
+                                            text=[line_name] + [''] * (len(plot_df) - 1),
+                                            textposition="top right",
+                                            textfont=dict(color=line_color, size=14, family="Arial Black")
                                         ))
                                         
                                         # Calculate dynamic padding based on actual data range
