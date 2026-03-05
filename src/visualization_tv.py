@@ -80,7 +80,7 @@ class TVChartGenerator:
                     "lineWidth": 2,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
-                    "title": "Target"
+                    "title": "PT"
                 })
 
         if show_support_resistance:

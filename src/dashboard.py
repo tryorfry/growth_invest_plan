@@ -603,7 +603,7 @@ def main():
                     with col5:
                         if analysis.trading_style == "Swing Trading" and getattr(analysis, 'target_price', None):
                             upside_swing = ((analysis.target_price - analysis.current_price) / analysis.current_price) * 100
-                            st.metric("Swing Target", f"${analysis.target_price:.2f}", f"{upside_swing:+.1f}%")
+                            st.metric("PT", f"${analysis.target_price:.2f}", f"{upside_swing:+.1f}%")
                         elif analysis.news_sentiment:
                             sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
                             st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
@@ -674,7 +674,7 @@ def main():
                                 st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=">= 2.0x required", delta_color=rr_color)
                             with col_pt:
                                 target_val = f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A"
-                                st.metric("Profit Target", target_val)
+                                st.metric("PT", target_val)
 
                         st.divider()
                         
@@ -696,9 +696,9 @@ def main():
                             # Pattern Mini-Charts (New!)
                             if analysis.trading_style == "Swing Trading" and getattr(analysis, 'swing_patterns', []):
                                 st.markdown("#### 📉 Pattern Confirmation")
-                                for pattern in analysis.swing_patterns[:2]: # Show top 2
+                                for idx, pattern in enumerate(analysis.swing_patterns[:2]): # Show top 2
                                     with st.container(border=True):
-                                        st.caption(f"**{pattern['pattern']}** at ${pattern['level']:.2f}")
+                                        st.caption(f"**P{idx+1}: {pattern['pattern']}** at ${pattern['level']:.2f}")
                                         st.line_chart(pattern['plot_data'], height=150)
 
                         with col_levels:

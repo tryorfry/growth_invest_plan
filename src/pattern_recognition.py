@@ -167,16 +167,23 @@ class PatternRecognition:
                 bullish_close = curr['Close'] > curr['Open'] and curr['Close'] > level
                 
                 if (in_zone_curr or in_zone_prev) and bullish_close:
-                    # Capture the surrounding 10 days for plotting
-                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
-                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    # Capture the surrounding 20 days for plotting (10 before, 10 after)
+                    curr_loc = df.index.get_loc(curr.name)
+                    plot_start = max(0, curr_loc - 10)
+                    plot_end = min(len(df), curr_loc + 10)
+                    plot_slice = df.iloc[plot_start: plot_end]
+                    
+                    # Prepare plot data with a constant 'Level' line for distinct visual
+                    plot_df = plot_slice[['Close']].copy()
+                    plot_df['Level'] = float(level)
+                    
                     patterns.append({
                         'date': curr.name,
                         'pattern': 'Support Bounce',
                         'level': level,
                         'signal': 'Bullish Swing',
                         'price': curr['Close'],
-                        'plot_data': plot_slice[['Close']].copy()
+                        'plot_data': plot_df
                     })
                     break # Only flag the most recent distinct event per level
                     
@@ -191,15 +198,21 @@ class PatternRecognition:
                 strong_close = (curr['Close'] - level) / level > 0.005 # At least 0.5% above to confirm
                 
                 if crossed_above and strong_close:
-                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
-                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    curr_loc = df.index.get_loc(curr.name)
+                    plot_start = max(0, curr_loc - 10)
+                    plot_end = min(len(df), curr_loc + 10)
+                    plot_slice = df.iloc[plot_start: plot_end]
+                    
+                    plot_df = plot_slice[['Close']].copy()
+                    plot_df['Level'] = float(level)
+                    
                     patterns.append({
                         'date': curr.name,
                         'pattern': 'Resistance Breakout (S/R Flip)',
                         'level': level,
                         'signal': 'Strong Bullish',
                         'price': curr['Close'],
-                        'plot_data': plot_slice[['Close']].copy()
+                        'plot_data': plot_df
                     })
                     break
                     
@@ -214,15 +227,21 @@ class PatternRecognition:
                 bearish_close = curr['Close'] < curr['Open'] and curr['Close'] < level
                 
                 if (in_zone_curr or in_zone_prev) and bearish_close:
-                    plot_start = max(0, df.index.get_loc(curr.name) - 5)
-                    plot_slice = df.iloc[plot_start: plot_start + 10]
+                    curr_loc = df.index.get_loc(curr.name)
+                    plot_start = max(0, curr_loc - 10)
+                    plot_end = min(len(df), curr_loc + 10)
+                    plot_slice = df.iloc[plot_start: plot_end]
+                    
+                    plot_df = plot_slice[['Close']].copy()
+                    plot_df['Level'] = float(level)
+                    
                     patterns.append({
                         'date': curr.name,
                         'pattern': 'Resistance Rejection',
                         'level': level,
                         'signal': 'Bearish Swing',
                         'price': curr['Close'],
-                        'plot_data': plot_slice[['Close']].copy()
+                        'plot_data': plot_df
                     })
                     break
 
