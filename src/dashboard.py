@@ -6,6 +6,8 @@ Run with: streamlit run src/dashboard.py
 
 import streamlit as st
 import asyncio
+import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
 from datetime import datetime
 from typing import Optional
@@ -692,12 +694,30 @@ def main():
                                     elif "⚠️" in note: st.warning(note)
                                     elif "❌" in note: st.error(note)
                                     else: st.info(note)
+                                st.metric("Probability Score", f"{analysis.buy_score:.0%}")
                             else:
                                 st.info("Waiting for trend confirmation...")
                                 
+                            if analysis.trading_style == "Swing Trading":
+                                st.markdown("#### ✅ Strategy Validation")
+                                has_patterns = len(getattr(analysis, 'swing_patterns', [])) > 0
+                                rr_ratio = getattr(analysis, 'reward_to_risk', 0)
+                                trend = getattr(analysis, 'market_trend', 'Unknown')
+                                
+                                # Trend Check
+                                trend_icon = "🟢" if trend in ["Uptrend", "Sideways", "Downtrend"] else "🔴"
+                                st.write(f"{trend_icon} **Trend:** {trend}")
+                                
+                                # Pattern Check
+                                pat_icon = "🟢" if has_patterns else "🔴"
+                                st.write(f"{pat_icon} **Pattern:** {'Confirmed' if has_patterns else 'None Detected'}")
+                                
+                                # R/R Check
+                                rr_icon = "🟢" if rr_ratio >= 2.0 else "🔴"
+                                st.write(f"{rr_icon} **Reward/Risk:** {rr_ratio:.1f}x (Req: 2.0x)")
+
                             if analysis.trading_style == "Swing Trading" and getattr(analysis, 'swing_patterns', []):
                                 st.markdown("#### 📉 Pattern Confirmation")
-                                import plotly.graph_objects as go
                                 for idx, pattern in enumerate(analysis.swing_patterns[:2]): # Show top 2
                                     with st.container(border=True):
                                         st.caption(f"**P{idx+1}: {pattern['pattern']}** at ${pattern['level']:.2f}")
@@ -829,7 +849,8 @@ def main():
                     
                     with ctrl1:
                         show_ema = st.checkbox("Show EMAs", value=st.session_state['chart_prefs']['ema'], key="chk_ema")
-                        show_atr = st.checkbox("Show ATR (14w)", value=st.session_state['chart_prefs']['atr'], key="chk_atr")
+                        atr_label = "Show ATR (14d)" if analysis.trading_style == "Swing Trading" else "Show ATR (14w)"
+                        show_atr = st.checkbox(atr_label, value=st.session_state['chart_prefs']['atr'], key="chk_atr")
                     with ctrl2:
                         show_support_resistance = st.checkbox("Support/Resistance", value=st.session_state['chart_prefs']['sr'], key="chk_sr")
                         show_trade_setup = st.checkbox("Entry/Stop", value=st.session_state['chart_prefs']['ts'], key="chk_ts")

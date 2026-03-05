@@ -108,7 +108,8 @@ class SwingStyle(TradingStyleStrategy):
             return
 
         # 3. Swing Math based on Trend
-        if analysis.market_trend == "Uptrend":
+        if analysis.market_trend == "Uptrend" or analysis.market_trend == "Sideways":
+            # Buy near support
             raw_entry = nearest_support * 1.0035 # +0.35%
             entry = self._adjust_decimals(raw_entry, is_entry=True)
             
@@ -120,6 +121,9 @@ class SwingStyle(TradingStyleStrategy):
             
             risk = abs(entry - stop_loss)
             reward = abs(target - entry)
+            
+            if analysis.market_trend == "Sideways":
+                notes.append("ℹ️ Sideways market: Trading the range (Support to Resistance).")
             
         elif analysis.market_trend == "Downtrend":
             raw_entry = nearest_resistance * 0.9965 # -0.35%
@@ -134,8 +138,8 @@ class SwingStyle(TradingStyleStrategy):
             risk = abs(stop_loss - entry)
             reward = abs(entry - target)
             
-        else: # Sideways
-            notes.append("❌ Rejected: Sideways market detected. No momentum for a swing trade.")
+        else:
+            notes.append("❌ Rejected: Unable to determine market trend.")
             analysis.setup_notes = notes
             return
             
@@ -162,7 +166,7 @@ class SwingStyle(TradingStyleStrategy):
             analysis.history, 
             supports=getattr(analysis, 'support_levels', []), 
             resistances=getattr(analysis, 'resistance_levels', []),
-            days=14
+            days=30  # Increased lookback for better pattern visibility
         )
         
     def get_chart_defaults(self) -> Dict[str, Any]:
@@ -174,7 +178,7 @@ class SwingStyle(TradingStyleStrategy):
             'atr': True,
             'sr': True,
             'ts': True,
-            'rsi': True,
-            'macd': True,
+            'rsi': False,
+            'macd': False,
             'boll': False
         }
