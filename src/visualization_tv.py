@@ -656,9 +656,20 @@ class TVChartGenerator:
                                 
                                 if(totalData.length === 0) return;
                                 
+                                // Safe date parsing for Safari/WebKit
+                                function parseDateSafe(dateStr) {{
+                                    if (!dateStr) return new Date();
+                                    // Handle 'YYYY-MM-DD' strictly avoiding timezone shift parsing bugs
+                                    if (dateStr.includes('-')) {{
+                                        const parts = dateStr.split('-');
+                                        return new Date(parts[0], parts[1] - 1, parts[2]);
+                                    }}
+                                    return new Date(dateStr);
+                                }}
+                                
                                 const lastDateStr = totalData[totalData.length - 1].time;
-                                const lastDate = new Date(lastDateStr);
-                                let fromDate = new Date(lastDate);
+                                const lastDate = parseDateSafe(lastDateStr);
+                                let fromDate = new Date(lastDate.getTime());
                                 
                                 if(range === '1W') fromDate.setDate(lastDate.getDate() - 7);
                                 else if(range === '2W') fromDate.setDate(lastDate.getDate() - 14);
@@ -668,13 +679,14 @@ class TVChartGenerator:
                                 else if(range === '1Y') fromDate.setFullYear(lastDate.getFullYear() - 1);
                                 else if(range === '5Y') fromDate.setFullYear(lastDate.getFullYear() - 5);
                                 else {{
+                                else {{
                                     chart.timeScale().fitContent();
                                     return;
                                 }}
                                 
                                 let closestIdx = 0;
                                 for(let i = 0; i < totalData.length; i++){{
-                                    if(new Date(totalData[i].time) >= fromDate) {{
+                                    if(parseDateSafe(totalData[i].time) >= fromDate) {{
                                         closestIdx = i;
                                         break;
                                     }}

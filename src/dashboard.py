@@ -452,10 +452,8 @@ def main():
         return
     
     # Home page (original dashboard)
-    # Dynamic title based on style
-    selected_style = st.session_state.get('active_trading_style', "Growth Investing")
-    st.title(f"📊 {selected_style} Analyzer")
-    st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
+    # The title must be rendered *after* the sidebar processes the trading style selection to prevent 1-click lag
+
     
     # Sidebar
     with st.sidebar:
@@ -549,6 +547,11 @@ def main():
                 st.cache_resource.clear()
                 st.cache_data.clear()
                 st.rerun()
+                
+    # Now render the dynamic title AFTER the sidebar state has been established
+    selected_style = st.session_state.get('active_trading_style', "Growth Investing")
+    st.title(f"📊 {selected_style} Analyzer")
+    st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
     
     # Main content
     if analyze_button and ticker:
@@ -743,11 +746,17 @@ def main():
                                             mode='lines'
                                         ))
                                         
-                                        # Calculate tight zoom around level
+                                        # Calculate dynamic padding based on actual data range
                                         prices = plot_df['Close'].tolist()
                                         p_min, p_max = min(prices), max(prices)
-                                        y_min = min(p_min, level) * 0.995
-                                        y_max = max(p_max, level) * 1.005
+                                        # Use the wider range: either the price action range or the distance to the level
+                                        data_range = max(p_max - p_min, abs(p_max - level), abs(level - p_min))
+                                        if data_range == 0: data_range = level * 0.01 # Fallback
+                                        
+                                        # Add 20% padding to the top and bottom of the visible range
+                                        padding = data_range * 0.20
+                                        y_min = min(p_min, level) - padding
+                                        y_max = max(p_max, level) + padding
                                         
                                         fig.update_layout(
                                             height=180,
