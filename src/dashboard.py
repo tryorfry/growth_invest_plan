@@ -919,7 +919,7 @@ def main():
                         show_support_resistance=show_support_resistance,
                         show_hvn=show_hvn,
                         show_trade_setup=show_trade_setup,
-                        height=600 if show_rsi or show_macd else 500
+                        height=700 if show_rsi or show_macd else 600
                     )
                     
                     # Fundamental Data

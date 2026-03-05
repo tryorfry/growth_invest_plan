@@ -395,9 +395,9 @@ class TVChartGenerator:
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
             "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
             "crosshair": { "mode": 1 },
-            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.15, "bottom": 0.05} },
+            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.25, "bottom": 0.05} },
             "leftPriceScale": { "borderColor": grid_color, "visible": True },
-            "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 15 }
+            "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 25 }
         }
 
         button_bg = "#262B33" if theme == 'dark' else "#F0F2F6"
