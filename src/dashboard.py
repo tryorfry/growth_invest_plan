@@ -812,7 +812,7 @@ def main():
                                 **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema.
                                 **Suggested Entry:** Calculated as **0.35%** buffer above/below Support/Resistance based on trend.
                                 **Suggested Stop Loss:** Calculated using **ATR ({'14d' if analysis.trading_style == 'Swing Trading' else '14w'})**.
-                                **Reward/Risk:** Minimum **2.0x** requirement enforced for valid setups.
+                                **Reward/Risk:** Minimum **2.0x** requirement enforced for valid setups. If the immediate level does not provide a 2.0x R/R, the engine evaluates historical deeper support/resistance levels.
                                 """
                             )
                         

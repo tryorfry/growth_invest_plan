@@ -115,13 +115,29 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = nearest_support - atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=False)
-            
-            raw_target = nearest_resistance * 0.9965 # -0.35%
-            target = self._adjust_decimals(raw_target, is_entry=False)
-            
             risk = abs(entry - stop_loss)
-            reward = abs(target - entry)
             
+            # Find a valid target from resistances
+            target = None
+            reward = 0
+            for r in valid_resistances:
+                raw_target = r * 0.9965 # -0.35%
+                potential_target = self._adjust_decimals(raw_target, is_entry=False)
+                potential_reward = abs(potential_target - entry)
+                
+                if risk > 0 and (potential_reward / risk) >= 2.0:
+                    target = potential_target
+                    reward = potential_reward
+                    if r != valid_resistances[0]:
+                        notes.append(f"ℹ️ Extended Target: Using higher resistance to achieve R/R >= 2.0")
+                    break
+            
+            # If no target meets the R/R, default to the nearest resistance so it gets formally rejected
+            if target is None and valid_resistances:
+                raw_target = nearest_resistance * 0.9965
+                target = self._adjust_decimals(raw_target, is_entry=False)
+                reward = abs(target - entry)
+                
             if analysis.market_trend == "Sideways":
                 notes.append("ℹ️ Sideways market: Trading the range (Support to Resistance).")
             
@@ -131,12 +147,29 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = nearest_resistance + atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=True) # Buy to cover stop
-            
-            raw_target = nearest_support * 1.0035 # +0.35%
-            target = self._adjust_decimals(raw_target, is_entry=True) # Buy to cover target
-            
             risk = abs(stop_loss - entry)
-            reward = abs(entry - target)
+            
+            # Find a valid target from supports
+            target = None
+            reward = 0
+            # Reverse valid_supports to look downwards from nearest support
+            for s in reversed(valid_supports):
+                raw_target = s * 1.0035 # +0.35%
+                potential_target = self._adjust_decimals(raw_target, is_entry=True) # Buy to cover target
+                potential_reward = abs(entry - potential_target)
+                
+                if risk > 0 and (potential_reward / risk) >= 2.0:
+                    target = potential_target
+                    reward = potential_reward
+                    if s != valid_supports[-1]:
+                        notes.append(f"ℹ️ Extended Target: Using lower support to achieve R/R >= 2.0")
+                    break
+            
+            # If no target meets the R/R, default to the nearest support so it gets formally rejected
+            if target is None and valid_supports:
+                raw_target = nearest_support * 1.0035
+                target = self._adjust_decimals(raw_target, is_entry=True)
+                reward = abs(entry - target)
             
         else:
             notes.append("❌ Rejected: Unable to determine market trend.")
