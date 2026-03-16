@@ -139,7 +139,7 @@ class TrendStyle(TradingStyleStrategy):
             'atr': True,
             'sr': True,
             'ts': True,
-            'rsi': True,
+            'rsi': False,
             'macd': False,
             'boll': False
         }

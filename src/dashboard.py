@@ -533,6 +533,10 @@ def main():
                 
                 st.session_state['active_trading_style'] = selected_style
                 
+                # Clear current analysis to prevent state leaking between styles
+                if 'current_analysis' in st.session_state:
+                    del st.session_state['current_analysis']
+                
                 # Log the style change
                 _uid = st.session_state.get('user_id')
                 if _uid and db:
@@ -608,7 +612,7 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
+                        atr_val = getattr(analysis, 'atr_daily', analysis.atr) if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
                         atr_label = "ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "ATR (14w)"
                         st.metric(atr_label, f"{atr_val:.2f}")
                     with col5:
@@ -626,8 +630,9 @@ def main():
                         trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
                         st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
                         
-                    # Show Investment Checklist
-                    render_checklist(analysis)
+                    # Show Investment Checklist ONLY for Growth Investing
+                    if analysis.trading_style == "Growth Investing":
+                        render_checklist(analysis)
                     
                     # AI-Powered Trade Thesis
                     st.divider()

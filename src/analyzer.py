@@ -200,7 +200,7 @@ class StockAnalyzer:
             
         # 1. Fetch Technical, Fundamental, and News data in parallel
         # We need technical data first for earnings date, but Finviz/News are independent
-        technical_task = asyncio.create_task(self.technical_source.fetch(ticker))
+        technical_task = asyncio.create_task(self.technical_source.fetch(ticker, interval=interval, period=period))
         fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
         news_task = asyncio.create_task(self.news_source.fetch(ticker))
         macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
