@@ -136,7 +136,100 @@ class PatternRecognition:
         
         return recent
         
+    def detect_relative_high_low(self, df: pd.DataFrame, window: int = 5) -> Dict[str, Any]:
+        """
+        Identify pivot highs and lows to determine HH/HL/LH/LL.
+        Returns a dict with identified pivot points and trend assessment.
+        """
+        if df.empty or len(df) < window * 2:
+            return {'pivots': [], 'trend': 'Neutral'}
+
+        highs = df['High'].values
+        lows = df['Low'].values
+        pivots = []
+
+        for i in range(window, len(df) - window):
+            # Pivot High
+            if all(highs[i] >= highs[i-j] for j in range(1, window+1)) and \
+               all(highs[i] > highs[i+j] for j in range(1, window+1)):
+                pivots.append({'type': 'HH' if not pivots or pivots[-1]['price'] < highs[i] else 'LH', 
+                               'price': float(highs[i]), 'date': df.index[i], 'pivot_type': 'High'})
+            
+            # Pivot Low
+            if all(lows[i] <= lows[i-j] for j in range(1, window+1)) and \
+               all(lows[i] < lows[i+j] for j in range(1, window+1)):
+                pivots.append({'type': 'HL' if not pivots or pivots[-1]['price'] < lows[i] else 'LL', 
+                               'price': float(lows[i]), 'date': df.index[i], 'pivot_type': 'Low'})
+
+        # Refine labels based on sequence
+        last_high = None
+        last_low = None
+        for p in pivots:
+            if p['pivot_type'] == 'High':
+                if last_high is not None:
+                    p['type'] = 'HH' if p['price'] > last_high else 'LH'
+                last_high = p['price']
+            else:
+                if last_low is not None:
+                    p['type'] = 'HL' if p['price'] > last_low else 'LL'
+                last_low = p['price']
+
+        # Determine trend
+        trend = "Neutral"
+        if len(pivots) >= 2:
+            recent = pivots[-4:]
+            hh_hl = any(p['type'] == 'HH' for p in recent) and any(p['type'] == 'HL' for p in recent)
+            ll_lh = any(p['type'] == 'LL' for p in recent) and any(p['type'] == 'LH' for p in recent)
+            
+            if hh_hl: trend = "Uptrend"
+            elif ll_lh: trend = "Downtrend"
+
+        return {'pivots': pivots, 'trend': trend}
+
+    def detect_downtrend_line_break(self, df: pd.DataFrame, lookback: int = 40) -> Dict[str, Any]:
+        """
+        Calculates a downtrend line from recent highs and checks for a close above it.
+        """
+        if len(df) < lookback:
+            return {'setup': False, 'price': 0, 'line_value': 0}
+            
+        recent = df.iloc[-lookback:]
+        # Find two major highs to form a line
+        highs = recent['High'].values
+        # Simple heuristic: find max and another high at least 10 days apart
+        idx1 = np.argmax(highs)
+        if idx1 > lookback - 15: # Max is too recent
+             idx1 = np.argmax(highs[:-15])
+             
+        # Find second high after the first
+        if idx1 < lookback - 10:
+            idx2 = idx1 + 5 + np.argmax(highs[idx1+5:])
+        else:
+            idx2 = lookback - 1
+            
+        p1 = (idx1, highs[idx1])
+        p2 = (idx2, highs[idx2])
+        
+        if p1[1] <= p2[1]: # Not a downtrend line
+            return {'setup': False}
+            
+        # Line eq: y = mx + c
+        m = (p2[1] - p1[1]) / (p2[0] - p1[0])
+        c = p1[1] - m * p1[0]
+        
+        # Current line value at the last index (lookback - 1)
+        line_val = m * (lookback - 1) + c
+        curr_close = df.iloc[-1]['Close']
+        
+        return {
+            'setup': curr_close > line_val,
+            'price': float(curr_close),
+            'line_value': float(line_val),
+            'slope': float(m)
+        }
+
     def detect_trend_patterns(self, df: pd.DataFrame, supports: List[float], resistances: List[float], days: int = 14) -> List[Dict[str, Any]]:
+
         """
         Detect macro/swing patterns: Bounces, Breakouts, and S/R Flips against horizontal levels.
         Returns a rich dictionary containing the isolated price slice for mini-chart plotting.

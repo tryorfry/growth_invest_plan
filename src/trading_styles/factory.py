@@ -2,11 +2,14 @@
 from .base import TradingStyleStrategy
 from .growth import GrowthStyle
 from .swing import SwingStyle
+from .trend import TrendStyle
 
 def get_trading_style(style_name: str) -> TradingStyleStrategy:
     """Factory method to get the requested trading style strategy"""
     if style_name == "Swing Trading":
         return SwingStyle()
+    elif style_name == "Trend Trading":
+        return TrendStyle()
         
     # Default to Growth Investing to preserve existing behavior
     return GrowthStyle()

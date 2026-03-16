@@ -498,7 +498,7 @@ def main():
         # Access control for Swing Trading
         can_swing = st.session_state.get('can_use_swing_trading', False) or st.session_state.get('user_tier') == 'admin'
         
-        style_options = ["Growth Investing", "Swing Trading"]
+        style_options = ["Growth Investing", "Swing Trading", "Trend Trading"]
         selected_style = st.selectbox(
             "Select Style",
             options=style_options,
@@ -672,13 +672,14 @@ def main():
                             stop_val = f"${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                             st.metric("Stop Loss", stop_val, delta_color="inverse", help="ATR-adjusted exit point.")
 
-                        if analysis.trading_style == "Swing Trading" and getattr(analysis, 'reward_to_risk', None):
+                        if analysis.trading_style in ["Swing Trading", "Trend Trading"] and getattr(analysis, 'reward_to_risk', None):
                             st.divider()
                             col_rr, col_pt = st.columns(2)
                             with col_rr:
                                 rr_val = analysis.reward_to_risk
-                                rr_color = "normal" if rr_val >= 2.0 else "inverse"
-                                st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=">= 2.0x required", delta_color=rr_color)
+                                threshold = 3.0 if analysis.trading_style == "Trend Trading" else 2.0
+                                rr_color = "normal" if rr_val >= threshold else "inverse"
+                                st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=f">= {threshold:.1f}x required", delta_color=rr_color)
                             with col_pt:
                                 target_val = f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A"
                                 st.metric("PT", target_val)
