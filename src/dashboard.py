@@ -527,6 +527,10 @@ def main():
                     'macd': defaults.get('macd', False),
                     'boll': defaults.get('boll', False)
                 })
+                # Set timeframe and zoom from strategy defaults
+                st.session_state['timeframe'] = defaults.get('timeframe', 'D')
+                st.session_state['zoom'] = defaults.get('zoom', '1Y')
+                
                 st.session_state['active_trading_style'] = selected_style
                 
                 # Log the style change
@@ -604,8 +608,8 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        atr_val = analysis.atr_daily if analysis.trading_style == "Swing Trading" else analysis.atr
-                        atr_label = "ATR (14d)" if analysis.trading_style == "Swing Trading" else "ATR (14w)"
+                        atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
+                        atr_label = "ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "ATR (14w)"
                         st.metric(atr_label, f"{atr_val:.2f}")
                     with col5:
                         if analysis.trading_style == "Swing Trading" and getattr(analysis, 'target_price', None):
@@ -812,8 +816,8 @@ def main():
                                 """
                                 **Support & Resistance:** Found using **Volume Profile (Price by Volume)** to identify heavily traded zones (HVNs) and **Statistical 1D Clustering** to group nearby price extrema.
                                 **Suggested Entry:** Calculated as **0.35%** buffer above/below Support/Resistance based on trend.
-                                **Suggested Stop Loss:** Calculated using **ATR ({'14d' if analysis.trading_style == 'Swing Trading' else '14w'})**.
-                                **Reward/Risk:** Minimum **2.0x** requirement enforced for valid setups. If the immediate level does not provide a 2.0x R/R, the engine evaluates historical deeper support/resistance levels.
+                                **Suggested Stop Loss:** Calculated using **ATR ({'14d' if analysis.trading_style in ['Swing Trading', 'Trend Trading'] else '14w'})**.
+                                **Reward/Risk:** Minimum **{'3.0x' if analysis.trading_style == 'Trend Trading' else '2.0x'}** requirement enforced for valid setups. If the immediate level does not provide a 3.0x/2.0x R/R, the engine evaluates historical deeper support/resistance levels.
                                 """
                             )
                         
@@ -870,7 +874,7 @@ def main():
                     
                     with ctrl1:
                         show_ema = st.checkbox("Show EMAs", value=st.session_state['chart_prefs']['ema'], key="chk_ema")
-                        atr_label = "Show ATR (14d)" if analysis.trading_style == "Swing Trading" else "Show ATR (14w)"
+                        atr_label = "Show ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "Show ATR (14w)"
                         show_atr = st.checkbox(atr_label, value=st.session_state['chart_prefs']['atr'], key="chk_atr")
                     with ctrl2:
                         show_support_resistance = st.checkbox("Support/Resistance", value=st.session_state['chart_prefs']['sr'], key="chk_sr")

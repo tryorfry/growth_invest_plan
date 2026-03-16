@@ -180,6 +180,10 @@ class StockAnalyzer:
         Returns:
             StockAnalysis object with all collected data or None if failed
         """
+        # Get historical data (usually 5 years weekly for Growth, Daily for Swing/Trend)
+        # Note: Swing and Trend strategies need daily data for patterns/defaults
+        interval = "1d" if trading_style_name in ["Swing Trading", "Trend Trading"] else "1wk"
+        period = "2y" if trading_style_name in ["Swing Trading", "Trend Trading"] else "5y"
         import asyncio
         
         style_strategy = get_trading_style(trading_style_name)

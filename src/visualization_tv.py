@@ -165,9 +165,9 @@ class TVChartGenerator:
 
         # 3. ATR
         atr_data = []
-        is_swing = getattr(analysis, 'trading_style', '') == 'Swing Trading'
-        atr_col = 'ATR_Daily' if is_swing else 'ATR'
-        atr_label = 'ATR (14d)' if is_swing else 'ATR (14w)'
+        is_daily_style = getattr(analysis, 'trading_style', '') in ['Swing Trading', 'Trend Trading']
+        atr_col = 'ATR_Daily' if is_daily_style else 'ATR'
+        atr_label = 'ATR (14d)' if is_daily_style else 'ATR (14w)'
         
         if show_atr and atr_col in df.columns:
              atr_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[atr_col]) and (val := float(row[atr_col]))]
