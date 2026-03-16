@@ -612,8 +612,10 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        atr_val = getattr(analysis, 'atr_daily', analysis.atr) if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
-                        atr_label = "ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "ATR (14w)"
+                        # Force "Trend Trading" to use ATR (14d) and analysis.atr_daily
+                        is_trend_or_swing = (selected_style in ["Swing Trading", "Trend Trading"]) or (analysis.trading_style in ["Swing Trading", "Trend Trading"])
+                        atr_val = getattr(analysis, 'atr_daily', analysis.atr) if is_trend_or_swing else analysis.atr
+                        atr_label = "ATR (14d)" if is_trend_or_swing else "ATR (14w)"
                         st.metric(atr_label, f"{atr_val:.2f}")
                     with col5:
                         if analysis.trading_style == "Swing Trading" and getattr(analysis, 'target_price', None):
@@ -631,7 +633,8 @@ def main():
                         st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
                         
                     # Show Investment Checklist ONLY for Growth Investing
-                    if analysis.trading_style == "Growth Investing":
+                    # Use both selected_style and analysis.trading_style for absolute certainty
+                    if selected_style == "Growth Investing" and analysis.trading_style == "Growth Investing":
                         render_checklist(analysis)
                     
                     # AI-Powered Trade Thesis
@@ -919,8 +922,8 @@ def main():
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
-                        timeframe=style_defaults.get('timeframe', 'W'),
-                        default_range=style_defaults.get('zoom', '5Y'),
+                        timeframe=st.session_state.get('timeframe', style_defaults.get('timeframe', 'W')),
+                        default_range=st.session_state.get('zoom', style_defaults.get('zoom', '5Y')),
                         show_ema=show_ema,
                         show_atr=show_atr,
                         show_rsi=show_rsi,
