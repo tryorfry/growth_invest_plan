@@ -129,3 +129,40 @@ class GrowthStyle(TradingStyleStrategy):
             'macd': False,
             'boll': False
         }
+
+    def score_setup(self, analysis: Any) -> float:
+        """
+        Scores Growth Investing setup.
+        Max 1.0 (100%).
+        """
+        score = 0.0
+        
+        # 1. Trend (40% Weight)
+        if analysis.market_trend == "Uptrend":
+            score += 0.4
+        elif analysis.market_trend == "Sideways":
+            score += 0.1
+            
+        # 2. Support Proximity (30% Weight)
+        # Check if price is within 2 ATRs of the suggested entry (which is near support)
+        if getattr(analysis, 'suggested_entry', None) and analysis.atr > 0:
+            dist = abs(analysis.current_price - analysis.suggested_entry) / analysis.atr
+            if dist <= 1.0: # Excellent proximity
+                score += 0.3
+            elif dist <= 2.0: # Moderate proximity
+                score += 0.15
+        
+        # 3. Rejection Check (Deduction)
+        if any("❌ Rejected" in n for n in getattr(analysis, 'setup_notes', [])):
+            return 0.0 # Strict rejection for Growth
+            
+        # 4. Fundamental Quality (30% Weight - simplified checklist)
+        # Using ROE and EPS growth as proxies
+        from src.dashboard import _safe_float_parse
+        roe = _safe_float_parse(analysis.finviz_data.get('ROE', ''))
+        eps_ny = _safe_float_parse(analysis.finviz_data.get('EPS next Y', ''))
+        
+        if roe and roe >= 15: score += 0.15
+        if eps_ny and eps_ny >= 15: score += 0.15
+        
+        return min(1.0, score)

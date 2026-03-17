@@ -131,6 +131,10 @@ class StockAnalysis:
     setup_notes: List[str] = field(default_factory=list)
     swing_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
+    # Multi-Style Results
+    style_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    best_style: Optional[str] = None
+    
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
         return self.days_until_earnings is not None and self.days_until_earnings < 10
@@ -292,6 +296,114 @@ class StockAnalyzer:
             analysis.max_buy_price = analysis.median_price_target / 1.15
         
         return analysis
+
+    async def multi_analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
+        """
+        Runs all available trading styles for a ticker and finds the best one.
+        Optimized by fetching data in parallel and reusing sources.
+        """
+        ticker = ticker.upper()
+        import asyncio
+        from .trading_styles.factory import get_trading_style
+        
+        # 1. Fetch all data needed for ALL styles in parallel
+        # Growth needs W/5y, Swing/Trend need D/2y
+        if verbose:
+            print(f"Starting Multi-Style Analysis for {ticker}...")
+            
+        # Data fetching tasks
+        weekly_task = asyncio.create_task(self.technical_source.fetch(ticker, interval="1wk", period="5y"))
+        daily_task = asyncio.create_task(self.technical_source.fetch(ticker, interval="1d", period="2y"))
+        fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
+        news_task = asyncio.create_task(self.news_source.fetch(ticker))
+        macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
+        
+        results = await asyncio.gather(weekly_task, daily_task, fundamental_task, news_task, macrotrends_task, return_exceptions=True)
+        tech_w, tech_d, fundamental_data, news_data, macrotrends_data = results
+        
+        if isinstance(tech_d, Exception) or not tech_d:
+            print(f"Error: Could not fetch basic technical data for {ticker}")
+            return None
+
+        # Base analysis object (using daily as default history)
+        main_analysis = StockAnalysis(ticker=ticker, analysis_timestamp=datetime.now())
+        self._populate_technical_data(main_analysis, tech_d)
+        
+        # Add fundamental/news data once
+        if not isinstance(fundamental_data, Exception) and fundamental_data:
+            main_analysis.finviz_data = fundamental_data
+        if not isinstance(news_data, Exception) and news_data:
+            main_analysis.news_sentiment = news_data.get("news_sentiment")
+            main_analysis.news_summary = news_data.get("news_summary")
+        if not isinstance(macrotrends_data, Exception) and macrotrends_data:
+            main_analysis.revenue = macrotrends_data.get('revenue', main_analysis.revenue)
+            main_analysis.operating_income = macrotrends_data.get('operating_income', main_analysis.operating_income)
+            main_analysis.basic_eps = macrotrends_data.get('eps_diluted', main_analysis.basic_eps)
+
+        # Analyst data (usually same for all)
+        if main_analysis.last_earnings_date:
+            analyst_data = await self.analyst_source.fetch(ticker, last_earnings_date=main_analysis.last_earnings_date)
+            if analyst_data:
+                main_analysis.median_price_target = analyst_data.get("median_price_target")
+                main_analysis.marketbeat_action_recent = analyst_data.get("recent_action")
+                main_analysis.analyst_source = self.analyst_source.get_source_name()
+        
+        if main_analysis.median_price_target:
+            main_analysis.max_buy_price = main_analysis.median_price_target / 1.15
+
+        # 2. Run each style
+        styles = ["Growth Investing", "Swing Trading", "Trend Trading"]
+        style_scores = {}
+        
+        for style_name in styles:
+            # Create a clone for each style to avoid interference
+            # We only need to clone fields changed by calculate_trade_setup
+            import copy
+            style_analysis = copy.copy(main_analysis)
+            # Use specific history for growth
+            if style_name == "Growth Investing" and not isinstance(tech_w, Exception) and tech_w:
+                style_analysis.history = tech_w.get("history")
+                style_analysis.atr = tech_w.get("atr", 0.0)
+            
+            style_strategy = get_trading_style(style_name)
+            style_analysis.trading_style = style_strategy.style_name
+            
+            # Recalculate S/R and setup
+            self._calculate_support_resistance(style_analysis)
+            style_strategy.calculate_trade_setup(style_analysis)
+            
+            # Score it
+            score = style_strategy.score_setup(style_analysis)
+            style_scores[style_name] = score
+            
+            # Save relevant summary
+            main_analysis.style_results[style_name] = {
+                "score": score,
+                "trend": style_analysis.market_trend,
+                "entry": style_analysis.suggested_entry,
+                "stop": style_analysis.suggested_stop_loss,
+                "target": style_analysis.target_price or style_analysis.median_price_target,
+                "rr": getattr(style_analysis, 'reward_to_risk', 0.0) or 0.0,
+                "notes": style_analysis.setup_notes,
+                "patterns": [p['pattern'] for p in getattr(style_analysis, 'swing_patterns', [])]
+            }
+            
+        # 3. Determine best style
+        if style_scores:
+            best_style = max(style_scores, key=style_scores.get)
+            if style_scores[best_style] > 0:
+                main_analysis.best_style = best_style
+                # Populate main analysis with the best style's setup for the dashboard to show it by default
+                best_results = main_analysis.style_results[best_style]
+                main_analysis.trading_style = best_style
+                main_analysis.market_trend = best_results["trend"]
+                main_analysis.suggested_entry = best_results["entry"]
+                main_analysis.suggested_stop_loss = best_results["stop"]
+                main_analysis.target_price = best_results["target"]
+                main_analysis.reward_to_risk = best_results["rr"]
+                main_analysis.setup_notes = best_results["notes"]
+            
+        return main_analysis
     
     def _populate_technical_data(self, analysis: StockAnalysis, data: Dict[str, Any]) -> None:
         """Populate analysis object with technical data"""

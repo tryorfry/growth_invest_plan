@@ -124,3 +124,43 @@ class TrendStyle(TradingStyleStrategy):
             'macd': False,
             'boll': False
         }
+
+    def score_setup(self, analysis: Any) -> float:
+        """
+        Scores Trend Trading setup.
+        Max 1.0 (100%).
+        """
+        score = 0.0
+        
+        # 1. Reward/Risk (40% Weight)
+        rr = getattr(analysis, 'reward_to_risk', 0) or 0
+        if rr >= 5.0:
+            score += 0.4
+        elif rr >= 3.0:
+            score += 0.25
+        elif rr >= 2.0:
+            score += 0.1
+            
+        # 2. Strategy Alignment (40% Weight)
+        notes = getattr(analysis, 'setup_notes', [])
+        has_ema = any("EMA Trend" in n for n in notes)
+        has_reversal = any("Relative High/Low" in n for n in notes)
+        
+        if has_ema and has_reversal:
+            score += 0.4
+        elif has_ema or has_reversal:
+            score += 0.25
+            
+        # 3. Trend Quality (20% Weight)
+        trend = getattr(analysis, 'market_trend', 'Sideways')
+        if "Uptrend" in trend:
+            score += 0.2
+        elif "Sideways" in trend:
+            score += 0.05
+            
+        # 4. Rejection Check
+        if any("❌ Rejected" in n for n in notes):
+            if score > 0.4: score = 0.4
+            else: score *= 0.5
+            
+        return min(1.0, score)

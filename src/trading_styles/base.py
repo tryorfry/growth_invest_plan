@@ -30,6 +30,14 @@ class TradingStyleStrategy(ABC):
         """
         pass
 
+    @abstractmethod
+    def score_setup(self, analysis_obj: Any) -> float:
+        """
+        Returns a score from 0.0 to 1.0 representing the quality of the trade setup.
+        1.0 is a perfect setup, 0.0 is no setup or rejected.
+        """
+        pass
+
     def _apply_smart_rounding(self, price: float) -> float:
         """Psychological rounding logic for Support/Resistance"""
         if price <= 0:

@@ -364,6 +364,7 @@ def main():
             "📋 Watchlist",
             "🔔 Alerts",
             "📈 Comparison",
+            "🏁 Multi-Style",
             "🧪 Backtester",
             "🌊 Options Flow"
         ]
@@ -449,6 +450,29 @@ def main():
     elif page == "📈 Comparison":
         from src.views.comparison import render_comparison_page
         render_comparison_page()
+        return
+    
+    elif page == "🏁 Multi-Style":
+        from src.views.multi_style_report import render_multi_style_report, run_multi_style_analysis
+        
+        st.title("🏁 Multi-Style Strategy Comparison")
+        st.markdown("Run all trading styles simultaneously to find the best setup for any ticker.")
+        
+        from src.utils_tickers import render_hybrid_ticker_input
+        ms_ticker = render_hybrid_ticker_input(key_prefix="ms_report") or "AAPL"
+        
+        if st.button("🚀 Run Multi-Style Analysis", type="primary", use_container_width=True):
+            with st.spinner(f"Running comprehensive analysis for {ms_ticker}..."):
+                analyzer = init_analyzer()
+                result = asyncio.run(run_multi_style_analysis(ms_ticker, analyzer))
+                if result:
+                    st.session_state['ms_analysis'] = result
+                    st.session_state['current_ticker'] = ms_ticker
+                else:
+                    st.error(f"Failed to analyze {ms_ticker}")
+        
+        if 'ms_analysis' in st.session_state and st.session_state.get('current_ticker') == ms_ticker:
+            render_multi_style_report(st.session_state['ms_analysis'])
         return
     
     # Home page (original dashboard)

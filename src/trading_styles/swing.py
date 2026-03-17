@@ -215,3 +215,40 @@ class SwingStyle(TradingStyleStrategy):
             'macd': False,
             'boll': False
         }
+
+    def score_setup(self, analysis: Any) -> float:
+        """
+        Scores Swing Trading setup.
+        Max 1.0 (100%).
+        """
+        score = 0.0
+        
+        # 1. Reward/Risk (40% Weight)
+        rr = getattr(analysis, 'reward_to_risk', 0) or 0
+        if rr >= 3.0:
+            score += 0.4
+        elif rr >= 2.0:
+            score += 0.25
+        elif rr >= 1.5:
+            score += 0.1
+            
+        # 2. Pattern Confirmation (30% Weight)
+        patterns = getattr(analysis, 'swing_patterns', [])
+        if len(patterns) >= 2:
+            score += 0.3
+        elif len(patterns) == 1:
+            score += 0.15
+            
+        # 3. Trend Alignment (30% Weight)
+        trend = getattr(analysis, 'market_trend', 'Sideways')
+        if trend in ["Uptrend", "Downtrend"]:
+            score += 0.3
+        elif trend == "Sideways":
+            score += 0.15
+            
+        # 4. Rejection Check
+        if any("❌ Rejected" in n for n in getattr(analysis, 'setup_notes', [])):
+            if score > 0.4: score = 0.4 # Cap score if rejected but technically setup exists
+            else: score *= 0.5
+            
+        return min(1.0, score)
