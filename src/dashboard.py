@@ -450,17 +450,32 @@ def main():
         ms_ticker = render_hybrid_ticker_input(key_prefix="ms_report") or "AAPL"
         
         if st.button("🚀 Run Multi-Style Analysis", type="primary", use_container_width=True):
-            with st.spinner(f"Running comprehensive analysis for {ms_ticker}..."):
-                analyzer = init_analyzer()
-                result = asyncio.run(run_multi_style_analysis(ms_ticker, analyzer))
-                if result:
-                    st.session_state['ms_analysis'] = result
-                    st.session_state['current_ticker'] = ms_ticker
-                else:
-                    st.error(f"Failed to analyze {ms_ticker}")
+            # Split by comma and clean up
+            tickers = [t.strip().upper() for t in ms_ticker.split(",") if t.strip()]
+            if not tickers:
+                st.error("Please enter at least one ticker.")
+            else:
+                with st.spinner(f"Running comprehensive analysis for {', '.join(tickers)}..."):
+                    analyzer = init_analyzer()
+                    
+                    async def run_all(ticker_list):
+                        tasks = [run_multi_style_analysis(t, analyzer) for t in ticker_list]
+                        return await asyncio.gather(*tasks)
+                    
+                    results = asyncio.run(run_all(tickers))
+                    # Filter out None results (failures)
+                    valid_results = [r for r in results if r]
+                    
+                    if valid_results:
+                        st.session_state['ms_results'] = valid_results
+                        st.session_state['ms_tickers'] = [r.ticker for r in valid_results]
+                    else:
+                        st.error(f"Failed to analyze any of the tickers: {ms_ticker}")
         
-        if 'ms_analysis' in st.session_state and st.session_state.get('current_ticker') == ms_ticker:
-            render_multi_style_report(st.session_state['ms_analysis'])
+        if 'ms_results' in st.session_state:
+            # Check if any original ticker is still relevant (simple check)
+            if any(t in ms_ticker.upper() for t in st.session_state.get('ms_tickers', [])):
+                render_multi_style_report(st.session_state['ms_results'])
         return
     
     # Home page (original dashboard)

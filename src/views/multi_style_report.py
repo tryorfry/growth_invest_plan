@@ -1,20 +1,68 @@
 import streamlit as st
 import asyncio
 import pandas as pd
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Union
 from src.analyzer import StockAnalysis
 
-def render_multi_style_report(analysis: StockAnalysis):
+def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
     """
     Renders a beautiful comparison report of all trading styles.
-    Highlights the recommended 'Best Style'.
+    Supports single or multiple tickers.
     """
-    if not analysis or not analysis.style_results:
-        st.write("Debug - Analysis Object:", analysis)
+    if not data:
         st.warning("No multi-style data available. Run the analysis first.")
         return
 
-    st.subheader(f"🏁 Multi-Style Strategy Comparison: {analysis.ticker}")
+    # Normalize to list
+    analyses = [data] if isinstance(data, StockAnalysis) else data
+    
+    if not analyses:
+        st.warning("No valid analysis results to display.")
+        return
+
+    # 1. Summary Leaderboard (if multi-ticker)
+    if len(analyses) > 1:
+        st.subheader("🏆 Multi-Ticker Opportunity Leaderboard")
+        leaderboard_data = []
+        for analysis in analyses:
+            if analysis.best_style:
+                best = analysis.style_results[analysis.best_style]
+                leaderboard_data.append({
+                    "Ticker": analysis.ticker,
+                    "Best Strategy": analysis.best_style,
+                    "Setup Quality": f"{best['score']:.0%}",
+                    "Trend": best['trend'],
+                    "R/R": f"{best['rr']:.1f}x",
+                    "Target Upside": f"{((best['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if best['target'] and analysis.current_price else "N/A"
+                })
+        
+        if leaderboard_data:
+            df_leader = pd.DataFrame(leaderboard_data)
+            # Sort by Setup Quality (descending)
+            df_leader['SortOrder'] = df_leader['Setup Quality'].str.rstrip('%').astype(float)
+            df_leader = df_leader.sort_values('SortOrder', ascending=False).drop(columns=['SortOrder'])
+            st.dataframe(df_leader, use_container_width=True, hide_index=True)
+        st.divider()
+
+    # 2. Detailed Ticker Tabs
+    if len(analyses) == 1:
+        _render_single_ticker_report(analyses[0], show_header=True)
+    else:
+        tabs = st.tabs([f"📊 {a.ticker}" for a in analyses])
+        for i, analysis in enumerate(analyses):
+            with tabs[i]:
+                _render_single_ticker_report(analysis, show_header=False)
+
+def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = True):
+    """
+    Renders the detailed breakdown for a single ticker.
+    """
+    if not analysis or not analysis.style_results:
+        st.error(f"Missing results for {analysis.ticker if analysis else 'Unknown'}")
+        return
+
+    if show_header:
+        st.subheader(f"🏁 Multi-Style Strategy Comparison: {analysis.ticker}")
     
     # Hero Recommendation Card
     if analysis.best_style:
@@ -24,25 +72,25 @@ def render_multi_style_report(analysis: StockAnalysis):
             with col_icon:
                 st.markdown("<h1 style='text-align: center; margin:0;'>🏆</h1>", unsafe_allow_html=True)
             with col_text:
-                st.title(f"Best Match: {analysis.best_style}")
+                st.title(f"Best Match for {analysis.ticker}: {analysis.best_style}")
                 st.markdown(f"**Confidence Score:** {best['score']:.0%}")
                 st.markdown(f"**Thesis:** {best['trend']} setup with {best['rr']:.1f}x Reward/Risk ratio.")
     
     st.divider()
     
-    # Comparison Table/Cards
+    # Comparison Cards
     cols = st.columns(len(analysis.style_results))
     
     for i, (style_name, result) in enumerate(analysis.style_results.items()):
         with cols[i]:
             is_best = (style_name == analysis.best_style)
-            border_css = "border: 2px solid #4CAF50;" if is_best else "border: 1px solid rgba(128,128,128,0.2);"
             
             with st.container(border=True):
                 if is_best:
                     st.markdown("⭐ **RECOMMENDED**")
                 
                 st.markdown(f"### {style_name}")
+                st.caption(f"Ticker: {analysis.ticker}")
                 
                 # Visual Score Bar
                 score = result['score']
@@ -79,15 +127,15 @@ def render_multi_style_report(analysis: StockAnalysis):
                 st.divider()
                 
                 # Deep Dive Button
+                button_key = f"btn_dive_{analysis.ticker}_{style_name}"
                 if analysis.style_analyses and style_name in analysis.style_analyses:
-                    if st.button(f"🔍 View Full {style_name}", key=f"btn_dive_{style_name}", use_container_width=True):
-                        # Set up session state for redirection
+                    if st.button(f"🔍 View {style_name} Details", key=button_key, use_container_width=True):
                         st.session_state['go_to_page'] = "🏠 Home"
                         st.session_state['active_trading_style'] = style_name
                         st.session_state['current_analysis'] = analysis.style_analyses[style_name]
                         st.session_state['current_ticker'] = analysis.ticker
                         
-                        # Set chart preferences for the style
+                        # Apply style defaults
                         from src.trading_styles.factory import get_trading_style
                         style_strategy = get_trading_style(style_name)
                         defaults = style_strategy.get_chart_defaults()
@@ -103,16 +151,16 @@ def render_multi_style_report(analysis: StockAnalysis):
                             })
                         st.session_state['timeframe'] = defaults.get('timeframe', 'D')
                         st.session_state['zoom'] = defaults.get('zoom', '1Y')
-                        
                         st.rerun()
 
     # Comparison Grid (Technical Stats)
     st.divider()
-    st.subheader("📊 Comparative Decision Matrix")
+    st.subheader(f"📊 Comparative Decision Matrix: {analysis.ticker}")
     
     data = []
     for name, res in analysis.style_results.items():
         data.append({
+            "Ticker": analysis.ticker,
             "Style": name,
             "Score": f"{res['score']:.0%}",
             "Trend": res['trend'],
