@@ -10,6 +10,7 @@ def render_multi_style_report(analysis: StockAnalysis):
     Highlights the recommended 'Best Style'.
     """
     if not analysis or not analysis.style_results:
+        st.write("Debug - Analysis Object:", analysis)
         st.warning("No multi-style data available. Run the analysis first.")
         return
 
