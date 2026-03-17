@@ -158,7 +158,7 @@ class GrowthStyle(TradingStyleStrategy):
             
         # 4. Fundamental Quality (30% Weight - simplified checklist)
         # Using ROE and EPS growth as proxies
-        from src.dashboard import _safe_float_parse
+        from src.utils import _safe_float_parse
         roe = _safe_float_parse(analysis.finviz_data.get('ROE', ''))
         eps_ny = _safe_float_parse(analysis.finviz_data.get('EPS next Y', ''))
         

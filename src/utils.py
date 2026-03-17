@@ -106,6 +106,20 @@ def _safe_int(val):
     except (ValueError, TypeError, OverflowError):
         return None
 
+def _safe_float_parse(val_str: str):
+    """Helper to parse finviz strings to float (e.g. '20.5%')"""
+    if not val_str or val_str == '-' or val_str == 'N/A':
+        return None
+    try:
+        clean_str = str(val_str).replace('%', '').replace(',', '')
+        if 'B' in clean_str:
+            return float(clean_str.replace('B', '')) * 1e9
+        if 'M' in clean_str:
+            return float(clean_str.replace('M', '')) * 1e6
+        return float(clean_str)
+    except ValueError:
+        return None
+
 def render_ticker_header(analysis: StockAnalysis):
     """Render a consistent header for detailed analysis views"""
     st.markdown(f"## {analysis.company_name or analysis.ticker} ({analysis.ticker})")

@@ -357,9 +357,18 @@ class StockAnalyzer:
         
         for style_name in styles:
             # Create a clone for each style to avoid interference
-            # We only need to clone fields changed by calculate_trade_setup
             import copy
             style_analysis = copy.copy(main_analysis)
+            
+            # Explicitly reset mutable state or create shallow copies of nested collections
+            style_analysis.setup_notes = []
+            style_analysis.support_levels = []
+            style_analysis.resistance_levels = []
+            style_analysis.swing_patterns = []
+            style_analysis.volume_profile_hvns = []
+            style_analysis.volume_profile_lvns = []
+            style_analysis.finviz_data = main_analysis.finviz_data.copy() if main_analysis.finviz_data else {}
+            
             # Use specific history for growth
             if style_name == "Growth Investing" and not isinstance(tech_w, Exception) and tech_w:
                 style_analysis.history = tech_w.get("history")

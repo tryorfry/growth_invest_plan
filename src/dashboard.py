@@ -21,7 +21,7 @@ from src.analyzer import StockAnalyzer, StockAnalysis
 from src.database import Database
 from src.models import Stock, Analysis
 from src.visualization_tv import TVChartGenerator
-from src.utils import save_analysis, render_ticker_header
+from src.utils import save_analysis, render_ticker_header, _safe_float_parse
 from src.auth import AuthManager
 from src.views.login import render_login_page
 from src.theme_manager import ThemeManager
@@ -143,19 +143,7 @@ async def analyze_stock(ticker: str, trading_style: str = "Growth Investing"):
     return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False)
 
 
-def _safe_float_parse(val_str: str) -> Optional[float]:
-    """Helper to parse finviz strings to float"""
-    if not val_str or val_str == '-' or val_str == 'N/A':
-        return None
-    try:
-        clean_str = val_str.replace('%', '').replace(',', '')
-        if 'B' in clean_str:
-            return float(clean_str.replace('B', '')) * 1e9
-        if 'M' in clean_str:
-            return float(clean_str.replace('M', '')) * 1e6
-        return float(clean_str)
-    except ValueError:
-        return None
+# Removed _safe_float_parse - now in src.utils
 
 def render_checklist(analysis: StockAnalysis):
     """Render the Investment Checklist in the dashboard"""
