@@ -63,38 +63,54 @@ class TVChartGenerator:
                     "title": "SL"
                 })
                 
-            if getattr(analysis, 'max_buy_price', None):
+            matp = getattr(analysis, 'median_price_target', None)
+            mbp = getattr(analysis, 'max_buy_price', None)
+            target = getattr(analysis, 'target_price', None)
+            
+            # 1. Handle MBP and MATP overlap
+            if matp and mbp and abs(matp - mbp) < 0.01:
                 price_lines.append({
-                    "price": analysis.max_buy_price,
-                    "color": "#2196F3",
-                    "lineWidth": 1.5,
+                    "price": mbp,
+                    "color": "#FFEB3B", # Yellow for combined
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": True,
-                    "title": "MBP"
+                    "title": "MATP/MBP"
                 })
-                
-            if getattr(analysis, 'target_price', None):
+            else:
+                # Show separately
+                if mbp:
+                    price_lines.append({
+                        "price": mbp,
+                        "color": "#2196F3",
+                        "lineWidth": 1.5,
+                        "lineStyle": 0, # Solid
+                        "axisLabelVisible": True,
+                        "title": "MBP"
+                    })
+                if matp:
+                    # Only show if not overlapping with target (which might be the same as MBP in some styles)
+                    if not target or abs(matp - target) > 0.01:
+                        price_lines.append({
+                            "price": matp,
+                            "color": "#FFEB3B", # Yellow for MATP
+                            "lineWidth": 1.5,
+                            "lineStyle": 2, # Dashed
+                            "axisLabelVisible": True,
+                            "title": "MATP"
+                        })
+            
+            # 2. Show Profit Target
+            if target:
                 title = "PT" if analysis.trading_style == 'Swing Trading' else "T"
                 price_lines.append({
-                    "price": analysis.target_price,
+                    "price": target,
                     "color": "#00E5FF", # Cyan for profit target
                     "lineWidth": 2,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
                     "title": title
                 })
-                
-            if getattr(analysis, 'median_price_target', None):
-                # Always show MATP if available, unless it's the exact same as target_price
-                if abs(analysis.median_price_target - getattr(analysis, 'target_price', 0)) > 0.01:
-                    price_lines.append({
-                        "price": analysis.median_price_target,
-                        "color": "#FFEB3B", # Yellow for MATP
-                        "lineWidth": 1.5,
-                        "lineStyle": 2, # Dashed
-                        "axisLabelVisible": True,
-                        "title": "MATP"
-                    })
 
         if show_support_resistance:
             theme = st.session_state.get('theme_preference', 'dark')
