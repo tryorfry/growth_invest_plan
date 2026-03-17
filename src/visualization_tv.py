@@ -73,15 +73,28 @@ class TVChartGenerator:
                     "title": "MBP"
                 })
                 
-            if getattr(analysis, 'target_price', None) and analysis.trading_style == 'Swing Trading':
+            if getattr(analysis, 'target_price', None):
+                title = "PT" if analysis.trading_style == 'Swing Trading' else "T"
                 price_lines.append({
                     "price": analysis.target_price,
                     "color": "#00E5FF", # Cyan for profit target
                     "lineWidth": 2,
                     "lineStyle": 1, # Dotted
                     "axisLabelVisible": True,
-                    "title": "PT"
+                    "title": title
                 })
+                
+            if getattr(analysis, 'median_price_target', None):
+                # Always show MATP if available, unless it's the exact same as target_price
+                if abs(analysis.median_price_target - getattr(analysis, 'target_price', 0)) > 0.01:
+                    price_lines.append({
+                        "price": analysis.median_price_target,
+                        "color": "#FFEB3B", # Yellow for MATP
+                        "lineWidth": 1.5,
+                        "lineStyle": 2, # Dashed
+                        "axisLabelVisible": True,
+                        "title": "MATP"
+                    })
 
         if show_support_resistance:
             theme = st.session_state.get('theme_preference', 'dark')

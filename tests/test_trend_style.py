@@ -71,7 +71,7 @@ def test_trend_style_etf_target():
     style.calculate_trade_setup(analysis)
     
     assert analysis.target_price == 140.0
-    assert "ETF Target" in "".join(analysis.setup_notes)
+    assert "Asset Target" in "".join(analysis.setup_notes)
     
 def test_trend_style_chart_defaults():
     style = TrendStyle()

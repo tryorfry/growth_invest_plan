@@ -35,33 +35,11 @@ class TrendStyle(TradingStyleStrategy):
         atr = getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0)) 
         notes = []
         
-        # Determine Reward based on Asset Type
-        # MATP (Median Analyst Target Price) for Stocks
-        # Next Resistance / ATH for ETFs
-        is_etf = any(keyword in str(getattr(analysis, 'industry', '')).lower() for keyword in ['etf', 'exchange traded fund'])
-        
-        target = None
-        if is_etf:
-            # For ETFs, use the next significant resistance or ATH
-            all_resistances = sorted([r for r in getattr(analysis, 'resistance_levels', []) if r > price])
-            if all_resistances:
-                target = all_resistances[-1] # Aim high for trend
-                notes.append(f"ℹ️ ETF Target: Using resistance level {target}")
-            else:
-                # Fallback to 10% gain if no resistance found (placeholder for ATH logic)
-                target = price * 1.10
-                notes.append("ℹ️ ETF Target: No resistance found, using +10% target.")
+        target = self.get_primary_target(analysis)
+        if getattr(analysis, 'median_price_target', None) == target:
+            notes.append(f"ℹ️ Stock Target: Using Analyst Target Price ${target:.2f}")
         else:
-            # For Stocks, use Median Analyst Target Price
-            target = getattr(analysis, 'median_price_target', None)
-            if target:
-                notes.append(f"ℹ️ Stock Target: Using Analyst Target Price {target}")
-            else:
-                # Fallback to high resistance
-                all_resistances = sorted([r for r in getattr(analysis, 'resistance_levels', []) if r > price])
-                if all_resistances:
-                    target = all_resistances[-1]
-                    notes.append(f"ℹ️ Stock Target: No analyst target, using resistance {target}")
+            notes.append(f"ℹ️ Asset Target: Using technical level ${target:.2f}")
 
         if not target or atr <= 0:
             notes.append("❌ Rejected: Missing target price or ATR data.")
@@ -122,6 +100,9 @@ class TrendStyle(TradingStyleStrategy):
         analysis.suggested_stop_loss = stop_loss
         analysis.target_price = target
         analysis.reward_to_risk = reward_risk_ratio
+        
+        # Calculate Max Buy Price for Trend Trading
+        analysis.max_buy_price = self.calculate_max_buy_price(analysis)
         
         if reward_risk_ratio >= 3.0:
             notes.append(f"✅ Setup Valid: Excellent Reward/Risk ratio ({reward_risk_ratio:.1f}x)")

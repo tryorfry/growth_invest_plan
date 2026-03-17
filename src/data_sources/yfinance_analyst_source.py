@@ -77,7 +77,7 @@ class YFinanceAnalystSource(AnalystDataSource):
                             if df.index.tz is not None:
                                 df.index = df.index.tz_convert(None)
                         
-                        # Only ratings post most recent earnings
+                        # Only ratings since recent earnings (including announcement date)
                         recent_df = df[df.index >= last_earnings_date].copy()
                     else:
                         # No earnings date: use last 90 days

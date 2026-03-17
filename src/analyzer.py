@@ -441,12 +441,11 @@ class StockAnalyzer:
         raw_resistances = sorted([r for r in clustered_resistances if r > current_price])
         
         # Get strategy rounding logic dynamically
-        from .trading_styles.growth import GrowthStyle # Fallback
-        rounding_helper = GrowthStyle()
+        style_strategy = get_trading_style(analysis.trading_style)
         
         # Apply psychological integer rounding
-        supports = sorted(list(set([rounding_helper._apply_smart_rounding(s) for s in raw_supports])))
-        resistances = sorted(list(set([rounding_helper._apply_smart_rounding(r) for r in raw_resistances])))
+        supports = sorted(list(set([style_strategy._apply_smart_rounding(s) for s in raw_supports])))
+        resistances = sorted(list(set([style_strategy._apply_smart_rounding(r) for r in raw_resistances])))
         
         analysis.support_levels = supports[-3:] if supports else []
         analysis.resistance_levels = resistances[:3] if resistances else []

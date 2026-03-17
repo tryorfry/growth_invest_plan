@@ -100,7 +100,7 @@ class MarketBeatSource(AnalystDataSource):
                 rating_date = datetime.strptime(date_str, "%m/%d/%Y")
                 rating_date = rating_date.replace(tzinfo=last_earnings_date.tzinfo)
                 
-                # Skip ratings before earnings
+                # Skip ratings before earnings (Formula: Use targets since/on earnings announcement)
                 if rating_date < last_earnings_date:
                     continue
                 

@@ -14,28 +14,6 @@ class GrowthStyle(TradingStyleStrategy):
     def style_name(self) -> str:
         return "Growth Investing"
         
-    def _apply_smart_rounding(self, price: float) -> float:
-        """Original psychological rounding logic for Support/Resistance"""
-        if price <= 0:
-            return 0.0
-            
-        max_deviation = 0.02
-        
-        if price >= 100:
-            steps = [100, 50, 20, 10, 5]
-        elif price >= 20:
-            steps = [10, 5]
-        elif price >= 5:
-            steps = [5]
-        else:
-            steps = []
-            
-        for step in steps:
-            nearest_psycho = round(price / step) * step
-            if nearest_psycho > 0 and abs(price - nearest_psycho) / price <= max_deviation:
-                return float(nearest_psycho)
-                
-        return float(round(price))
         
     def _adjust_decimals(self, price: float, is_entry: bool = True) -> float:
         """Original repeating decimal logic (.11, .22, etc)"""
@@ -125,10 +103,7 @@ class GrowthStyle(TradingStyleStrategy):
         analysis.suggested_stop_loss = stop_loss
         
         # Maximum buy ceiling
-        if hasattr(analysis, 'median_price_target') and analysis.median_price_target:
-            analysis.max_buy_price = analysis.median_price_target / 1.15
-        else:
-            analysis.max_buy_price = self._adjust_decimals(entry * 1.05, is_entry=True)
+        analysis.max_buy_price = self.calculate_max_buy_price(analysis)
             
         # 4. Ceiling Check
         if nearest_resistance:
