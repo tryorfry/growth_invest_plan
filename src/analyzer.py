@@ -133,6 +133,7 @@ class StockAnalysis:
     
     # Multi-Style Results
     style_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    style_analyses: Dict[str, Any] = field(default_factory=dict) # Full StockAnalysis objects for each style
     best_style: Optional[str] = None
     
     def has_earnings_warning(self) -> bool:
@@ -397,6 +398,9 @@ class StockAnalyzer:
                     "notes": style_analysis.setup_notes,
                     "patterns": [p['pattern'] for p in getattr(style_analysis, 'swing_patterns', [])]
                 }
+                
+                # Save the full analysis object for deep-dive
+                main_analysis.style_analyses[style_name] = style_analysis
                 
             # 3. Determine best style
             if style_scores:

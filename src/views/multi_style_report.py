@@ -75,6 +75,36 @@ def render_multi_style_report(analysis: StockAnalysis):
                 # Patterns
                 if result['patterns']:
                     st.caption("🔍 " + ", ".join(result['patterns'][:2]))
+                    
+                st.divider()
+                
+                # Deep Dive Button
+                if analysis.style_analyses and style_name in analysis.style_analyses:
+                    if st.button(f"🔍 View Full {style_name}", key=f"btn_dive_{style_name}", use_container_width=True):
+                        # Set up session state for redirection
+                        st.session_state['go_to_page'] = "🏠 Home"
+                        st.session_state['active_trading_style'] = style_name
+                        st.session_state['current_analysis'] = analysis.style_analyses[style_name]
+                        st.session_state['current_ticker'] = analysis.ticker
+                        
+                        # Set chart preferences for the style
+                        from src.trading_styles.factory import get_trading_style
+                        style_strategy = get_trading_style(style_name)
+                        defaults = style_strategy.get_chart_defaults()
+                        if 'chart_prefs' in st.session_state:
+                            st.session_state['chart_prefs'].update({
+                                'ema': defaults.get('ema', True),
+                                'atr': defaults.get('atr', True),
+                                'sr': defaults.get('sr', True),
+                                'ts': defaults.get('ts', True),
+                                'rsi': defaults.get('rsi', False),
+                                'macd': defaults.get('macd', False),
+                                'boll': defaults.get('boll', False)
+                            })
+                        st.session_state['timeframe'] = defaults.get('timeframe', 'D')
+                        st.session_state['zoom'] = defaults.get('zoom', '1Y')
+                        
+                        st.rerun()
 
     # Comparison Grid (Technical Stats)
     st.divider()

@@ -511,10 +511,15 @@ def main():
         can_swing = st.session_state.get('can_use_swing_trading', False) or st.session_state.get('user_tier') == 'admin'
         
         style_options = ["Growth Investing", "Swing Trading", "Trend Trading"]
+        
+        # Determine the default index for the selectbox based on session state
+        current_active_style = st.session_state.get('active_trading_style', "Growth Investing")
+        default_index = style_options.index(current_active_style) if current_active_style in style_options else 0
+        
         selected_style = st.selectbox(
             "Select Style",
             options=style_options,
-            index=0,
+            index=default_index,
             help="Choose your investment/trading strategy"
         )
         
