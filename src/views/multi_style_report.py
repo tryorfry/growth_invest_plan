@@ -288,6 +288,11 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                         st.session_state['current_analysis'] = analysis.style_analyses[style_name]
                         st.session_state['current_ticker'] = analysis.ticker
                         
+                        # Force Home page ticker to match
+                        st.session_state['main_dash_text'] = analysis.ticker
+                        st.session_state['main_dash_dropdown'] = ""
+
+                        
                         # Apply style defaults
                         from src.trading_styles.factory import get_trading_style
                         style_strategy = get_trading_style(style_name)

@@ -444,6 +444,11 @@ class StockAnalyzer:
         analysis.bollinger_lower = data.get("bollinger_lower", 0.0)
         analysis.timestamp = data.get("timestamp")
         
+        # Company Info
+        analysis.company_name = data.get("company_name")
+        analysis.sector = data.get("sector")
+        analysis.industry = data.get("industry")
+        
         # Earnings
         analysis.last_earnings_date = data.get("last_earnings_date")
         analysis.past_earnings_dates = data.get("past_earnings_dates", [])
