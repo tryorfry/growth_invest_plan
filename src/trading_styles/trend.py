@@ -15,12 +15,40 @@ class TrendStyle(TradingStyleStrategy):
         return "Trend Trading"
         
     def _adjust_decimals(self, price: float, is_entry: bool = True) -> float:
-        """Standard decimal adjustment for consistency"""
-        # Using a simplified version of the swing rounding for trend
+        """Strict psychological repeating decimal logic (.11, .22, etc)"""
+        valid_cents = [11, 22, 33, 44, 66, 77, 88, 99]
+        
         if is_entry:
-            return round(price, 2)
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in valid_cents:
+                if v >= cents:
+                    chosen_cent = v
+                    break
+            
+            if chosen_cent is None:
+                int_part += 1
+                chosen_cent = 11
+                
+            return float(int_part) + (chosen_cent / 100.0)
+            
         else:
-            return round(price, 2)
+            int_part = int(math.floor(price))
+            cents = round((price - int_part) * 100)
+            
+            chosen_cent = None
+            for v in reversed(valid_cents):
+                if v <= cents:
+                    chosen_cent = v
+                    break
+                    
+            if chosen_cent is None:
+                int_part -= 1
+                chosen_cent = 99
+                
+            return float(int_part) + (chosen_cent / 100.0)
 
     def calculate_trade_setup(self, analysis: Any) -> None:
         """
