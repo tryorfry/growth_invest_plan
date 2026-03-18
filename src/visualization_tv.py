@@ -12,7 +12,7 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool) -> List[Dict[str, Any]]:
+    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -192,22 +192,22 @@ class TVChartGenerator:
                 "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "right"}
             })
 
-        # 2.7 Trend Channel
-        if getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
+        # 2.7 Trend Channel (parallel High/Low regression bands)
+        if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Center'])} for _, row in df.iterrows() if pd.notna(row['Trend_Center'])],
-                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Trend Center", "priceScaleId": "right"}
+                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Channel Mid", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Upper'])} for _, row in df.iterrows() if pd.notna(row['Trend_Upper'])],
-                "options": {"color": 'rgba(255, 152, 0, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Trend Upper", "priceScaleId": "right"}
+                "options": {"color": '#FF5722', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Top", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Lower'])} for _, row in df.iterrows() if pd.notna(row['Trend_Lower'])],
-                "options": {"color": 'rgba(255, 152, 0, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Trend Lower", "priceScaleId": "right"}
+                "options": {"color": '#4CAF50', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Bot", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
 
         # 3. ATR
@@ -386,6 +386,7 @@ class TVChartGenerator:
         show_support_resistance: bool = True,
         show_hvn: bool = True,
         show_trade_setup: bool = True,
+        show_channel: bool = True,
         height: int = 600
     ) -> None:
         """
@@ -417,7 +418,7 @@ class TVChartGenerator:
         # Determine Daily Series
         daily_df = df.copy()
         daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup)
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel)
         
         # Determine Weekly Series
         weekly_df = df.copy()
@@ -431,7 +432,7 @@ class TVChartGenerator:
                 
         weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
         weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup)
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel)
 
         theme = st.session_state.get('theme_preference', 'dark')
         bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'

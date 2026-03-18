@@ -213,26 +213,63 @@ class YFinanceSource(TechnicalDataSource):
         hist['Bollinger_Upper'] = bollinger_upper
         hist['Bollinger_Lower'] = bollinger_lower
         
-        # Trend Channel (50 period Linear Regression)
+        # Trend Channel (50 period Linear Regression with High/Low parallel bands)
+        # The center line is fit through Close prices.
+        # The upper/lower channel bands are parallel to the center, offset by
+        # the max (High - predicted) and min (Low - predicted) residuals in the window.
+        # This ensures the channel tightly hugs the actual price action.
         import numpy as np
         reg_window = 50
-        def calc_lin_reg(y):
-            if len(y.dropna()) < reg_window: return np.nan
-            x = np.arange(len(y))
-            coef = np.polyfit(x, y, 1)
-            return coef[0] * (len(y) - 1) + coef[1]
-            
-        def calc_lin_reg_std(y):
-            if len(y.dropna()) < reg_window: return np.nan
-            x = np.arange(len(y))
-            coef = np.polyfit(x, y, 1)
-            predicted = coef[0] * x + coef[1]
-            return np.std(y - predicted)
+        
+        def calc_lin_reg_endpoint(close_vals):
+            """Returns the predicted Close value at the last point in the window."""
+            if len(close_vals) < reg_window: return np.nan
+            x = np.arange(len(close_vals))
+            coef = np.polyfit(x, close_vals, 1)
+            return coef[0] * (len(close_vals) - 1) + coef[1]
 
-        hist['Trend_Center'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(calc_lin_reg, raw=False)
-        hist['Trend_Std'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(calc_lin_reg_std, raw=False)
-        hist['Trend_Upper'] = hist['Trend_Center'] + (hist['Trend_Std'] * 2)
-        hist['Trend_Lower'] = hist['Trend_Center'] - (hist['Trend_Std'] * 2)
+        def calc_channel_offset(window_data):
+            """Returns max(High - predicted_close) across the window for upper band."""
+            if len(window_data) < reg_window: return np.nan
+            close = window_data[:, 0]
+            high = window_data[:, 1]
+            x = np.arange(len(close))
+            coef = np.polyfit(x, close, 1)
+            predicted = coef[0] * x + coef[1]
+            return np.max(high - predicted)
+
+        def calc_channel_lower_offset(window_data):
+            """Returns min(Low - predicted_close) across the window for lower band."""
+            if len(window_data) < reg_window: return np.nan
+            close = window_data[:, 0]
+            low = window_data[:, 1]
+            x = np.arange(len(close))
+            coef = np.polyfit(x, close, 1)
+            predicted = coef[0] * x + coef[1]
+            return np.min(low - predicted)
+
+        hist['Trend_Center'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(
+            calc_lin_reg_endpoint, raw=True
+        )
+        # For upper/lower, we need both Close and High/Low simultaneously per window
+        close_arr = hist['Close'].values
+        high_arr = hist['High'].values
+        low_arr = hist['Low'].values
+        n = len(hist)
+        upper_offset = np.full(n, np.nan)
+        lower_offset = np.full(n, np.nan)
+        for i in range(reg_window - 1, n):
+            window_close = close_arr[i - reg_window + 1: i + 1]
+            window_high  = high_arr[i - reg_window + 1: i + 1]
+            window_low   = low_arr[i - reg_window + 1: i + 1]
+            if np.any(np.isnan(window_close)): continue
+            x = np.arange(reg_window)
+            coef = np.polyfit(x, window_close, 1)
+            predicted = coef[0] * x + coef[1]
+            upper_offset[i] = np.max(window_high - predicted)
+            lower_offset[i] = np.min(window_low - predicted)
+        hist['Trend_Upper'] = hist['Trend_Center'] + pd.Series(upper_offset, index=hist.index)
+        hist['Trend_Lower'] = hist['Trend_Center'] + pd.Series(lower_offset, index=hist.index)
         
         # Latest values
         latest = hist.iloc[-1]

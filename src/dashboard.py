@@ -935,6 +935,16 @@ def main():
                                     st.session_state['show_hvn'] = show_hvn
                                     st.rerun()
                         
+                        # Trend Channel toggle (only meaningful in Trend Trading)
+                        if analysis.trading_style == "Trend Trading":
+                            show_channel = st.checkbox(
+                                "📉 Trend Channel",
+                                value=st.session_state['chart_prefs'].get('channel', True),
+                                key="chk_channel"
+                            )
+                        else:
+                            show_channel = False
+
                     # Save local UI states back to prefs immediately
                     st.session_state['chart_prefs'].update({
                         'ema': show_ema,
@@ -943,7 +953,8 @@ def main():
                         'ts': show_trade_setup,
                         'rsi': show_rsi,
                         'macd': show_macd,
-                        'boll': show_bollinger
+                        'boll': show_bollinger,
+                        'channel': show_channel
                     })
                     
                     # Get defaults for the current style
@@ -964,6 +975,7 @@ def main():
                         show_support_resistance=show_support_resistance,
                         show_hvn=show_hvn,
                         show_trade_setup=show_trade_setup,
+                        show_channel=show_channel,
                         height=800 if show_rsi or show_macd else 700
                     )
                     
