@@ -115,11 +115,11 @@ class MarketBeatSource(AnalystDataSource):
                 if not price_target_str:
                     continue
                 
-                # Extract numeric values (handles "$300.00" or "$300.00 -> $320.00")
-                matches = re.findall(r'\$?(\d+\.\d{2})', price_target_str)
+                # Extract numeric values (handles "$300.00", "$1,300.00", or "$300.00 -> $1,320.00")
+                matches = re.findall(r'\$?([\d,]+\.\d{2})', price_target_str)
                 if matches:
-                    # Take the latest target if it's a range
-                    price_target = float(matches[-1])
+                    # Take the latest target if it's a range and remove commas
+                    price_target = float(matches[-1].replace(',', ''))
                     price_targets.append(price_target)
                     
             except (ValueError, IndexError):

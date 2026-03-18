@@ -1,8 +1,14 @@
 import streamlit as st
 import asyncio
 import pandas as pd
+import plotly.express as px
 from typing import Dict, Any, Optional, List, Union
 from src.analyzer import StockAnalysis
+from src.utils_correlation import calculate_correlation_matrix
+from src.exporters.excel_exporter import ExcelExporter
+from src.watchlist import WatchlistManager
+
+from src.alerts.alert_engine import AlertEngine
 
 def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
     """
@@ -20,7 +26,49 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
         st.warning("No valid analysis results to display.")
         return
 
-    # 1. Summary Leaderboard (if multi-ticker)
+    # 1. Action Bar (Excel Export & Alerts)
+    if len(analyses) > 1:
+        col_export, col_alert, col_empty = st.columns([0.3, 0.3, 0.4])
+        with col_export:
+            if st.button("📥 Download Batch Excel Report", use_container_width=True):
+                exporter = ExcelExporter()
+                filename = exporter.export_analysis(analyses)
+                with open(filename, "rb") as f:
+                    st.download_button(
+                        label="Click here to save file",
+                        data=f,
+                        file_name=filename,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+        with col_alert:
+            if st.button("🔔 Sync Best Match Alerts", use_container_width=True):
+                from src.database import Database
+                db = Database()
+                ae = AlertEngine()
+                count = 0
+                with db.get_session() as session:
+                    for a in analyses:
+                        if a.best_style:
+                            best = a.style_results[a.best_style]
+                            if best['entry']:
+                                # Create alert for price crosses below entry
+                                ae.create_alert(
+                                    session, 
+                                    a.ticker, 
+                                    'price', 
+                                    'below', 
+                                    best['entry'], 
+                                    st.session_state.get('user_id', 1)
+                                )
+                                count += 1
+                if count > 0:
+                    st.success(f"Successfully synced {count} price alerts based on entry setups!")
+                else:
+                    st.info("No valid entries found to create alerts.")
+
+        st.divider()
+
+    # 2. Summary Leaderboard with Watchlist Integration
     if len(analyses) > 1:
         st.subheader("🏆 Multi-Ticker Opportunity Leaderboard")
         leaderboard_data = []
@@ -33,15 +81,119 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                     "Setup Quality": f"{best['score']:.0%}",
                     "Trend": best['trend'],
                     "R/R": f"{best['rr']:.1f}x",
-                    "Target Upside": f"{((best['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if best['target'] and analysis.current_price else "N/A"
+                    "ScoreNum": best['score'],
+                    "Sector": analysis.sector or "Unknown"
                 })
         
         if leaderboard_data:
             df_leader = pd.DataFrame(leaderboard_data)
-            # Sort by Setup Quality (descending)
-            df_leader['SortOrder'] = df_leader['Setup Quality'].str.rstrip('%').astype(float)
-            df_leader = df_leader.sort_values('SortOrder', ascending=False).drop(columns=['SortOrder'])
-            st.dataframe(df_leader, use_container_width=True, hide_index=True)
+            df_leader = df_leader.sort_values('ScoreNum', ascending=False)
+            
+            # Watchlist multi-select
+            selected_tickers = st.multiselect(
+                "Select tickers to add to Watchlist",
+                options=df_leader['Ticker'].tolist(),
+                default=[]
+            )
+            
+            if selected_tickers and st.button("➕ Add Selected to Watchlist"):
+                from src.database import Database
+                db = Database()
+                with db.get_session() as session:
+                    # session, user_id
+                    wm = WatchlistManager(session, st.session_state.get('user_id', 1))
+                    watchlist = wm.get_default_watchlist()
+                    for t in selected_tickers:
+                        # Find the analysis object for notes
+                        an = next((a for a in analyses if a.ticker == t), None)
+                        note = f"Added from Multi-Style Analysis. Best style: {an.best_style}" if an else ""
+                        wm.add_stock_to_watchlist(watchlist.id, t, note)
+                    st.success(f"Added {len(selected_tickers)} stocks to '{watchlist.name}'")
+
+            st.dataframe(df_leader.drop(columns=['ScoreNum']), use_container_width=True, hide_index=True)
+            
+        st.divider()
+
+    # 3. Sector Intelligence & Benchmarking
+    if len(analyses) > 1:
+        st.subheader("🏢 Sector Intelligence & Benchmarking")
+        sector_data = []
+        for analysis in analyses:
+            if analysis.best_style:
+                sector_data.append({
+                    "Sector": analysis.sector or "Unknown",
+                    "Ticker": analysis.ticker,
+                    "Score": analysis.style_results[analysis.best_style]['score'],
+                    "R/R": analysis.style_results[analysis.best_style]['rr']
+                })
+        
+        if sector_data:
+            df_sector = pd.DataFrame(sector_data)
+            sector_bench = df_sector.groupby('Sector').agg({
+                'Ticker': 'count',
+                'Score': 'mean',
+                'R/R': 'mean'
+            }).rename(columns={'Ticker': 'Stock Count', 'Score': 'Avg Setup Quality', 'R/R': 'Avg R/R'})
+            
+            sector_bench['Avg Setup Quality'] = sector_bench['Avg Setup Quality'].apply(lambda x: f"{x:.0%}")
+            sector_bench['Avg R/R'] = sector_bench['Avg R/R'].apply(lambda x: f"{x:.2f}x")
+            
+            st.table(sector_bench)
+            
+            with st.expander("🔍 View Top Outperformers by Sector"):
+                for sector, group in df_sector.groupby('Sector'):
+                    top_idx = group['Score'].idxmax()
+                    top_stock = group.loc[top_idx]
+                    st.markdown(f"**{sector}:** {top_stock['Ticker']} is the leader with {top_stock['Score']:.0%} setup.")
+        st.divider()
+
+    # 4. Correlation Discovery (Risk Heatmap)
+    if len(analyses) > 1:
+        st.subheader("🔗 Correlation Discovery (Risk Heatmap)")
+        with st.spinner("Calculating price correlations..."):
+            corr_matrix = calculate_correlation_matrix(analyses)
+            if not corr_matrix.empty:
+                fig = px.imshow(
+                    corr_matrix,
+                    text_auto=".2f",
+                    aspect="auto",
+                    color_continuous_scale="RdBu_r",
+                    origin="lower",
+                    labels=dict(color="Correlation")
+                )
+                fig.update_layout(title="Daily Returns Correlation")
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Risk Analysis
+                if len(corr_matrix) > 1:
+                    avg_corr = (corr_matrix.sum().sum() - len(corr_matrix)) / (len(corr_matrix)**2 - len(corr_matrix))
+                    if avg_corr > 0.7:
+                        st.warning(f"⚠️ **High Concentration Risk:** Average correlation is {avg_corr:.2f}. These stocks move very closely together.")
+                    elif avg_corr < 0.3:
+                        st.success(f"✅ **Good Diversification:** Average correlation is {avg_corr:.2f}. These stocks provide low-correlated exposure.")
+                    else:
+                        st.info(f"ℹ️ **Moderate Correlation:** Average correlation is {avg_corr:.2f}.")
+            else:
+                st.info("Insufficient historical data to calculate correlations.")
+        st.divider()
+
+    # 5. Cross-Style Comparison Matrix (All Tickers x All Styles)
+    if len(analyses) > 1:
+        st.subheader("📊 Cross-Style Comparison Matrix")
+        matrix_data = []
+        for analysis in analyses:
+            for style_name, res in analysis.style_results.items():
+                matrix_data.append({
+                    "Ticker": analysis.ticker,
+                    "Style": style_name,
+                    "Score": f"{res['score']:.0%}",
+                    "Trend": res['trend'],
+                    "R/R": f"{res['rr']:.1f}x",
+                    "Target Upside": f"{((res['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if res['target'] and analysis.current_price else "N/A"
+                })
+        
+        df_matrix = pd.DataFrame(matrix_data)
+        st.dataframe(df_matrix, use_container_width=True, hide_index=True)
         st.divider()
 
     # 2. Detailed Ticker Tabs
@@ -128,7 +280,8 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 
                 # Deep Dive Button
                 button_key = f"btn_dive_{analysis.ticker}_{style_name}"
-                if analysis.style_analyses and style_name in analysis.style_analyses:
+                style_analyses = getattr(analysis, 'style_analyses', {})
+                if style_analyses and style_name in style_analyses:
                     if st.button(f"🔍 View {style_name} Details", key=button_key, use_container_width=True):
                         st.session_state['go_to_page'] = "🏠 Home"
                         st.session_state['active_trading_style'] = style_name

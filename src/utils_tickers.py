@@ -43,9 +43,9 @@ def render_hybrid_ticker_input(key_prefix=""):
         text_val = st.text_input(
             "Or Type Custom Ticker",
             value="",
-            max_chars=10,
+            max_chars=100,
             key=f"{key_prefix}_text",
-            help="Type ANY stock ticker (e.g., TSLA, PLTR)"
+            help="Type ANY stock ticker (e.g., TSLA, PLTR) or comma-separated list"
         ).upper()
         
     return text_val if text_val else dropdown_val
