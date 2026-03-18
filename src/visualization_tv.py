@@ -192,6 +192,24 @@ class TVChartGenerator:
                 "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "right"}
             })
 
+        # 2.7 Trend Channel
+        if getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['Trend_Center'])} for _, row in df.iterrows() if pd.notna(row['Trend_Center'])],
+                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Trend Center", "priceScaleId": "right"}
+            })
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['Trend_Upper'])} for _, row in df.iterrows() if pd.notna(row['Trend_Upper'])],
+                "options": {"color": 'rgba(255, 152, 0, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Trend Upper", "priceScaleId": "right"}
+            })
+            series.append({
+                "type": 'Line',
+                "data": [{"time": row[date_col], "value": float(row['Trend_Lower'])} for _, row in df.iterrows() if pd.notna(row['Trend_Lower'])],
+                "options": {"color": 'rgba(255, 152, 0, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Trend Lower", "priceScaleId": "right"}
+            })
+
         # 3. ATR
         atr_data = []
         is_daily_style = getattr(analysis, 'trading_style', '') in ['Swing Trading', 'Trend Trading']

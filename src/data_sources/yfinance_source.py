@@ -213,6 +213,27 @@ class YFinanceSource(TechnicalDataSource):
         hist['Bollinger_Upper'] = bollinger_upper
         hist['Bollinger_Lower'] = bollinger_lower
         
+        # Trend Channel (50 period Linear Regression)
+        import numpy as np
+        reg_window = 50
+        def calc_lin_reg(y):
+            if len(y.dropna()) < reg_window: return np.nan
+            x = np.arange(len(y))
+            coef = np.polyfit(x, y, 1)
+            return coef[0] * (len(y) - 1) + coef[1]
+            
+        def calc_lin_reg_std(y):
+            if len(y.dropna()) < reg_window: return np.nan
+            x = np.arange(len(y))
+            coef = np.polyfit(x, y, 1)
+            predicted = coef[0] * x + coef[1]
+            return np.std(y - predicted)
+
+        hist['Trend_Center'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(calc_lin_reg, raw=False)
+        hist['Trend_Std'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(calc_lin_reg_std, raw=False)
+        hist['Trend_Upper'] = hist['Trend_Center'] + (hist['Trend_Std'] * 2)
+        hist['Trend_Lower'] = hist['Trend_Center'] - (hist['Trend_Std'] * 2)
+        
         # Latest values
         latest = hist.iloc[-1]
         latest_date = hist.index[-1]
