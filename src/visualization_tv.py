@@ -425,7 +425,7 @@ class TVChartGenerator:
         weekly_df.set_index(date_col, inplace=True)
         
         agg_dict = {'Open': 'first', 'High': 'max', 'Low': 'min', 'Close': 'last', 'Volume': 'sum'}
-        for col in ['EMA20', 'EMA50', 'EMA200', 'ATR', 'RSI', 'MACD', 'MACD_Signal', 'Bollinger_Upper', 'Bollinger_Lower']:
+        for col in ['EMA20', 'EMA50', 'EMA200', 'ATR', 'ATR_Daily', 'RSI', 'MACD', 'MACD_Signal', 'Bollinger_Upper', 'Bollinger_Lower', 'Trend_Center', 'Trend_Upper', 'Trend_Lower', 'Trend_Std']:
             if col in weekly_df.columns:
                 agg_dict[col] = 'last'
                 
