@@ -43,7 +43,7 @@ def render_hybrid_ticker_input(key_prefix=""):
         text_val = st.text_input(
             "Or Type Custom Ticker",
             value="",
-            max_chars=100,
+            max_chars=1000,
             key=f"{key_prefix}_text",
             help="Type ANY stock ticker (e.g., TSLA, PLTR) or comma-separated list"
         ).upper()
