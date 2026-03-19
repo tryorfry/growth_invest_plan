@@ -125,21 +125,27 @@ class TrendStyle(TradingStyleStrategy):
             analysis.market_trend = "Uptrend (Reversal)"
             pivots = hl_data.get('pivots', [])
             last_hl = next((p['price'] for p in reversed(pivots) if p['type'] == 'HL'), price * 0.95)
-            # Improvement #5: Use EMA20 as primary support; SL = EMA20 - 0.8×ATR
+            # SL = EMA20 - 1×ATR (full barrier), then pull up 0.2×ATR to avoid daily noise triggers
             support_level = max(last_hl, ema20) if ema20 > 0 else last_hl
-            stop_loss = support_level - (atr * 0.8)
+            sl_base = support_level - atr
+            noise_buffer = atr * 0.2
+            stop_loss = sl_base + noise_buffer
             description = "Relative High/Low Reversal"
             if ema_setup:
                 description += " + EMA Confirmation"
             notes.append(f"✅ Strategy: {description}")
         elif ema_setup:
             analysis.market_trend = "Uptrend (EMA)"
-            # Improvement #5: EMA20 is the primary support; SL = EMA20 - 0.8×ATR (tighter)
-            stop_loss = ema20 - (atr * 0.8)
-            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). SL below EMA20 (${ema20:.2f}) − 0.8×ATR.")
+            # SL = EMA20 - 1×ATR (full barrier), then pull up 0.2×ATR to avoid daily noise triggers
+            sl_base = ema20 - atr
+            noise_buffer = atr * 0.2
+            stop_loss = sl_base + noise_buffer
+            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). SL = EMA20 (${ema20:.2f}) − ATR + noise buffer.")
         else:
             analysis.market_trend = "Sideways/Downtrend"
-            stop_loss = ema20 - (atr * 0.8) if ema20 > 0 else price * 0.90
+            sl_base = ema20 - atr
+            noise_buffer = atr * 0.2
+            stop_loss = (sl_base + noise_buffer) if ema20 > 0 else price * 0.90
             notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross).")
 
         if methods_found:
