@@ -59,10 +59,9 @@ class TrendStyle(TradingStyleStrategy):
         ema20 = getattr(analysis, 'ema20', 0)
         ema50 = getattr(analysis, 'ema50', 0)
         ema200 = getattr(analysis, 'ema200', 0)
-        # Use 14-day ATR for Trend Trading as requested
-        atr = getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0)) 
+        atr = getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0))
         notes = []
-        
+
         target = self.get_primary_target(analysis)
         if getattr(analysis, 'median_price_target', None) == target:
             notes.append(f"ℹ️ Stock Target: Using Analyst Target Price ${target:.2f}")
@@ -74,51 +73,93 @@ class TrendStyle(TradingStyleStrategy):
             analysis.setup_notes = notes
             return
 
-        # 1. EMA Strategy Identification
+        # ── Channel data ──────────────────────────────────────────────────────
+        hist = getattr(analysis, 'history', None)
+        channel_direction = getattr(analysis, 'channel_direction', 'Flat')
+        channel_top = float(hist['Trend_Upper'].iloc[-1]) if hist is not None and 'Trend_Upper' in hist.columns and not hist['Trend_Upper'].isna().iloc[-1] else None
+        channel_bot = float(hist['Trend_Lower'].iloc[-1]) if hist is not None and 'Trend_Lower' in hist.columns and not hist['Trend_Lower'].isna().iloc[-1] else None
+        channel_mid = float(hist['Trend_Center'].iloc[-1]) if hist is not None and 'Trend_Center' in hist.columns and not hist['Trend_Center'].isna().iloc[-1] else None
+
+        # ── Improvement #2: Channel slope classification ──────────────────────
+        direction_emoji = {"Rising": "📈", "Flat": "➡️", "Falling": "📉"}.get(channel_direction, "➡️")
+        notes.append(f"{direction_emoji} Channel Direction: {channel_direction}")
+
+        # ── Improvement #3: Channel breakout / bounce detection ───────────────
+        channel_signal = None
+        if channel_top is not None and price > channel_top:
+            notes.append("🚀 Breakout: Price has broken above the Channel Top — momentum buy signal!")
+            channel_signal = "breakout_up"
+        elif channel_bot is not None and price < channel_mid and abs(price - channel_bot) / price < 0.015:
+            notes.append("🎯 Channel Bounce: Price near Channel Bottom — potential support buy.")
+            channel_signal = "bounce_bot"
+
+        # ── Strategy Identification ───────────────────────────────────────────
         ema_setup = price > ema50 and ema20 > ema50 and ema50 > ema200
-        
-        # 2. Relative High/Low Strategy Identification
+
         from src.pattern_recognition import PatternRecognition
         recognizer = PatternRecognition()
         hl_data = recognizer.detect_relative_high_low(analysis.history)
         dt_data = recognizer.detect_downtrend_line_break(analysis.history)
-        
         reversal_setup = dt_data.get('setup', False) and hl_data.get('trend') == "Uptrend"
 
-        # Determine Entry & Stop Loss
+        # ── Improvement #8: Multi-timeframe weekly EMA confirmation ───────────
+        weekly_ema20 = getattr(analysis, 'weekly_ema20', None)
+        weekly_ema50 = getattr(analysis, 'weekly_ema50', None)
+        weekly_trend_confirmed = False
+        if weekly_ema20 is not None and weekly_ema50 is not None:
+            weekly_trend_confirmed = weekly_ema20 > weekly_ema50
+            if weekly_trend_confirmed:
+                notes.append("✅ Weekly Confirmed: Weekly EMA20 > EMA50 (multi-timeframe bullish).")
+            else:
+                notes.append("⚠️ Weekly Caution: Weekly EMA20 ≤ EMA50 — trend not confirmed on weekly view.")
+
+        # ── Determine Entry & Stop Loss ───────────────────────────────────────
         entry = price
         stop_loss = 0
-        
+
         methods_found = []
         if ema_setup: methods_found.append("EMA Cross")
         if reversal_setup: methods_found.append("Relative High/Low")
 
         if reversal_setup:
             analysis.market_trend = "Uptrend (Reversal)"
-            # SL below recent support HL - 1x ATR
             pivots = hl_data.get('pivots', [])
             last_hl = next((p['price'] for p in reversed(pivots) if p['type'] == 'HL'), price * 0.95)
-            stop_loss = last_hl - atr
+            # Improvement #5: Use EMA20 as primary support; SL = EMA20 - 0.8×ATR
+            support_level = max(last_hl, ema20) if ema20 > 0 else last_hl
+            stop_loss = support_level - (atr * 0.8)
             description = "Relative High/Low Reversal"
             if ema_setup:
                 description += " + EMA Confirmation"
             notes.append(f"✅ Strategy: {description}")
         elif ema_setup:
             analysis.market_trend = "Uptrend (EMA)"
-            # SL below rebound EMA - 1x ATR
-            support_ema = min(ema20, ema50)
-            stop_loss = support_ema - atr
-            notes.append("✅ Strategy: EMA Trend Reversal (20 > 50 > 200)")
+            # Improvement #5: EMA20 is the primary support; SL = EMA20 - 0.8×ATR (tighter)
+            stop_loss = ema20 - (atr * 0.8)
+            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). SL below EMA20 (${ema20:.2f}) − 0.8×ATR.")
         else:
             analysis.market_trend = "Sideways/Downtrend"
-            # Default to EMA 50 support for SL if neither flags
-            stop_loss = ema50 - atr if ema50 > 0 else price * 0.90
+            stop_loss = ema20 - (atr * 0.8) if ema20 > 0 else price * 0.90
             notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross).")
 
         if methods_found:
             notes.append(f"ℹ️ Detection Method(s): {', '.join(methods_found)}")
             if reversal_setup and not ema_setup:
                 notes.append("⚡ Note: Relative High/Low detected reversal faster than EMA.")
+
+        # ── Improvement #9: Channel Bot + HVN convergence ─────────────────────
+        hvns = getattr(analysis, 'volume_profile_hvns', [])
+        if channel_bot is not None and hvns:
+            close_hvn = min(hvns, key=lambda h: abs(h - channel_bot))
+            if abs(close_hvn - channel_bot) / channel_bot < 0.015:  # within 1.5%
+                notes.append(f"💎 Strong Support: Channel Bottom (${channel_bot:.2f}) aligns with HVN (${close_hvn:.2f}) — high-confluence support zone!")
+
+        # ── Improvement #10: Earnings proximity risk warning ──────────────────
+        days_until = getattr(analysis, 'days_until_earnings', None)
+        if days_until is not None and 0 <= days_until <= 10:
+            next_e = getattr(analysis, 'next_earnings_date', None)
+            date_str = f" ({next_e.strftime('%m/%d')})" if next_e else ""
+            notes.append(f"⚠️ Earnings Risk: Earnings in {days_until} day(s){date_str}! Price may gap significantly. Consider waiting until after earnings before entering.")
 
         risk = abs(entry - stop_loss)
         reward = abs(target - entry)
@@ -128,10 +169,8 @@ class TrendStyle(TradingStyleStrategy):
         analysis.suggested_stop_loss = stop_loss
         analysis.target_price = target
         analysis.reward_to_risk = reward_risk_ratio
-        
-        # Calculate Max Buy Price for Trend Trading
         analysis.max_buy_price = self.calculate_max_buy_price(analysis)
-        
+
         if reward_risk_ratio >= 3.0:
             notes.append(f"✅ Setup Valid: Excellent Reward/Risk ratio ({reward_risk_ratio:.1f}x)")
         else:
@@ -142,15 +181,16 @@ class TrendStyle(TradingStyleStrategy):
     def get_chart_defaults(self) -> Dict[str, Any]:
         """Returns standard UI state preferences for Trend Trading."""
         return {
-            'timeframe': 'D', # Daily timeframe as requested
-            'zoom': '1Y',    # 1 Year zoom as requested
+            'timeframe': 'D',
+            'zoom': '1Y',
             'ema': True,
             'atr': True,
             'sr': True,
             'ts': True,
             'rsi': False,
             'macd': False,
-            'boll': False
+            'boll': False,
+            'channel': True,
         }
 
     def score_setup(self, analysis: Any) -> float:
@@ -159,36 +199,59 @@ class TrendStyle(TradingStyleStrategy):
         Max 1.0 (100%).
         """
         score = 0.0
-        
-        # 1. Reward/Risk (40% Weight)
+
+        # 1. Reward/Risk (30% Weight)
         rr = getattr(analysis, 'reward_to_risk', 0) or 0
         if rr >= 5.0:
-            score += 0.4
+            score += 0.30
         elif rr >= 3.0:
-            score += 0.25
+            score += 0.20
         elif rr >= 2.0:
-            score += 0.1
-            
-        # 2. Strategy Alignment (40% Weight)
+            score += 0.08
+
+        # 2. Strategy Alignment (25% Weight)
         notes = getattr(analysis, 'setup_notes', [])
-        has_ema = any("EMA Trend" in n for n in notes)
+        has_ema = any("EMA Trend" in n or "EMA Confirmation" in n for n in notes)
         has_reversal = any("Relative High/Low" in n for n in notes)
-        
         if has_ema and has_reversal:
-            score += 0.4
-        elif has_ema or has_reversal:
             score += 0.25
-            
-        # 3. Trend Quality (20% Weight)
+        elif has_ema or has_reversal:
+            score += 0.15
+
+        # 3. Channel direction (20% Weight — Rising channel is strongest signal)
+        channel_direction = getattr(analysis, 'channel_direction', 'Flat')
+        if channel_direction == "Rising":
+            score += 0.20
+        elif channel_direction == "Flat":
+            score += 0.08
+        # Falling: 0 points
+
+        # 4. Multi-timeframe weekly confirmation (15% Weight)
+        weekly_ema20 = getattr(analysis, 'weekly_ema20', None)
+        weekly_ema50 = getattr(analysis, 'weekly_ema50', None)
+        if weekly_ema20 and weekly_ema50 and weekly_ema20 > weekly_ema50:
+            score += 0.15
+
+        # 5. Channel Bot + HVN convergence bonus (5% Weight)
+        if any("Strong Support" in n for n in notes):
+            score += 0.05
+
+        # 6. Channel breakout bonus (5% Weight)
+        if any("Breakout" in n for n in notes):
+            score += 0.05
+
+        # 7. Trend Quality (remaining weight)
         trend = getattr(analysis, 'market_trend', 'Sideways')
         if "Uptrend" in trend:
-            score += 0.2
-        elif "Sideways" in trend:
             score += 0.05
-            
-        # 4. Rejection Check
+
+        # 8. Earnings risk penalty
+        if any("Earnings Risk" in n for n in notes):
+            score = max(0, score - 0.15)
+
+        # 9. Rejection Check
         if any("❌ Rejected" in n for n in notes):
             if score > 0.4: score = 0.4
             else: score *= 0.5
-            
+
         return min(1.0, score)

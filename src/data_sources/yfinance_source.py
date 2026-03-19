@@ -213,63 +213,83 @@ class YFinanceSource(TechnicalDataSource):
         hist['Bollinger_Upper'] = bollinger_upper
         hist['Bollinger_Lower'] = bollinger_lower
         
-        # Trend Channel (50 period Linear Regression with High/Low parallel bands)
-        # The center line is fit through Close prices.
-        # The upper/lower channel bands are parallel to the center, offset by
-        # the max (High - predicted) and min (Low - predicted) residuals in the window.
-        # This ensures the channel tightly hugs the actual price action.
+        # ── Trend Channel (Dynamic window, parallel High/Low regression bands) ──
+        # 1. Detect the natural swing cycle from the PatternRecognition engine
+        #    to decide how wide the regression window should be.
         import numpy as np
-        reg_window = 50
-        
+        try:
+            from src.pattern_recognition import PatternRecognition
+            _pr = PatternRecognition()
+            _hl = _pr.detect_relative_high_low(hist)
+            _pivots = _hl.get('pivots', [])
+            if len(_pivots) >= 3:
+                # Compute average bar-distance between consecutive pivots as cycle length
+                pivot_idx = [p['index'] for p in _pivots[-8:] if 'index' in p]
+                if len(pivot_idx) >= 2:
+                    gaps = [abs(pivot_idx[i+1] - pivot_idx[i]) for i in range(len(pivot_idx)-1)]
+                    avg_gap = int(np.mean(gaps))
+                    # Use 2 full cycles as window; clamp between 30 and 90 days
+                    reg_window = max(30, min(90, avg_gap * 2))
+                else:
+                    reg_window = 50
+            else:
+                reg_window = 50
+        except Exception:
+            reg_window = 50
+
         def calc_lin_reg_endpoint(close_vals):
-            """Returns the predicted Close value at the last point in the window."""
+            """Returns the predicted Close value at the last point of the window."""
             if len(close_vals) < reg_window: return np.nan
             x = np.arange(len(close_vals))
             coef = np.polyfit(x, close_vals, 1)
             return coef[0] * (len(close_vals) - 1) + coef[1]
 
-        def calc_channel_offset(window_data):
-            """Returns max(High - predicted_close) across the window for upper band."""
-            if len(window_data) < reg_window: return np.nan
-            close = window_data[:, 0]
-            high = window_data[:, 1]
-            x = np.arange(len(close))
-            coef = np.polyfit(x, close, 1)
-            predicted = coef[0] * x + coef[1]
-            return np.max(high - predicted)
-
-        def calc_channel_lower_offset(window_data):
-            """Returns min(Low - predicted_close) across the window for lower band."""
-            if len(window_data) < reg_window: return np.nan
-            close = window_data[:, 0]
-            low = window_data[:, 1]
-            x = np.arange(len(close))
-            coef = np.polyfit(x, close, 1)
-            predicted = coef[0] * x + coef[1]
-            return np.min(low - predicted)
-
         hist['Trend_Center'] = hist['Close'].rolling(window=reg_window, min_periods=reg_window).apply(
             calc_lin_reg_endpoint, raw=True
         )
-        # For upper/lower, we need both Close and High/Low simultaneously per window
+
+        # 2. Parallel bands: offset by max(High-predicted) / min(Low-predicted) within window
         close_arr = hist['Close'].values
-        high_arr = hist['High'].values
-        low_arr = hist['Low'].values
+        high_arr  = hist['High'].values
+        low_arr   = hist['Low'].values
         n = len(hist)
         upper_offset = np.full(n, np.nan)
         lower_offset = np.full(n, np.nan)
+        channel_slope = np.full(n, np.nan)
+
         for i in range(reg_window - 1, n):
-            window_close = close_arr[i - reg_window + 1: i + 1]
-            window_high  = high_arr[i - reg_window + 1: i + 1]
-            window_low   = low_arr[i - reg_window + 1: i + 1]
-            if np.any(np.isnan(window_close)): continue
+            wc = close_arr[i - reg_window + 1: i + 1]
+            wh = high_arr[i - reg_window + 1: i + 1]
+            wl = low_arr[i - reg_window + 1: i + 1]
+            if np.any(np.isnan(wc)): continue
             x = np.arange(reg_window)
-            coef = np.polyfit(x, window_close, 1)
+            coef = np.polyfit(x, wc, 1)
             predicted = coef[0] * x + coef[1]
-            upper_offset[i] = np.max(window_high - predicted)
-            lower_offset[i] = np.min(window_low - predicted)
+            upper_offset[i] = np.max(wh - predicted)
+            lower_offset[i] = np.min(wl - predicted)
+            channel_slope[i] = coef[0]   # raw slope ($/bar)
+
         hist['Trend_Upper'] = hist['Trend_Center'] + pd.Series(upper_offset, index=hist.index)
         hist['Trend_Lower'] = hist['Trend_Center'] + pd.Series(lower_offset, index=hist.index)
+        hist['Channel_Slope'] = pd.Series(channel_slope, index=hist.index)
+
+        # 3. Channel direction classification (normalised by price level)
+        last_slope = channel_slope[~np.isnan(channel_slope)][-1] if np.any(~np.isnan(channel_slope)) else 0.0
+        last_close = hist['Close'].iloc[-1]
+        # Express slope as % of price per bar — threshold ±0.05% per day
+        slope_pct = (last_slope / last_close) * 100 if last_close > 0 else 0
+        if slope_pct > 0.05:
+            channel_direction = "Rising"
+        elif slope_pct < -0.05:
+            channel_direction = "Falling"
+        else:
+            channel_direction = "Flat"
+
+        # 4. Weekly EMAs from daily data for multi-timeframe confirmation (#8)
+        weekly_hist = hist.resample('W-FRI').agg({'Close': 'last'}).dropna()
+        w_ema20 = weekly_hist['Close'].ewm(span=20, adjust=False).mean().iloc[-1] if len(weekly_hist) >= 20 else None
+        w_ema50 = weekly_hist['Close'].ewm(span=50, adjust=False).mean().iloc[-1] if len(weekly_hist) >= 50 else None
+
         
         # Latest values
         latest = hist.iloc[-1]
@@ -291,6 +311,9 @@ class YFinanceSource(TechnicalDataSource):
             "macd_signal": macd_signal.iloc[-1],
             "bollinger_upper": bollinger_upper.iloc[-1],
             "bollinger_lower": bollinger_lower.iloc[-1],
+            "channel_direction": channel_direction,
+            "weekly_ema20": w_ema20,
+            "weekly_ema50": w_ema50,
             "open": latest['Open'],
             "high": latest['High'],
             "low": latest['Low'],

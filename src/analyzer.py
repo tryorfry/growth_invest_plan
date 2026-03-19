@@ -442,6 +442,9 @@ class StockAnalyzer:
         analysis.macd_signal = data.get("macd_signal", 0.0)
         analysis.bollinger_upper = data.get("bollinger_upper", 0.0)
         analysis.bollinger_lower = data.get("bollinger_lower", 0.0)
+        analysis.channel_direction = data.get("channel_direction", "Flat")
+        analysis.weekly_ema20 = data.get("weekly_ema20")
+        analysis.weekly_ema50 = data.get("weekly_ema50")
         analysis.timestamp = data.get("timestamp")
         
         # Company Info
