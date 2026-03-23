@@ -441,6 +441,12 @@ def main():
         return
     
     elif page == "🏁 Multi-Style":
+        # ── Admin-only gate ──────────────────────────────────────────────
+        if st.session_state.get('user_tier') != 'admin':
+            st.error("🔒 Multi-Style Analysis is currently available to admin users only.")
+            st.info("Contact the administrator to request access.")
+            return
+        # ─────────────────────────────────────────────────────────────────
         from src.views.multi_style_report import render_multi_style_report, run_multi_style_analysis
         
         st.title("🏁 Multi-Style Strategy Comparison")
@@ -522,11 +528,12 @@ def main():
         st.divider()
         st.subheader("📈 Trading Strategy")
         
-        # Access control for Swing Trading
+        # Access control for premium trading styles
         can_swing = (
             st.session_state.get('can_use_swing_trading', False)
             or st.session_state.get('user_tier') in ('admin', 'premium')
         )
+        can_trend = st.session_state.get('user_tier') in ('admin', 'premium')
         
         style_options = ["Growth Investing", "Swing Trading", "Trend Trading"]
         
@@ -543,7 +550,10 @@ def main():
         
         
         if selected_style == "Swing Trading" and not can_swing:
-            st.warning("🔒 Swing Trading is a premium feature. Contact admin for access.")
+            st.warning("🔒 Swing Trading is a premium feature. Upgrade your account for access.")
+            analyze_disabled = True
+        elif selected_style == "Trend Trading" and not can_trend:
+            st.warning("🔒 Trend Trading is a premium feature. Upgrade your account for access.")
             analyze_disabled = True
         else:
             analyze_disabled = False
