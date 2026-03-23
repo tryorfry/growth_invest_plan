@@ -276,7 +276,20 @@ def render_checklist(analysis: StockAnalysis):
     else:
         st.markdown("**📅 Next Quarter Earnings Date:** N/A")
         
-    st.markdown(f"**💵 Max Buy Price (Median Target / 1.15):** ${max_buy:.2f}" if max_buy else "**💵 Max Buy Price:** N/A")
+    if max_buy:
+        st.markdown(f"**💵 Max Buy Price (Analyst Target ÷ 1.15):** ${max_buy:.2f}")
+    else:
+        # MBP is None — stock is trading above the analyst consensus target
+        matp = getattr(analysis, 'median_price_target', None)
+        price = getattr(analysis, 'current_price', None)
+        if matp and price and price > matp:
+            st.warning(
+                f"⚠️ **Above Analyst Targets:** Current price (${price:.2f}) exceeds analyst consensus "
+                f"target (${matp:.2f}). No valid Max Buy Price — the stock has outrun analyst estimates. "
+                f"Consider waiting for a consolidation or updated targets."
+            )
+        else:
+            st.markdown("**💵 Max Buy Price:** N/A")
     st.divider()
 
 
@@ -618,6 +631,27 @@ def main():
                     save_analysis(db, fetched_analysis)
                     st.session_state['current_analysis'] = fetched_analysis
                     st.session_state['current_ticker'] = ticker
+                    
+                    # ── In-App Alert Notifications ─────────────────────────────────────
+                    try:
+                        from src.alerts.alert_engine import AlertEngine
+                        alert_engine = AlertEngine(use_email=False)
+                        with db.get_session() as alert_session:
+                            triggered = alert_engine.check_alerts(alert_session, fetched_analysis)
+                            for t in triggered:
+                                atype = t.get('alert_type', '').upper()
+                                cond  = t.get('condition', '')
+                                val   = t.get('current_value', 0)
+                                thr   = t.get('threshold', 0)
+                                icon  = "🚨" if cond in ('crosses_above', 'crosses_below') else "🔔"
+                                condition_str = cond.replace('_', ' ')
+                                st.toast(
+                                    f"{icon} **{ticker} Alert!** {atype} {condition_str} {thr:.2f} — current: {val:.2f}",
+                                    icon="⚠️"
+                                )
+                    except Exception as _ae:
+                        pass  # Alerts are non-critical; don't break the main flow
+                    # ─────────────────────────────────────────────────────────────────
                     
                     # Log activity
                     _uid = st.session_state.get('user_id')
