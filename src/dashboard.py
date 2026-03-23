@@ -523,7 +523,10 @@ def main():
         st.subheader("📈 Trading Strategy")
         
         # Access control for Swing Trading
-        can_swing = st.session_state.get('can_use_swing_trading', False) or st.session_state.get('user_tier') == 'admin'
+        can_swing = (
+            st.session_state.get('can_use_swing_trading', False)
+            or st.session_state.get('user_tier') in ('admin', 'premium')
+        )
         
         style_options = ["Growth Investing", "Swing Trading", "Trend Trading"]
         
