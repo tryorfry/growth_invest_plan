@@ -352,7 +352,6 @@ def main():
             "📋 Watchlist",
             "🔔 Alerts",
             "📈 Comparison",
-            "🏁 Multi-Style",
             "🧪 Backtester",
             "🌊 Options Flow"
         ]
@@ -366,6 +365,7 @@ def main():
             ])
             
         if tier == 'admin':
+            nav_options.append("🏁 Multi-Style")
             nav_options.append("🛡️ Admin Dashboard")
 
         # Programmatic navigation: directly set nav_radio session state key so
