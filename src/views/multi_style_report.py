@@ -271,9 +271,9 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                     try:
                         risk_pu = float(result['entry']) - float(result['stop'])
                         if risk_pu > 0:
-                            # Floor division guarantees mathematically rounded down whole number
-                            units = int(100.0 // risk_pu)
-                            st.caption(f"⚖️ **Risk/Unit:** ${risk_pu:.2f} | **Max Units (1%):** {units}")
+                            units = 100.0 / risk_pu
+                            units_fmt = f"{units:.2f}" if not units.is_integer() else f"{int(units)}"
+                            st.caption(f"⚖️ **Risk/Unit:** ${risk_pu:.2f} | **Max Units (1%):** {units_fmt}")
                     except ValueError:
                         pass
                 
@@ -334,8 +334,8 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 rpu = float(res['entry']) - float(res['stop'])
                 if rpu > 0:
                     risk_pu_str = f"${rpu:.2f}"
-                    # Floor division guarantees mathematically rounded down whole number
-                    units_str = str(int(100.0 // rpu))
+                    units = 100.0 / rpu
+                    units_str = f"{units:.2f}" if not units.is_integer() else f"{int(units)}"
             except ValueError:
                 pass
 
