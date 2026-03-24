@@ -787,7 +787,8 @@ def main():
                                 if risk_per_unit > 0:
                                     nlv = 10000.0
                                     risk_1_pct = nlv * 0.01
-                                    units = int(risk_1_pct / risk_per_unit)
+                                    # Use floor division and cast to int to ensure it's explicitly rounded down and a whole number
+                                    units = int(risk_1_pct // risk_per_unit)
                                     
                                     st.markdown("#### ⚖️ Position Sizing (Assuming $10k NLV & 1% Risk)")
                                     
