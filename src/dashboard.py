@@ -763,14 +763,21 @@ def main():
                             stop_val = f"${float(raw_stop):.2f}" if raw_stop is not None else "N/A"
                             st.metric("Stop Loss", stop_val, delta_color="inverse", help="ATR-adjusted exit point.")
 
-                        if analysis.trading_style in ["Swing Trading", "Trend Trading"] and getattr(analysis, 'reward_to_risk', None):
+                        if getattr(analysis, 'reward_to_risk', None) is not None:
                             st.divider()
                             col_rr, col_pt = st.columns(2)
                             with col_rr:
                                 rr_val = analysis.reward_to_risk
-                                threshold = 3.0 if analysis.trading_style == "Trend Trading" else 2.0
-                                rr_color = "normal" if rr_val >= threshold else "inverse"
-                                st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=f">= {threshold:.1f}x required", delta_color=rr_color)
+                                if analysis.trading_style == "Trend Trading":
+                                    threshold = 3.0
+                                elif analysis.trading_style == "Swing Trading":
+                                    threshold = 2.0
+                                else:
+                                    threshold = None
+                                    
+                                rr_color = "normal" if rr_val >= (threshold or 1.0) else "inverse"
+                                delta_text = f">= {threshold:.1f}x required" if threshold else None
+                                st.metric("Reward/Risk Ratio", f"{rr_val:.2f}x", delta=delta_text, delta_color=rr_color, help="Formula: (Target - Entry) / (Entry - Stop)")
                             with col_pt:
                                 target_val = f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A"
                                 st.metric("PT", target_val)

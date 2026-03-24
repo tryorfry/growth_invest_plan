@@ -102,9 +102,16 @@ class GrowthStyle(TradingStyleStrategy):
         analysis.suggested_entry = entry
         analysis.suggested_stop_loss = stop_loss
         
+        # Calculate target and R/R ratio
+        target = self.get_primary_target(analysis)
+        analysis.target_price = target
+        
+        risk = abs(entry - stop_loss)
+        reward = abs(target - entry)
+        analysis.reward_to_risk = (reward / risk) if risk > 0 else 0.0
+        
         # Maximum buy ceiling
         analysis.max_buy_price = self.calculate_max_buy_price(analysis)
-            
         # 4. Ceiling Check
         if nearest_resistance:
             if (nearest_resistance - price) / price < 0.015:

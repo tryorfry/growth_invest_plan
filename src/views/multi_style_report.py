@@ -265,7 +265,7 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 
                 # Setup Details
                 st.markdown(f"**Trend:** {result['trend']}")
-                st.markdown(f"**R/R Ratio:** {result['rr']:.1f}x")
+                st.markdown(f"**R/R Ratio:** {result['rr']:.1f}x  *(Target-Entry) / (Entry-Stop)*")
                 
                 if result['entry']:
                     st.markdown(f"**Entry:** ${result['entry']:.2f}")
