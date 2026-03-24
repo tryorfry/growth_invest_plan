@@ -787,15 +787,14 @@ def main():
                                 if risk_per_unit > 0:
                                     nlv = 10000.0
                                     risk_1_pct = nlv * 0.01
-                                    units = risk_1_pct / risk_per_unit
-                                    units_fmt = f"{units:.2f}" if not units.is_integer() else f"{int(units)}"
+                                    units = int(risk_1_pct // risk_per_unit)
                                     
                                     st.markdown("#### ⚖️ Position Sizing (Assuming $10k NLV & 1% Risk)")
                                     
                                     pos_df = pd.DataFrame([
                                         {"Metric": "Risk Per Unit (Entry - Stop)", "Value": f"${risk_per_unit:.2f}"},
                                         {"Metric": "1% Risk Amount", "Value": f"${risk_1_pct:.2f}"},
-                                        {"Metric": "Suggested Position (Max Units)", "Value": f"{units_fmt} Units"}
+                                        {"Metric": "Suggested Position Size", "Value": f"{units} Units"}
                                     ])
                                     st.table(pos_df.set_index("Metric"))
                             except ValueError:
