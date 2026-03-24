@@ -267,6 +267,15 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 if result['target']:
                     st.markdown(f"**Target:** ${result['target']:.2f}")
                 
+                if result['entry'] and result['stop']:
+                    try:
+                        risk_pu = float(result['entry']) - float(result['stop'])
+                        if risk_pu > 0:
+                            units = int(100.0 / risk_pu)
+                            st.caption(f"⚖️ **Risk/Unit:** ${risk_pu:.2f} | **Max Units (1%):** {units}")
+                    except ValueError:
+                        pass
+                
                 # Notes
                 with st.expander("Setup Notes"):
                     for note in result['notes']:
@@ -317,6 +326,17 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
     
     data = []
     for name, res in analysis.style_results.items():
+        risk_pu_str = "N/A"
+        units_str = "N/A"
+        if res.get('entry') and res.get('stop'):
+            try:
+                rpu = float(res['entry']) - float(res['stop'])
+                if rpu > 0:
+                    risk_pu_str = f"${rpu:.2f}"
+                    units_str = str(int(100.0 / rpu))
+            except ValueError:
+                pass
+
         data.append({
             "Ticker": analysis.ticker,
             "Style": name,
@@ -324,7 +344,9 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
             "Trend": res['trend'],
             "R/R": f"{res['rr']:.1f}x",
             "Entry": f"${res['entry']:.2f}" if res['entry'] else "N/A",
-            "Target": f"${res['target']:.2f}" if res['target'] else "N/A"
+            "Target": f"${res['target']:.2f}" if res['target'] else "N/A",
+            "Risk/Unit": risk_pu_str,
+            "Max Units": units_str
         })
     
     df = pd.DataFrame(data)

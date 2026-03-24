@@ -776,6 +776,31 @@ def main():
                                 st.metric("PT", target_val)
 
                         st.divider()
+
+                        # Position Sizing Table
+                        if raw_entry is not None and raw_stop is not None:
+                            try:
+                                entry_p = float(raw_entry)
+                                stop_p = float(raw_stop)
+                                risk_per_unit = entry_p - stop_p
+                                
+                                if risk_per_unit > 0:
+                                    nlv = 10000.0
+                                    risk_1_pct = nlv * 0.01
+                                    units = int(risk_1_pct / risk_per_unit)
+                                    
+                                    st.markdown("#### ⚖️ Position Sizing (Assuming $10k NLV & 1% Risk)")
+                                    
+                                    pos_df = pd.DataFrame([
+                                        {"Metric": "Risk Per Unit (Entry - Stop)", "Value": f"${risk_per_unit:.2f}"},
+                                        {"Metric": "1% Risk Amount", "Value": f"${risk_1_pct:.2f}"},
+                                        {"Metric": "Suggested Position (Max Units)", "Value": f"{units} Units"}
+                                    ])
+                                    st.table(pos_df.set_index("Metric"))
+                            except ValueError:
+                                pass
+                                
+                        st.divider()
                         
                         # Logic and S/R Details
                         col_logic, col_levels = st.columns([1, 1.2])
