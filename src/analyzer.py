@@ -128,6 +128,8 @@ class StockAnalysis:
     suggested_stop_loss: Optional[float] = None
     target_price: Optional[float] = None
     reward_to_risk: Optional[float] = None
+    risk_per_unit: Optional[float] = None
+    position_size_units: Optional[int] = None
     setup_notes: List[str] = field(default_factory=list)
     swing_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
@@ -260,6 +262,12 @@ class StockAnalyzer:
             # Execute Strategy Pattern Trade Setup
             style_strategy.calculate_trade_setup(analysis)
             
+            if analysis.suggested_entry and analysis.suggested_stop_loss:
+                risk = float(analysis.suggested_entry) - float(analysis.suggested_stop_loss)
+                if risk > 0:
+                    analysis.risk_per_unit = risk
+                    analysis.position_size_units = int(100.0 // risk)
+            
         # 2. Fetch Analyst Targets (Dependent on earnings date from technical data)
         if analysis.last_earnings_date:
             analyst_data = None
@@ -383,6 +391,12 @@ class StockAnalyzer:
                 self._calculate_support_resistance(style_analysis)
                 style_strategy.calculate_trade_setup(style_analysis)
                 
+                if style_analysis.suggested_entry and style_analysis.suggested_stop_loss:
+                    risk = float(style_analysis.suggested_entry) - float(style_analysis.suggested_stop_loss)
+                    if risk > 0:
+                        style_analysis.risk_per_unit = risk
+                        style_analysis.position_size_units = int(100.0 // risk)
+                
                 # Score it
                 score = style_strategy.score_setup(style_analysis)
                 style_scores[style_name] = score
@@ -395,6 +409,8 @@ class StockAnalyzer:
                     "stop": style_analysis.suggested_stop_loss,
                     "target": style_analysis.target_price or style_analysis.median_price_target,
                     "rr": getattr(style_analysis, 'reward_to_risk', 0.0) or 0.0,
+                    "risk_pu": style_analysis.risk_per_unit,
+                    "units": style_analysis.position_size_units,
                     "notes": style_analysis.setup_notes,
                     "patterns": [p['pattern'] for p in getattr(style_analysis, 'swing_patterns', [])]
                 }

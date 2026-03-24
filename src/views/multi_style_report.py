@@ -274,15 +274,8 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 if result['target']:
                     st.markdown(f"**Target:** ${result['target']:.2f}")
                 
-                if result['entry'] and result['stop']:
-                    try:
-                        risk_pu = float(result['entry']) - float(result['stop'])
-                        if risk_pu > 0:
-                            # Floor division guarantees mathematically rounded down whole number
-                            units = int(100.0 // risk_pu)
-                            st.caption(f"⚖️ **Risk/Unit:** ${risk_pu:.2f} | **Max Units (1%):** {units}")
-                    except ValueError:
-                        pass
+                if result.get('risk_pu') and result.get('units'):
+                    st.caption(f"⚖️ **Risk/Unit:** ${result['risk_pu']:.2f} | **Max Units (1%):** {result['units']}")
                 
                 # Notes
                 with st.expander("Setup Notes"):
@@ -334,17 +327,8 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
     
     data = []
     for name, res in analysis.style_results.items():
-        risk_pu_str = "N/A"
-        units_str = "N/A"
-        if res.get('entry') and res.get('stop'):
-            try:
-                rpu = float(res['entry']) - float(res['stop'])
-                if rpu > 0:
-                    risk_pu_str = f"${rpu:.2f}"
-                    # Floor division guarantees mathematically rounded down whole number
-                    units_str = str(int(100.0 // rpu))
-            except ValueError:
-                pass
+        risk_pu_str = f"${res['risk_pu']:.2f}" if res.get('risk_pu') else "N/A"
+        units_str = str(res['units']) if res.get('units') else "N/A"
 
         data.append({
             "Ticker": analysis.ticker,
