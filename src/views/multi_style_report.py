@@ -230,6 +230,13 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
     
     st.divider()
     
+    # Financials & Earnings Context
+    if getattr(analysis, 'next_earnings_date', None):
+        if hasattr(analysis, 'has_earnings_warning') and analysis.has_earnings_warning():
+            st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()}) - Trade with caution!")
+        else:
+            st.info(f"📅 **Next Earnings:** In {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()})")
+            
     # Comparison Cards
     cols = st.columns(len(analysis.style_results))
     
