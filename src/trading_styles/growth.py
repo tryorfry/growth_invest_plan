@@ -106,9 +106,8 @@ class GrowthStyle(TradingStyleStrategy):
         target = self.get_primary_target(analysis)
         analysis.target_price = target
         
-        risk = abs(entry - stop_loss)
-        reward = abs(target - entry)
-        analysis.reward_to_risk = (reward / risk) if risk > 0 else 0.0
+        reward_risk_ratio = self._calculate_rr(entry, stop_loss, target)
+        analysis.reward_to_risk = reward_risk_ratio
         
         # Maximum buy ceiling
         analysis.max_buy_price = self.calculate_max_buy_price(analysis)

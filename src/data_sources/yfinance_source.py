@@ -83,23 +83,30 @@ class YFinanceSource(TechnicalDataSource):
         # or caches heavily. We fetch the live quote and update the last row if it's today.
         try:
             # fast_info is much faster than info dict
-            live_price = stock.fast_info.get("lastPrice")
+            fast = stock.fast_info
+            live_price = fast.get("lastPrice")
+            
             if live_price is not None:
                 now_tz = pd.Timestamp.now(tz=hist.index.tz) if hist.index.tz else pd.Timestamp.now()
                 # Check if the last row in history is from today
                 last_date = hist.index[-1]
                 
+                # Fetch intraday session data if available to avoid identical OHLC
+                day_open = fast.get("open", live_price)
+                day_high = fast.get("dayHigh", live_price)
+                day_low = fast.get("dayLow", live_price)
+                
                 if last_date.date() == now_tz.date():
                     # Update today's existing row
                     hist.loc[last_date, 'Close'] = live_price
-                    hist.loc[last_date, 'High'] = max(hist.loc[last_date, 'High'], live_price)
-                    hist.loc[last_date, 'Low'] = min(hist.loc[last_date, 'Low'], live_price)
+                    hist.loc[last_date, 'High'] = max(hist.loc[last_date, 'High'], day_high, live_price)
+                    hist.loc[last_date, 'Low'] = min(hist.loc[last_date, 'Low'], day_low, live_price)
                 else:
                     # Append a new row for today
                     new_row = pd.DataFrame({
-                        'Open': [live_price],
-                        'High': [live_price],
-                        'Low': [live_price],
+                        'Open': [day_open],
+                        'High': [max(day_high, live_price)],
+                        'Low': [min(day_low, live_price)],
                         'Close': [live_price],
                         'Volume': [0]  # We don't have accurate live daily volume here easily, but price is key
                     }, index=[now_tz])

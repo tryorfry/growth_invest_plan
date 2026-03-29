@@ -118,10 +118,10 @@ class MarketBeatSource(AnalystDataSource):
                 # Extract numeric values (handles "$300.00", "$1,300.00", or "$180.00 ➝ $200.00")
                 matches = re.findall(r'\$?([\d,]+\.\d{2})', price_target_str)
                 if matches:
-                    # For a range like "$180 ➝ $200", use the average of both endpoints.
-                    # For a single value, average of one element = the value itself.
+                    # Use the most recent/newest target in a boost (the last one in the range).
+                    # For a single value, values[-1] is still the value itself.
                     values = [float(m.replace(',', '')) for m in matches]
-                    price_target = sum(values) / len(values)
+                    price_target = values[-1]
                     price_targets.append(price_target)
                     
             except (ValueError, IndexError):

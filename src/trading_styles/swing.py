@@ -115,7 +115,8 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = nearest_support - atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=False)
-            risk = abs(entry - stop_loss)
+            risk_raw = entry - stop_loss
+            risk = max(risk_raw, entry * 0.001) if risk_raw > 0 else 0.0
             
             # Find a valid target from resistances
             target = None
@@ -123,11 +124,10 @@ class SwingStyle(TradingStyleStrategy):
             for r in valid_resistances:
                 raw_target = r * 0.9965 # -0.35%
                 potential_target = self._adjust_decimals(raw_target, is_entry=False)
-                potential_reward = abs(potential_target - entry)
+                reward = potential_target - entry if potential_target > entry else 0.0
                 
-                if risk > 0 and (potential_reward / risk) >= 2.0:
+                if risk > 0 and (reward / risk) >= 2.0:
                     target = potential_target
-                    reward = potential_reward
                     if r != valid_resistances[0]:
                         notes.append(f"ℹ️ Extended Target: Using higher resistance to achieve R/R >= 2.0")
                     break
@@ -136,7 +136,7 @@ class SwingStyle(TradingStyleStrategy):
             if target is None and valid_resistances:
                 raw_target = nearest_resistance * 0.9965
                 target = self._adjust_decimals(raw_target, is_entry=False)
-                reward = abs(target - entry)
+                reward = target - entry if target > entry else 0.0
                 
             if analysis.market_trend == "Sideways":
                 notes.append("ℹ️ Sideways market: Trading the range (Support to Resistance).")
@@ -147,7 +147,8 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = nearest_resistance + atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=True) # Buy to cover stop
-            risk = abs(stop_loss - entry)
+            risk_raw = stop_loss - entry
+            risk = max(risk_raw, entry * 0.001) if risk_raw > 0 else 0.0
             
             # Find a valid target from supports
             target = None
@@ -156,11 +157,10 @@ class SwingStyle(TradingStyleStrategy):
             for s in reversed(valid_supports):
                 raw_target = s * 1.0035 # +0.35%
                 potential_target = self._adjust_decimals(raw_target, is_entry=True) # Buy to cover target
-                potential_reward = abs(entry - potential_target)
+                reward = entry - potential_target if entry > potential_target else 0.0
                 
-                if risk > 0 and (potential_reward / risk) >= 2.0:
+                if risk > 0 and (reward / risk) >= 2.0:
                     target = potential_target
-                    reward = potential_reward
                     if s != valid_supports[-1]:
                         notes.append(f"ℹ️ Extended Target: Using lower support to achieve R/R >= 2.0")
                     break
@@ -169,7 +169,7 @@ class SwingStyle(TradingStyleStrategy):
             if target is None and valid_supports:
                 raw_target = nearest_support * 1.0035
                 target = self._adjust_decimals(raw_target, is_entry=True)
-                reward = abs(entry - target)
+                reward = entry - target if entry > target else 0.0
             
         else:
             notes.append("❌ Rejected: Unable to determine market trend.")
@@ -181,8 +181,9 @@ class SwingStyle(TradingStyleStrategy):
         analysis.suggested_stop_loss = stop_loss
         analysis.target_price = target
         
-        # Safe division
-        reward_risk_ratio = (reward / risk) if risk > 0 else 0
+        # Safe division with direction and floor
+        direction = "short" if analysis.market_trend == "Downtrend" else "long"
+        reward_risk_ratio = self._calculate_rr(entry, stop_loss, target, direction=direction)
         analysis.reward_to_risk = reward_risk_ratio
         
         if reward_risk_ratio >= 2.0:

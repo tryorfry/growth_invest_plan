@@ -167,9 +167,7 @@ class TrendStyle(TradingStyleStrategy):
             date_str = f" ({next_e.strftime('%m/%d')})" if next_e else ""
             notes.append(f"⚠️ Earnings Risk: Earnings in {days_until} day(s){date_str}! Price may gap significantly. Consider waiting until after earnings before entering.")
 
-        risk = abs(entry - stop_loss)
-        reward = abs(target - entry)
-        reward_risk_ratio = (reward / risk) if risk > 0 else 0
+        reward_risk_ratio = self._calculate_rr(entry, stop_loss, target)
 
         analysis.suggested_entry = entry
         analysis.suggested_stop_loss = stop_loss

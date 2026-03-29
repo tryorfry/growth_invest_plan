@@ -102,3 +102,30 @@ class TradingStyleStrategy(ABC):
         
         # Absolute fallback: 5% above current price if no target found
         return float(analysis.current_price * 1.05)
+
+    def _calculate_rr(self, entry: float, stop: float, target: float, direction: str = "long") -> float:
+        """
+        Calculates Reward/Risk ratio with directional logic and risk floor.
+        Returns 0.0 if the trade is invalid (stop on the wrong side).
+        Prevent nonsensical ratios when risk is near-zero.
+        """
+        if not entry or not stop or not target:
+            return 0.0
+            
+        if direction.lower() == "long":
+            risk = entry - stop
+            reward = target - entry
+        else: # short
+            risk = stop - entry
+            reward = entry - target
+            
+        # 1. Directional Check: If stop is on the wrong side or at entry, RR is 0
+        if risk <= 0:
+            return 0.0
+            
+        # 2. Risk Floor: Prevent division by near-zero. 
+        # Using 0.1% of entry price as a hard minimum risk floor.
+        min_risk = entry * 0.001 
+        effective_risk = max(risk, min_risk)
+        
+        return float(reward / effective_risk)

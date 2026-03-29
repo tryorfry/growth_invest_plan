@@ -65,7 +65,9 @@ class AnalysisFormatter:
         
         # Analyst targets
         if analysis.median_price_target:
-            print(f"Median MBP (Post-Earnings): ${fmt.format_number(analysis.median_price_target)}")
+            print(f"Calculated MATP (Post-Earnings): ${fmt.format_number(analysis.median_price_target)}")
+        if analysis.max_buy_price:
+            print(f"Calculated MBP (at 15% return): ${fmt.format_number(analysis.max_buy_price)}")
         
         # Finviz data
         if analysis.finviz_data:
