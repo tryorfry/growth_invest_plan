@@ -68,6 +68,12 @@ class AnalysisFormatter:
             print(f"Calculated MATP (Post-Earnings): ${fmt.format_number(analysis.median_price_target)}")
         if analysis.max_buy_price:
             print(f"Calculated MBP (at 15% return): ${fmt.format_number(analysis.max_buy_price)}")
+            
+        # Trade Setup (if available)
+        if hasattr(analysis, 'reward_to_risk') and analysis.reward_to_risk is not None:
+            print(f"Reward/Risk Ratio: {fmt.format_number(analysis.reward_to_risk)}x")
+            print(f"Suggested Entry: ${fmt.format_number(analysis.suggested_entry)}")
+            print(f"Stop Loss:       ${fmt.format_number(analysis.suggested_stop_loss)}")
         
         # Finviz data
         if analysis.finviz_data:

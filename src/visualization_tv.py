@@ -88,20 +88,23 @@ class TVChartGenerator:
                         "axisLabelVisible": True,
                         "title": "MBP"
                     })
-                if matp:
-                    # Only show if not overlapping with target (which might be the same as MBP in some styles)
-                    if not target or abs(matp - target) > 0.01:
-                        price_lines.append({
-                            "price": matp,
-                            "color": "#FFEB3B", # Yellow for MATP
-                            "lineWidth": 1.5,
-                            "lineStyle": 2, # Dashed
-                            "axisLabelVisible": True,
-                            "title": "MATP"
-                        })
+            if matp:
+                title = "MATP"
+                # If it exactly matches the PT/T target, combine labels
+                if target and abs(matp - target) < 0.01:
+                    title = f"MATP/{'PT' if analysis.trading_style == 'Swing Trading' else 'T'}"
+                
+                price_lines.append({
+                    "price": matp,
+                    "color": "#FFEB3B", # Yellow for MATP
+                    "lineWidth": 1.5,
+                    "lineStyle": 2, # Dashed
+                    "axisLabelVisible": True,
+                    "title": title
+                })
             
-            # 2. Show Profit Target
-            if target:
+            # 2. Show Profit Target (only if not already shown as part of MATP)
+            if target and (not matp or abs(matp - target) >= 0.01):
                 title = "PT" if analysis.trading_style == 'Swing Trading' else "T"
                 price_lines.append({
                     "price": target,

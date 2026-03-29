@@ -277,7 +277,8 @@ def render_checklist(analysis: StockAnalysis):
         st.markdown("**📅 Next Quarter Earnings Date:** N/A")
         
     if max_buy:
-        st.markdown(f"**💵 Max Buy Price (Analyst Target ÷ 1.15):** ${max_buy:.2f}")
+        # User requested term: Calculated MBP
+        st.markdown(f"**💵 Calculated MBP (MATP ÷ 1.15):** ${max_buy:.2f}")
     else:
         # MBP is None — stock is trading above the analyst consensus target
         matp = getattr(analysis, 'median_price_target', None)
@@ -685,9 +686,10 @@ def main():
                     with col2:
                         if analysis.median_price_target:
                             upside = ((analysis.median_price_target - analysis.current_price) / analysis.current_price) * 100
-                            st.metric("Price Target", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
+                            # User requested term: Calculated MATP
+                            st.metric("Calculated MATP", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
                         else:
-                            st.metric("Price Target", "N/A")
+                            st.metric("Calculated MATP", "N/A")
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:

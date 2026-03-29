@@ -189,7 +189,7 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                     "Score": f"{res['score']:.0%}",
                     "Trend": res['trend'],
                     "R/R": f"{res['rr']:.1f}x",
-                    "Target Upside": f"{((res['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if res['target'] and analysis.current_price else "N/A"
+                    "Calculated MATP Upside": f"{((res['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if res['target'] and analysis.current_price else "N/A"
                 })
         
         df_matrix = pd.DataFrame(matrix_data)
@@ -272,7 +272,7 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 if result['stop']:
                     st.markdown(f"**Stop:** ${result['stop']:.2f}")
                 if result['target']:
-                    st.markdown(f"**Target:** ${result['target']:.2f}")
+                    st.markdown(f"**Calculated MATP:** ${result['target']:.2f}")
                 
                 if result.get('risk_pu') and result.get('units'):
                     st.caption(f"⚖️ **Risk/Unit:** ${result['risk_pu']:.2f} | **Max Units (1%):** {result['units']}")
@@ -337,7 +337,7 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
             "Trend": res['trend'],
             "R/R": f"{res['rr']:.1f}x",
             "Entry": f"${res['entry']:.2f}" if res['entry'] else "N/A",
-            "Target": f"${res['target']:.2f}" if res['target'] else "N/A",
+            "Calculated MATP": f"${res['target']:.2f}" if res['target'] else "N/A",
             "Risk/Unit": risk_pu_str,
             "Max Units": units_str
         })

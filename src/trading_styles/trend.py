@@ -143,10 +143,17 @@ class TrendStyle(TradingStyleStrategy):
             notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). SL = EMA20 (${ema20:.2f}) − ATR + noise buffer.")
         else:
             analysis.market_trend = "Sideways/Downtrend"
-            sl_base = ema20 - atr
+            # If price is far below EMA20, the trend is broken. 
+            # Use price * 0.95 or (EMA20 - ATR) whichever is more conservative (lower).
+            sl_base = min(ema20 - atr, price * 0.95) if ema20 > 0 else price * 0.90
             noise_buffer = atr * 0.2
-            stop_loss = (sl_base + noise_buffer) if ema20 > 0 else price * 0.90
-            notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross).")
+            stop_loss = sl_base + noise_buffer
+            
+            # Final safety check: ensuring stop is definitely below entry for long trades
+            if stop_loss >= price:
+                stop_loss = price * 0.94
+                
+            notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross). Using technical floor for SL.")
 
         if methods_found:
             notes.append(f"ℹ️ Detection Method(s): {', '.join(methods_found)}")
