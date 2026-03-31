@@ -605,6 +605,13 @@ def main():
         analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True, disabled=analyze_disabled)
         
         st.divider()
+        st.subheader("⚖️ Position Sizing")
+        acc_size = st.number_input("Account Size ($)", value=10000, step=1000, help="Your total Net Liquidation Value (NLV)")
+        risk_pct = st.slider("Risk per Trade (%)", 0.25, 5.0, 1.0, 0.25, help="Percentage of account to risk if stop loss is hit")
+        st.session_state['acc_size'] = acc_size
+        st.session_state['risk_pct'] = risk_pct
+        
+        st.divider()
         st.divider()
         st.caption("Data sources: Yahoo Finance, Finviz, MarketBeat")
         
@@ -678,31 +685,60 @@ def main():
                     if analysis.has_earnings_warning():
                         st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()}) - Trade with caution!")
                     
-                    # Key Metrics Row
+                    # Key Metrics Row 1: Price & Technicals
                     col1, col2, col3, col4, col5 = st.columns(5)
-                    
                     with col1:
                         st.metric("Current Price", f"${analysis.current_price:.2f}")
                     with col2:
                         if analysis.median_price_target:
                             upside = ((analysis.median_price_target - analysis.current_price) / analysis.current_price) * 100
-                            # User requested term: Calculated MATP
                             st.metric("Calculated MATP", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
                         else:
                             st.metric("Calculated MATP", "N/A")
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        # Force "Trend Trading" to use ATR (14d) and analysis.atr_daily
-                        is_trend_or_swing = (selected_style in ["Swing Trading", "Trend Trading"]) or (analysis.trading_style in ["Swing Trading", "Trend Trading"])
-                        atr_val = getattr(analysis, 'atr_daily', analysis.atr) if is_trend_or_swing else analysis.atr
-                        atr_label = "ATR (14d)" if is_trend_or_swing else "ATR (14w)"
-                        st.metric(atr_label, f"{atr_val:.2f}")
+                        st.metric("ATR (14w)", f"{analysis.atr:.2f}")
                     with col5:
-                        if analysis.trading_style == "Swing Trading" and getattr(analysis, 'target_price', None):
-                            upside_swing = ((analysis.target_price - analysis.current_price) / analysis.current_price) * 100
-                            st.metric("PT", f"${analysis.target_price:.2f}", f"{upside_swing:+.1f}%")
-                        elif analysis.news_sentiment:
+                        st.metric("ATR (14d)", f"{analysis.atr_daily:.2f}")
+
+                    # Key Metrics Row 2: Earnings & Sentiment
+                    st.divider()
+                    col_e1, col_e2, col_e3, col_s = st.columns([1, 1, 2, 1])
+                    
+                    with col_e1:
+                        if analysis.last_earnings_date:
+                            days_since = (datetime.now().date() - (analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date)).days
+                            st.metric("Last Earnings", f"{days_since}d ago", help=f"Date: {analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date}")
+                        else:
+                            st.metric("Last Earnings", "N/A")
+                            
+                    with col_e2:
+                        if analysis.next_earnings_date:
+                            days_until = analysis.days_until_earnings
+                            st.metric("Next Earnings", f"in {days_until}d", help=f"Date: {analysis.next_earnings_date.date() if hasattr(analysis.next_earnings_date, 'date') else analysis.next_earnings_date}")
+                        else:
+                            st.metric("Next Earnings", "N/A")
+                            
+                    with col_e3:
+                        if analysis.next_earnings_date:
+                            days_until = analysis.days_until_earnings
+                            if days_until <= 3: color, label = "#ef5350", "CRITICAL"
+                            elif days_until <= 10: color, label = "#FF9800", "WARNING"
+                            else: color, label = "#26a69a", "SAFE"
+                            
+                            st.markdown(f"""
+                                <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                                    <div style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 4px;">Earnings Proximity</div>
+                                    <div style="background-color: {color}; height: 8px; border-radius: 4px; width: 100%;"></div>
+                                    <div style="font-size: 0.7rem; font-weight: bold; margin-top: 4px; color: {color};">{label}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                             st.markdown('<div style="height: 60px; display: flex; align-items: center; opacity: 0.5;">No Earnings Data</div>', unsafe_allow_html=True)
+
+                    with col_s:
+                        if analysis.news_sentiment:
                             sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
                             st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
                         else:
@@ -787,15 +823,18 @@ def main():
                         st.divider()
 
                         # Position Sizing Table
-                        if getattr(analysis, 'risk_per_unit', None) is not None and getattr(analysis, 'position_size_units', None) is not None:
+                        if getattr(analysis, 'risk_per_unit', None) is not None:
                             risk_per_unit = analysis.risk_per_unit
-                            units = analysis.position_size_units
+                            acc_size = st.session_state.get('acc_size', 10000)
+                            risk_pct = st.session_state.get('risk_pct', 1.0)
+                            risk_amount = acc_size * (risk_pct / 100.0)
+                            units = int(risk_amount // risk_per_unit) if risk_per_unit > 0 else 0
                             
-                            st.markdown("#### ⚖️ Position Sizing (Assuming $10k NLV & 1% Risk)")
+                            st.markdown(f"#### ⚖️ Position Sizing (Assuming ${acc_size/1000:.0f}k NLV & {risk_pct}% Risk)")
                             
                             pos_df = pd.DataFrame([
                                 {"Metric": "Risk Per Unit (Entry - Stop)", "Value": f"${risk_per_unit:.2f}"},
-                                {"Metric": "1% Risk Amount", "Value": "$100.00"},
+                                {"Metric": f"{risk_pct}% Risk Amount", "Value": f"${risk_amount:.2f}"},
                                 {"Metric": "Suggested Position (Max Units)", "Value": f"{units} Units"}
                             ])
                             st.table(pos_df.set_index("Metric"))

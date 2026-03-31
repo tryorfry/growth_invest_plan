@@ -109,11 +109,26 @@ class SwingStyle(TradingStyleStrategy):
 
         # 3. Swing Math based on Trend
         if analysis.market_trend == "Uptrend" or analysis.market_trend == "Sideways":
-            # Buy near support
-            raw_entry = nearest_support * 1.0035 # +0.35%
+            # Buy near support (Horizontal, HVN, or EMA20)
+            possible_supports = valid_supports.copy()
+            if ema20 > 0 and ema20 < price:
+                possible_supports.append(ema20)
+            
+            # Use the highest valid level below price as the 'floor'
+            support_floor = max(possible_supports) if possible_supports else nearest_support
+            
+            if not support_floor:
+                 notes.append("❌ Rejected: No valid support floor found.")
+                 analysis.setup_notes = notes
+                 return
+                 
+            raw_entry = support_floor * 1.0035 # +0.35% buffer
             entry = self._adjust_decimals(raw_entry, is_entry=True)
             
-            raw_stop = nearest_support - atr_daily
+            reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema20 else "EMA20 Support"
+            notes.append(f"🎯 Entry set near {reason} (${support_floor:.2f}).")
+            
+            raw_stop = support_floor - atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=False)
             risk_raw = entry - stop_loss
             risk = max(risk_raw, entry * 0.001) if risk_raw > 0 else 0.0

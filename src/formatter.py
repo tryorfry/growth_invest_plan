@@ -55,13 +55,16 @@ class AnalysisFormatter:
         
         # Technical indicators
         print(f"ATR (14w):  {fmt.format_number(analysis.atr)}")
+        print(f"ATR (14d):  {fmt.format_number(analysis.atr_daily)}")
         print(f"EMA 20:     {fmt.format_number(analysis.ema20)}")
         print(f"EMA 50:     {fmt.format_number(analysis.ema50)}")
         print(f"EMA 200:    {fmt.format_number(analysis.ema200)}")
         
         # Earnings
         if analysis.last_earnings_date:
-            print(f"Last Earnings: {analysis.last_earnings_date.date()}")
+            from datetime import datetime
+            days_since = (datetime.now().date() - analysis.last_earnings_date.date()).days
+            print(f"Last Earnings: {analysis.last_earnings_date.date()} ({days_since} days ago)")
         
         # Analyst targets
         if analysis.median_price_target:

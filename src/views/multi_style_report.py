@@ -81,7 +81,8 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                     "Setup Quality": f"{best['score']:.0%}",
                     "Trend": best['trend'],
                     "R/R": f"{best['rr']:.1f}x",
-                    "ScoreNum": best['score'],
+                    "ATR(w)": f"{analysis.atr:.2f}",
+                    "Next E": f"in {analysis.days_until_earnings}d" if analysis.next_earnings_date else "N/A",
                     "Sector": analysis.sector or "Unknown"
                 })
         
@@ -110,7 +111,7 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                         wm.add_stock_to_watchlist(watchlist.id, t, note)
                     st.success(f"Added {len(selected_tickers)} stocks to '{watchlist.name}'")
 
-            st.dataframe(df_leader.drop(columns=['ScoreNum']), use_container_width=True, hide_index=True)
+            st.dataframe(df_leader, use_container_width=True, hide_index=True)
             
         st.divider()
 
@@ -189,6 +190,8 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                     "Score": f"{res['score']:.0%}",
                     "Trend": res['trend'],
                     "R/R": f"{res['rr']:.1f}x",
+                    "ATR(w)": f"{analysis.atr:.2f}",
+                    "Next E": f"in {analysis.days_until_earnings}d" if analysis.next_earnings_date else "N/A",
                     "Calculated MATP Upside": f"{((res['target']-analysis.current_price)/analysis.current_price)*100:+.1f}%" if res['target'] and analysis.current_price else "N/A"
                 })
         
@@ -336,6 +339,9 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
             "Score": f"{res['score']:.0%}",
             "Trend": res['trend'],
             "R/R": f"{res['rr']:.1f}x",
+            "ATR(w)": f"{analysis.atr:.2f}",
+            "ATR(d)": f"{analysis.atr_daily:.2f}",
+            "Next E": f"in {analysis.days_until_earnings}d" if analysis.next_earnings_date else "N/A",
             "Entry": f"${res['entry']:.2f}" if res['entry'] else "N/A",
             "Calculated MATP": f"${res['target']:.2f}" if res['target'] else "N/A",
             "Risk/Unit": risk_pu_str,

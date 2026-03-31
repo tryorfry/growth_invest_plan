@@ -35,8 +35,9 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
-                "priceScaleId": "left"
-            }
+                "priceScaleId": "right"
+            },
+            "priceLines": price_lines
         }
 
         # Price lines (Horizontal markers) for candlestick overlay
@@ -149,27 +150,6 @@ class TVChartGenerator:
                 })
 
         series.append(candlestick_series)
-
-        if price_lines:
-            # PriceLines natively inherit the exact axis of their parent series. 
-            # Because Candlesticks are forced Left, we instead bootstrap an invisible ghost Candlestick
-            # assigned to the Right axis, solely to anchor these horizontal lines and match scales!
-            series.append({
-                "type": 'Candlestick',
-                "data": candles_data, # Exact same data as primary candlestick to sync scales
-                "options": {
-                    "upColor": 'transparent',
-                    "downColor": 'transparent',
-                    "borderVisible": False,
-                    "wickUpColor": 'transparent',
-                    "wickDownColor": 'transparent',
-                    "priceScaleId": "right",
-                    "lastValueVisible": False, 
-                    "priceLineVisible": False,
-                    "crosshairMarkerVisible": False
-                },
-                "priceLines": price_lines
-            })
 
         # 2. EMAs
         for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
@@ -446,8 +426,8 @@ class TVChartGenerator:
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
             "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
             "crosshair": { "mode": 1 },
-            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.40, "bottom": 0.05} },
-            "leftPriceScale": { "borderColor": grid_color, "visible": True },
+            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
+            "leftPriceScale": { "visible": False },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 }
         }
 
@@ -532,11 +512,8 @@ class TVChartGenerator:
                         
                         const mainBottomMargin = Math.min(0.10 + totalSubpaneHeight, 0.85); // buffer for scale minimums
                         
-                        chart.priceScale('left').applyOptions({{
-                            scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
-                        }});
                         chart.priceScale('right').applyOptions({{
-                            scaleMargins: {{ top: 0.05, bottom: mainBottomMargin }},
+                            scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         
                         // Volume has its own native chart space now

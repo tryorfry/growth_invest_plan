@@ -135,14 +135,20 @@ class AdvancedVisualizations:
             daily_returns = df['Close'].pct_change()
             volatility = daily_returns.std() * np.sqrt(252) * 100  # Annualized
             
+            # Earnings logic
+            from datetime import datetime
+            days_since = (datetime.now().date() - (analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date)).days if analysis.last_earnings_date else "N/A"
+            days_until = analysis.days_until_earnings if analysis.next_earnings_date else "N/A"
+            
             data.append({
                 'Ticker': analysis.ticker,
                 'Price': f"${current_price:.2f}",
                 '1D %': f"{returns_1d:+.2f}%",
                 '1W %': f"{returns_1w:+.2f}%",
-                '1M %': f"{returns_1m:+.2f}%",
-                '3M %': f"{returns_3m:+.2f}%",
-                'Volatility': f"{volatility:.1f}%",
+                'ATR(w)': f"{analysis.atr:.2f}",
+                'ATR(d)': f"{analysis.atr_daily:.2f}",
+                'Last E': f"{days_since}d ago",
+                'Next E': f"in {days_until}d",
                 'RSI': f"{analysis.rsi:.1f}" if analysis.rsi else "N/A",
                 'P/E': analysis.finviz_data.get('P/E', 'N/A')
             })

@@ -92,11 +92,25 @@ class GrowthStyle(TradingStyleStrategy):
             return
             
         # Execute Entry math
-        raw_entry = nearest_support * 1.005 # 0.5% buffer above nearest floor
+        possible_supports = valid_supports.copy()
+        if ema50 > 0 and ema50 < price:
+             possible_supports.append(ema50)
+             
+        support_floor = max(possible_supports) if possible_supports else nearest_support
+        
+        if not support_floor:
+             notes.append("❌ Rejected: No valid support floor found.")
+             analysis.setup_notes = notes
+             return
+             
+        raw_entry = support_floor * 1.005 # 0.5% buffer above nearest floor
         entry = self._adjust_decimals(raw_entry, is_entry=True)
         
+        reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema50 else "EMA50 Support"
+        notes.append(f"🎯 Entry set near {reason} (${support_floor:.2f}).")
+        
         # Execute Stop Loss math
-        stop_loss_raw = nearest_support - atr
+        stop_loss_raw = support_floor - atr
         stop_loss = self._adjust_decimals(stop_loss_raw, is_entry=False)
         
         analysis.suggested_entry = entry

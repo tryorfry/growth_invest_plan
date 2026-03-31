@@ -114,8 +114,9 @@ class TrendStyle(TradingStyleStrategy):
                 notes.append("⚠️ Weekly Caution: Weekly EMA20 ≤ EMA50 — trend not confirmed on weekly view.")
 
         # ── Determine Entry & Stop Loss ───────────────────────────────────────
-        entry = price
+        entry = 0
         stop_loss = 0
+        strategy_reason = ""
 
         methods_found = []
         if ema_setup: methods_found.append("EMA Cross")
@@ -125,40 +126,49 @@ class TrendStyle(TradingStyleStrategy):
             analysis.market_trend = "Uptrend (Reversal)"
             pivots = hl_data.get('pivots', [])
             last_hl = next((p['price'] for p in reversed(pivots) if p['type'] == 'HL'), price * 0.95)
-            # SL = EMA20 - 1×ATR (full barrier), then pull up 0.2×ATR to avoid daily noise triggers
-            support_level = max(last_hl, ema20) if ema20 > 0 else last_hl
-            sl_base = support_level - atr
+            # Entry: Near the recent breakout or slight pullback to HL
+            # If price is far above HL, wait for EMA20
+            target_entry = max(last_hl, ema20) if ema20 > 0 else last_hl
+            entry = self._adjust_decimals(target_entry, is_entry=True)
+            
+            # SL = support_level - 1xATR + noise buffer
+            sl_base = target_entry - atr
             noise_buffer = atr * 0.2
             stop_loss = sl_base + noise_buffer
-            description = "Relative High/Low Reversal"
+            
+            strategy_reason = "Relative High/Low Reversal"
             if ema_setup:
-                description += " + EMA Confirmation"
-            notes.append(f"✅ Strategy: {description}")
+                strategy_reason += " + EMA Confirmation"
+            notes.append(f"✅ Strategy: {strategy_reason}. Entry set near support cluster (${entry:.2f}).")
+            
         elif ema_setup:
             analysis.market_trend = "Uptrend (EMA)"
-            # SL = EMA20 - 1×ATR (full barrier), then pull up 0.2×ATR to avoid daily noise triggers
+            # Entry: Pullback to EMA20 is ideal for Trend Trading
+            entry = self._adjust_decimals(ema20, is_entry=True)
+            
+            # SL = EMA20 - 1×ATR + noise buffer
             sl_base = ema20 - atr
             noise_buffer = atr * 0.2
             stop_loss = sl_base + noise_buffer
-            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). SL = EMA20 (${ema20:.2f}) − ATR + noise buffer.")
+            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). Entry suggested at EMA20 (${entry:.2f}). SL below ATR buffer.")
         else:
             analysis.market_trend = "Sideways/Downtrend"
-            # If price is far below EMA20, the trend is broken. 
-            # Use price * 0.95 or (EMA20 - ATR) whichever is more conservative (lower).
+            # No clear entry for Trend Trading in Downtrend
+            entry = self._adjust_decimals(price, is_entry=True) # Fallback
+            
             sl_base = min(ema20 - atr, price * 0.95) if ema20 > 0 else price * 0.90
             noise_buffer = atr * 0.2
             stop_loss = sl_base + noise_buffer
             
-            # Final safety check: ensuring stop is definitely below entry for long trades
-            if stop_loss >= price:
-                stop_loss = price * 0.94
+            if stop_loss >= entry:
+                stop_loss = entry * 0.94
                 
-            notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross). Using technical floor for SL.")
-
+            notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross).")
         if methods_found:
             notes.append(f"ℹ️ Detection Method(s): {', '.join(methods_found)}")
             if reversal_setup and not ema_setup:
                 notes.append("⚡ Note: Relative High/Low detected reversal faster than EMA.")
+
 
         # ── Improvement #9: Channel Bot + HVN convergence ─────────────────────
         hvns = getattr(analysis, 'volume_profile_hvns', [])
