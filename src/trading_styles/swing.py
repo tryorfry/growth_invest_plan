@@ -122,7 +122,7 @@ class SwingStyle(TradingStyleStrategy):
                  analysis.setup_notes = notes
                  return
                  
-            raw_entry = support_floor * 1.001 # +0.1% buffer
+            raw_entry = support_floor * 1.0035 # +0.35% buffer
             entry = self._adjust_decimals(raw_entry, is_entry=True)
             
             reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema20 else "EMA20 Support"
@@ -137,7 +137,7 @@ class SwingStyle(TradingStyleStrategy):
             target = None
             reward = 0
             for r in valid_resistances:
-                raw_target = r * 0.999 # -0.1%
+                raw_target = r * 0.9965 # -0.35%
                 potential_target = self._adjust_decimals(raw_target, is_entry=False)
                 reward = potential_target - entry if potential_target > entry else 0.0
                 
@@ -149,7 +149,7 @@ class SwingStyle(TradingStyleStrategy):
             
             # If no target meets the R/R, default to the nearest resistance so it gets formally rejected
             if target is None and valid_resistances:
-                raw_target = nearest_resistance * 0.999
+                raw_target = nearest_resistance * 0.9965
                 target = self._adjust_decimals(raw_target, is_entry=False)
                 reward = target - entry if target > entry else 0.0
                 
@@ -157,7 +157,7 @@ class SwingStyle(TradingStyleStrategy):
                 notes.append("ℹ️ Sideways market: Trading the range (Support to Resistance).")
             
         elif analysis.market_trend == "Downtrend":
-            raw_entry = nearest_resistance * 0.999 # -0.1%
+            raw_entry = nearest_resistance * 0.9965 # -0.35%
             entry = self._adjust_decimals(raw_entry, is_entry=False) # Selling short
             
             raw_stop = nearest_resistance + atr_daily
@@ -170,7 +170,7 @@ class SwingStyle(TradingStyleStrategy):
             reward = 0
             # Reverse valid_supports to look downwards from nearest support
             for s in reversed(valid_supports):
-                raw_target = s * 1.001 # +0.1%
+                raw_target = s * 1.0035 # +0.35%
                 potential_target = self._adjust_decimals(raw_target, is_entry=True) # Buy to cover target
                 reward = entry - potential_target if entry > potential_target else 0.0
                 
@@ -182,7 +182,7 @@ class SwingStyle(TradingStyleStrategy):
             
             # If no target meets the R/R, default to the nearest support so it gets formally rejected
             if target is None and valid_supports:
-                raw_target = nearest_support * 1.001
+                raw_target = nearest_support * 1.0035
                 target = self._adjust_decimals(raw_target, is_entry=True)
                 reward = entry - target if entry > target else 0.0
             

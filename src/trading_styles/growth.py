@@ -103,7 +103,7 @@ class GrowthStyle(TradingStyleStrategy):
              analysis.setup_notes = notes
              return
              
-        raw_entry = support_floor * 1.001 # 0.1% buffer above nearest floor
+        raw_entry = support_floor * 1.005 # 0.5% buffer above nearest floor
         entry = self._adjust_decimals(raw_entry, is_entry=True)
         
         reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema50 else "EMA50 Support"
