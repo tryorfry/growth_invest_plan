@@ -708,7 +708,8 @@ def main():
                     
                     with col_e1:
                         if analysis.last_earnings_date:
-                            days_since = (datetime.now().date() - (analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date)).days
+                            import pandas as pd
+                            days_since = (pd.Timestamp.now().date() - (analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date)).days
                             st.metric("Last Earnings", f"{days_since}d ago", help=f"Date: {analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date}")
                         else:
                             st.metric("Last Earnings", "N/A")
