@@ -125,7 +125,12 @@ class Database:
             
             # Trading Style Extensions
             ("analyses", "trading_style", "VARCHAR(50) DEFAULT 'Growth Investing'"),
-            ("analyses", "atr_daily", "FLOAT DEFAULT 0.0")
+            ("analyses", "atr_daily", "FLOAT DEFAULT 0.0"),
+            
+            # Trading Journal extensions
+            ("transactions", "strategy_used", "VARCHAR(50)"),
+            ("transactions", "initial_risk_per_share", "FLOAT"),
+            ("transactions", "ai_conviction_score", "FLOAT")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
@@ -134,6 +139,7 @@ class Database:
         existing_cols_stocks = {col['name'] for col in inspector.get_columns('stocks')}
         existing_cols_portfolios = {col['name'] for col in inspector.get_columns('portfolios')}
         existing_cols_users = {col['name'] for col in inspector.get_columns('users')}
+        existing_cols_transactions = {col['name'] for col in inspector.get_columns('transactions')}
         
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
@@ -145,6 +151,8 @@ class Database:
                     existing = existing_cols_portfolios
                 elif table == 'users':
                     existing = existing_cols_users
+                elif table == 'transactions':
+                    existing = existing_cols_transactions
                 else:
                     existing = set()
                     

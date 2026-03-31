@@ -23,7 +23,13 @@ UNIVERSES = {
 def render_screener_page():
     """Render the automated screener page"""
     st.title("🔍 Automated Screener")
-    st.markdown("Scan multiple stocks simultaneously against the Growth Investment Checklist criteria.")
+    st.markdown("Scan multiple stocks simultaneously against the Growth Investment Checklist or find exact Technical Entry pullbacks.")
+    
+    tier = st.session_state.get('user_tier', 'free')
+    if tier != 'admin':
+        return
+
+    
     # -- Activity tracking --
     _db = st.session_state.get('db')
     if _db:
@@ -74,6 +80,7 @@ def render_screener_page():
             "Select Stock Universe",
             options=list(UNIVERSES.keys())
         )
+        scan_mode = st.radio("Scan Mode", ["Fundamentals Checklist", "Technical Entry Pullbacks"], horizontal=True)
     
     custom_tickers = ""
     with col2:
@@ -107,21 +114,56 @@ def render_screener_page():
                 status_text.text(f"Analyzing {ticker} ({i+1}/{total})...")
                 
                 try:
-                    # Run full analysis
-                    analysis = await analyzer.analyze(ticker, verbose=False)
-                    if analysis:
-                        # Evaluate against screener
-                        is_passing, score, max_score, reasons = ScreenerEngine.evaluate(analysis)
-                        
-                        results_data.append({
-                            "Ticker": ticker,
-                            "Company": getattr(analysis, 'company_name', ticker),
-                            "Price": f"${analysis.current_price:.2f}" if analysis.current_price else "N/A",
-                            "Score": f"{score}/{max_score}",
-                            "Passes?": "✅ YES" if is_passing else "❌ NO",
-                            "Failing Reasons": ", ".join(reasons) if reasons else "None",
-                            "Setup Notes": " | ".join(analysis.setup_notes) if hasattr(analysis, 'setup_notes') else ""
-                        })
+                    if scan_mode == "Fundamentals Checklist":
+                        analysis = await analyzer.analyze(ticker, verbose=False)
+                        if analysis:
+                            is_passing, score, max_score, reasons = ScreenerEngine.evaluate(analysis)
+                            results_data.append({
+                                "Ticker": ticker,
+                                "Company": getattr(analysis, 'company_name', ticker),
+                                "Price": f"${analysis.current_price:.2f}" if analysis.current_price else "N/A",
+                                "Score": f"{score}/{max_score}",
+                                "Passes?": "✅ YES" if is_passing else "❌ NO",
+                                "Top Reasons": ", ".join(reasons) if reasons else "None",
+                                "Setup Notes": " | ".join(analysis.setup_notes) if hasattr(analysis, 'setup_notes') else ""
+                            })
+                    else:
+                        # Technical Entry Pullbacks mode
+                        analysis = await analyzer.multi_analyze(ticker)
+                        if analysis:
+                            is_passing = False
+                            reasons = []
+                            score = 0
+                            max_score = 100
+                            notes = ""
+                            
+                            best_style = analysis.best_style
+                            if best_style:
+                                best_res = analysis.style_results[best_style]
+                                score = int(best_res['score'] * 100)
+                                entry = best_res['entry']
+                                if entry and analysis.current_price and best_res['rr'] >= 3.0:
+                                    dist = abs(analysis.current_price - entry) / entry
+                                    if dist <= 0.02: # Within 2% of target entry
+                                        is_passing = True
+                                        reasons.append(f"In strike zone for {best_style} near ${entry:.2f}")
+                                    else:
+                                        reasons.append(f"Waiting for pullback to ${entry:.2f} (Dist: {dist*100:.1f}%)")
+                                    notes = f"Trend: {best_res['trend']} | Target: ${best_res.get('target', 0):.2f}"
+                                else:
+                                    reasons.append("Setup invalid or R/R too low")
+                            else:
+                                reasons.append("No viable trading style found")
+                                
+                            results_data.append({
+                                "Ticker": ticker,
+                                "Company": getattr(analysis, 'company_name', ticker),
+                                "Price": f"${analysis.current_price:.2f}" if analysis.current_price else "N/A",
+                                "Score": f"{score}/{max_score}",
+                                "Passes?": "✅ YES" if is_passing else "❌ NO",
+                                "Top Reasons": ", ".join(reasons) if reasons else "None",
+                                "Setup Notes": notes
+                            })
                 except Exception as e:
                     st.error(f"Error processing {ticker}: {e}")
                 
@@ -175,7 +217,7 @@ def render_screener_page():
             r_cols[2].markdown(row['Price'])
             r_cols[3].markdown(row['Score'])
             r_cols[4].markdown(row['Passes?'])
-            r_cols[5].write(row['Failing Reasons'][:50] + "..." if len(row['Failing Reasons']) > 50 else row['Failing Reasons'])
+            r_cols[5].write(row['Top Reasons'][:50] + "..." if len(row['Top Reasons']) > 50 else row['Top Reasons'])
             
             if r_cols[6].button(f"🔬 Analyze {ticker}", key=f"btn_{ticker}", type="primary", use_container_width=True):
                 st.session_state['screener_ticker'] = ticker

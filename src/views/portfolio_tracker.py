@@ -113,9 +113,26 @@ def render_portfolio_tracker_page():
                 with col3:
                     fees = st.number_input("Commission/Fees", min_value=0.0, step=0.01)
                 
-                notes = st.text_area("Notes")
+                col4, col5 = st.columns(2)
+                with col4:
+                    strategy_used = st.selectbox("Strategy Used (Optional)", ["None", "Trend Trading", "Swing Trading", "Growth Investing"])
+                with col5:
+                    initial_risk = st.number_input("Initial Risk Per Share ($) (Optional)", min_value=0.0, step=0.01)
+                    
+                notes = st.text_area("Trade Rationale & Notes")
                 if st.form_submit_button("Add Transaction"):
-                    pm.add_transaction(selected_portfolio.id, ticker, trans_type, qty, price, fees, notes)
+                    import math
+                    pm.add_transaction(
+                        selected_portfolio.id, 
+                        ticker, 
+                        trans_type, 
+                        qty, 
+                        price, 
+                        fees, 
+                        notes,
+                        strategy_used=strategy_used if strategy_used != "None" else None,
+                        initial_risk_per_share=initial_risk if initial_risk > 0 else None
+                    )
                     st.success(f"Added {trans_type} for {ticker}")
                     st.rerun()
 
@@ -314,85 +331,111 @@ def render_portfolio_tracker_page():
                 else:
                     st.error("Stop Loss must be below Entry Price for a long position.")
 
-        # 3. View Holdings
-        st.subheader(f"📊 {selected_portfolio.name} Holdings")
-        holdings_df = pm.get_portfolio_holdings(selected_portfolio.id)
+        # 3. View Holdings & Journal
+        tab_holdings, tab_journal = st.tabs(["📊 Current Holdings", "📖 Trade Journal"])
         
-        if holdings_df.empty:
-            st.info("No active holdings in this portfolio.")
-            return
+        with tab_holdings:
+            st.subheader(f"📊 {selected_portfolio.name} Holdings")
+            holdings_df = pm.get_portfolio_holdings(selected_portfolio.id)
+            
+            if holdings_df.empty:
+                st.info("No active holdings in this portfolio.")
+            else:
+                # Fetch current prices for performance
 
-        # Fetch current prices for performance
-        with st.spinner("Fetching real-time prices..."):
-            current_prices = {}
-            for ticker in holdings_df['Ticker']:
-                if ticker == '💰 CASH' or ticker == '🏦 TOTAL NLV': continue
-                try:
-                    t = yf.Ticker(ticker)
-                    current_prices[ticker] = getattr(t, 'fast_info', {}).get('lastPrice', 0.0)
-                except:
-                    current_prices[ticker] = 0.0
+                with st.spinner("Fetching real-time prices..."):
+                    current_prices = {}
+                    for ticker in holdings_df['Ticker']:
+                        if ticker == '💰 CASH' or ticker == '🏦 TOTAL NLV': continue
+                        try:
+                            t = yf.Ticker(ticker)
+                            current_prices[ticker] = getattr(t, 'fast_info', {}).get('lastPrice', 0.0)
+                        except:
+                            current_prices[ticker] = 0.0
 
-        performance = pm.get_portfolio_performance(selected_portfolio.id, current_prices)
-        
-        # Summary Row
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Net Liquidation Value", f"${performance.get('nlv', 0):,.2f}")
-        m2.metric("Available Cash", f"${performance.get('cash_balance', 0):,.2f}")
-        m3.metric("Total Invested", f"${performance.get('total_value', 0):,.2f}")
-        m4.metric("Total P/L", f"${performance.get('total_pl', 0):,.2f}", f"{performance.get('total_pl_pct', 0):.2f}%")
-        
-        # Detailed Table
-        st.divider()
-        holdings_display = holdings_df.copy()
-        holdings_display['Current Price'] = holdings_display['Ticker'].map(current_prices)
-        holdings_display['Current Value'] = holdings_display['qty'] * holdings_display['Current Price']
-        holdings_display['P/L $'] = holdings_display['Current Value'] - holdings_display['total_spent']
-        holdings_display['P/L %'] = (holdings_display['P/L $'] / holdings_display['total_spent']) * 100
-        
-        # Reorder and filter columns
-        col_order = ['Ticker', 'Entry Date', 'qty', 'cost_basis', 'Current Price', 'Current Value', 'P/L $', 'P/L %']
-        holdings_display = holdings_display[col_order]
-        
-        # Add Cash and NLV Rows
-        cash_balance = performance.get('cash_balance', 0)
-        nlv = performance.get('nlv', 0)
-        
-        summary_rows = pd.DataFrame([
-            {
-                'Ticker': '💰 CASH',
-                'Entry Date': None,
-                'qty': 1.0,
-                'cost_basis': cash_balance,
-                'Current Price': cash_balance,
-                'Current Value': cash_balance,
-                'P/L $': 0.0,
-                'P/L %': 0.0
-            },
-            {
-                'Ticker': '🏦 TOTAL NLV',
-                'Entry Date': None,
-                'qty': 1.0,
-                'cost_basis': nlv,
-                'Current Price': nlv,
-                'Current Value': nlv,
-                'P/L $': performance.get('total_pl', 0),
-                'P/L %': performance.get('total_pl_pct', 0)
-            }
-        ])
-        holdings_display = pd.concat([holdings_display, summary_rows], ignore_index=True)
+                performance = pm.get_portfolio_performance(selected_portfolio.id, current_prices)
+                
+                # Summary Row
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Net Liquidation Value", f"${performance.get('nlv', 0):,.2f}")
+                m2.metric("Available Cash", f"${performance.get('cash_balance', 0):,.2f}")
+                m3.metric("Total Invested", f"${performance.get('total_value', 0):,.2f}")
+                m4.metric("Total P/L", f"${performance.get('total_pl', 0):,.2f}", f"{performance.get('total_pl_pct', 0):.2f}%")
+                
+                # Detailed Table
+                st.divider()
+                holdings_display = holdings_df.copy()
+                holdings_display['Current Price'] = holdings_display['Ticker'].map(current_prices)
+                holdings_display['Current Value'] = holdings_display['qty'] * holdings_display['Current Price']
+                holdings_display['P/L $'] = holdings_display['Current Value'] - holdings_display['total_spent']
+                holdings_display['P/L %'] = (holdings_display['P/L $'] / holdings_display['total_spent']) * 100
+                
+                # Reorder and filter columns
+                col_order = ['Ticker', 'Entry Date', 'qty', 'cost_basis', 'Current Price', 'Current Value', 'P/L $', 'P/L %']
+                holdings_display = holdings_display[col_order]
+                
+                # Add Cash and NLV Rows
+                cash_balance = performance.get('cash_balance', 0)
+                nlv = performance.get('nlv', 0)
+                
+                summary_rows = pd.DataFrame([
+                    {
+                        'Ticker': '💰 CASH',
+                        'Entry Date': None,
+                        'qty': 1.0,
+                        'cost_basis': cash_balance,
+                        'Current Price': cash_balance,
+                        'Current Value': cash_balance,
+                        'P/L $': 0.0,
+                        'P/L %': 0.0
+                    },
+                    {
+                        'Ticker': '🏦 TOTAL NLV',
+                        'Entry Date': None,
+                        'qty': 1.0,
+                        'cost_basis': nlv,
+                        'Current Price': nlv,
+                        'Current Value': nlv,
+                        'P/L $': performance.get('total_pl', 0),
+                        'P/L %': performance.get('total_pl_pct', 0)
+                    }
+                ])
+                holdings_display = pd.concat([holdings_display, summary_rows], ignore_index=True)
 
-        # Formatting
-        st.dataframe(
-            holdings_display.style.format({
-                'qty': '{:.2f}',
-                'cost_basis': '${:.2f}',
-                'Current Price': '${:.2f}',
-                'Current Value': '${:.2f}',
-                'P/L $': '{:+.2f}',
-                'P/L %': '{:+.2f}%',
-                'Entry Date': lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else ""
-            }),
-            use_container_width=True,
-            hide_index=True
-        )
+                # Formatting
+                st.dataframe(
+                    holdings_display.style.format({
+                        'qty': '{:.2f}',
+                        'cost_basis': '${:.2f}',
+                        'Current Price': '${:.2f}',
+                        'Current Value': '${:.2f}',
+                        'P/L $': '{:+.2f}',
+                        'P/L %': '{:+.2f}%',
+                        'Entry Date': lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else ""
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+        with tab_journal:
+            st.subheader(f"📖 Trade Journal: {selected_portfolio.name}")
+            from src.models import Transaction
+            history = session.query(Transaction).filter(Transaction.portfolio_id == selected_portfolio.id).order_by(Transaction.timestamp.desc()).all()
+            
+            if not history:
+                st.info("No trades logged in this portfolio yet.")
+            else:
+                journal_data = []
+                for t in history:
+                    journal_data.append({
+                        "Date": t.timestamp.strftime('%Y-%m-%d'),
+                        "Action": "🟩 BUY" if t.type == 'BUY' else "🟥 SELL",
+                        "Ticker": t.stock.ticker,
+                        "Strategy": t.strategy_used or "None",
+                        "Price": f"${t.price:.2f}",
+                        "Shares": f"{t.quantity:.2f}",
+                        "Risk/Share": f"${t.initial_risk_per_share:.2f}" if t.initial_risk_per_share else "N/A",
+                        "Notes": t.notes
+                    })
+                st.dataframe(pd.DataFrame(journal_data), use_container_width=True, hide_index=True)
+

@@ -34,7 +34,8 @@ class PortfolioManager:
 
     def add_transaction(self, portfolio_id: int, ticker: str, trans_type: str, 
                        quantity: float, price: float, fees: float = 0.0, 
-                       notes: str = "") -> Transaction:
+                       notes: str = "", strategy_used: str = None, 
+                       initial_risk_per_share: float = None) -> Transaction:
         """Add a new transaction to a portfolio"""
         # Ensure stock exists
         stock = self.session.query(Stock).filter(Stock.ticker == ticker).first()
@@ -50,7 +51,9 @@ class PortfolioManager:
             quantity=quantity,
             price=price,
             fees=fees,
-            notes=notes
+            notes=notes,
+            strategy_used=strategy_used,
+            initial_risk_per_share=initial_risk_per_share
         )
         self.session.add(transaction)
         self.session.commit()

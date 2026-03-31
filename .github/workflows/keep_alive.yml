@@ -2,7 +2,7 @@ name: Keep Streamlit App Alive
 
 on:
   schedule:
-    - cron: "0 */1 * * *" # Runs every 1 hour
+    - cron: "*/30 * * * *" # Runs every 30 minutes
   workflow_dispatch: # Allows manual triggering if needed
 
 jobs:
@@ -13,4 +13,4 @@ jobs:
         # Streamlit apps often redirect to auth, which can cause exit code 47 (maximum redirects).
         # We append || true to ensure the workflow succeeds even if the redirect limit is reached,
         # because the initial ping is still enough to keep the app awake.
-        run: curl -sL --max-redirs 5 https://growmoney.streamlit.app > /dev/null || true
+        run: curl -sL --max-redirs 5 https://growmoney.streamlit.app/_stcore/health > /dev/null || true

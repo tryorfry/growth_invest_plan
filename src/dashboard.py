@@ -374,12 +374,12 @@ def main():
         if tier in ['premium', 'admin']:
             nav_options.extend([
                 "🌍 Market Pulse",
-                "🔍 Screener",
                 "🔬 Advanced Analytics"
             ])
             
         if tier == 'admin':
             nav_options.append("🏁 Multi-Style")
+            nav_options.append("🔍 Screener")
             nav_options.append("🛡️ Admin Dashboard")
 
         # Programmatic navigation: directly set nav_radio session state key so
@@ -393,7 +393,7 @@ def main():
         
         # Upsell for free users
         if tier == 'free':
-            st.info("⭐ Upgrade to Premium to unlock the Market Pulse, automated AI Screener, and Advanced Analytics!")
+            st.info("⭐ Upgrade to Premium to unlock the Market Pulse and Advanced Analytics!")
         
         st.divider()
         if st.button("🚪 Logout", use_container_width=True):
@@ -1073,6 +1073,20 @@ def main():
                     style_strategy = get_trading_style(analysis.trading_style)
                     style_defaults = style_strategy.get_chart_defaults()
                     
+                    # Fetch User Annotations for this ticker
+                    user_annotations = []
+                    _db = st.session_state.get('db')
+                    user_id = st.session_state.get('user_id', 1)
+                    if _db and analysis.ticker:
+                        from src.models import ChartAnnotation
+                        with _db.get_session() as session:
+                            stock_obj = _db.get_or_create_stock(session, analysis.ticker)
+                            stock_id = stock_obj.id
+                            user_annotations = session.query(ChartAnnotation).filter(
+                                ChartAnnotation.user_id == user_id,
+                                ChartAnnotation.stock_id == stock_id
+                            ).all()
+                    
                     # Generate unified interactive chart
                     chart_gen.generate_candlestick_chart(
                         analysis,
@@ -1087,8 +1101,58 @@ def main():
                         show_hvn=show_hvn,
                         show_trade_setup=show_trade_setup,
                         show_channel=show_channel,
+                        user_annotations=user_annotations,
                         height=800 if show_rsi or show_macd else 700
                     )
+                    
+                    # --- Chart Annotations UI ---
+                    with st.expander("✍️ Custom Chart Annotations (Premium)", expanded=False):
+                        tier = st.session_state.get('user_tier', 'free')
+                        if tier == 'free':
+                            st.warning("👑 Upgrade to Premium to save your own custom support/resistance levels and notes directly onto the charts.")
+                        else:
+                            col_add, col_del = st.columns([2, 1])
+                            with col_add:
+                                with st.form(f"add_ann_form"):
+                                    col_p, col_t = st.columns(2)
+                                    with col_p:
+                                        new_price = st.number_input("Price Level ($)", min_value=0.01, step=0.1, value=analysis.current_price or 100.0)
+                                    with col_t:
+                                        new_type = st.selectbox("Type", ["support", "resistance", "note"])
+                                    new_note = st.text_input("Note (Optional, max 30 chars)")
+                                    
+                                    if st.form_submit_button("➕ Add to Chart"):
+                                        if _db and analysis.ticker:
+                                            from src.models import ChartAnnotation
+                                            with _db.get_session() as session:
+                                                stock_obj = _db.get_or_create_stock(session, analysis.ticker)
+                                                new_ann = ChartAnnotation(
+                                                    user_id=user_id,
+                                                    stock_id=stock_obj.id,
+                                                    price_level=new_price,
+                                                    annotation_type=new_type,
+                                                    text_note=new_note
+                                                )
+                                                session.add(new_ann)
+                                                session.commit()
+                                            st.rerun()
+
+                            with col_del:
+                                if user_annotations:
+                                    ann_options = {a.id: f"${a.price_level:.2f} ({a.annotation_type})" for a in user_annotations}
+                                    del_id = st.selectbox("Select to Delete", options=list(ann_options.keys()), format_func=lambda x: ann_options[x])
+                                    if st.button("🗑️ Remove"):
+                                        if _db:
+                                            from src.models import ChartAnnotation
+                                            with _db.get_session() as session:
+                                                ann_to_del = session.query(ChartAnnotation).filter(ChartAnnotation.id == del_id).first()
+                                                if ann_to_del:
+                                                    session.delete(ann_to_del)
+                                                    session.commit()
+                                            st.rerun()
+                                else:
+                                    st.info("No saved annotations.")
+
                     
                     # Fundamental Data
                     st.subheader("💰 Fundamental Data")

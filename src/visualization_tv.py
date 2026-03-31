@@ -12,7 +12,7 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True) -> List[Dict[str, Any]]:
+    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True, user_annotations: list = None) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -146,6 +146,28 @@ class TVChartGenerator:
                     "lineStyle": 0,
                     "axisLabelVisible": True,
                     "title": "HVN"
+                })
+                
+        # Inject Custom User Annotations
+        if user_annotations:
+            for ann in user_annotations:
+                line_color = "#FF00FF" # Magenta default
+                if ann.annotation_type == 'support':
+                    line_color = "#2E7D32" # Green
+                elif ann.annotation_type == 'resistance':
+                    line_color = "#B71C1C" # Red
+                
+                title = f"{ann.annotation_type.upper()[:3]}"
+                if ann.text_note:
+                    title += f": {ann.text_note}"
+                    
+                price_lines.append({
+                    "price": ann.price_level,
+                    "color": line_color,
+                    "lineWidth": 2,
+                    "lineStyle": 1, # Dotted
+                    "axisLabelVisible": True,
+                    "title": title[:30] # Truncate long notes
                 })
 
         candlestick_series["priceLines"] = price_lines
@@ -370,6 +392,7 @@ class TVChartGenerator:
         show_hvn: bool = True,
         show_trade_setup: bool = True,
         show_channel: bool = True,
+        user_annotations: list = None,
         height: int = 600
     ) -> None:
         """
@@ -401,7 +424,7 @@ class TVChartGenerator:
         # Determine Daily Series
         daily_df = df.copy()
         daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel)
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
         
         # Determine Weekly Series
         weekly_df = df.copy()
@@ -415,7 +438,7 @@ class TVChartGenerator:
                 
         weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
         weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel)
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
 
         theme = st.session_state.get('theme_preference', 'dark')
         bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'

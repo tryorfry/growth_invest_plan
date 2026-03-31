@@ -261,6 +261,12 @@ class Transaction(Base):
     quantity = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
     fees = Column(Float, default=0.0)
+    
+    # Trading Journal details
+    strategy_used = Column(String(50), nullable=True) # Trend, Swing, Growth
+    initial_risk_per_share = Column(Float, nullable=True)
+    ai_conviction_score = Column(Float, nullable=True)
+    
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     notes = Column(Text)
     
@@ -292,3 +298,25 @@ class UserActivity(Base):
 
     def __repr__(self):
         return f"<UserActivity(user_id={self.user_id}, feature='{self.feature}', action='{self.action}')>"
+
+
+class ChartAnnotation(Base):
+    """User-defined custom price levels and notes attached to a stock chart"""
+    __tablename__ = 'chart_annotations'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    stock_id = Column(Integer, ForeignKey('stocks.id'), nullable=False, index=True)
+    
+    price_level = Column(Float, nullable=False)
+    annotation_type = Column(String(20), default='support') # 'support', 'resistance', 'note'
+    text_note = Column(String(100), nullable=True)
+    color = Column(String(20), nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    stock = relationship("Stock")
+    
+    def __repr__(self):
+        return f"<ChartAnnotation(stock_id={self.stock_id}, price={self.price_level}, type='{self.annotation_type}')>"
