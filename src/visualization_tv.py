@@ -36,8 +36,7 @@ class TVChartGenerator:
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
                 "priceScaleId": "right"
-            },
-            "priceLines": price_lines
+            }
         }
 
         # Price lines (Horizontal markers) for candlestick overlay
@@ -149,6 +148,7 @@ class TVChartGenerator:
                     "title": "HVN"
                 })
 
+        candlestick_series["priceLines"] = price_lines
         series.append(candlestick_series)
 
         # 2. EMAs
