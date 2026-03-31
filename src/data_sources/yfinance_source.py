@@ -422,6 +422,7 @@ class YFinanceSource(TechnicalDataSource):
             if info:
                 result["sector"] = info.get("sector", None)
                 result["industry"] = info.get("industry", None)
+                result["quoteType"] = info.get("quoteType", None)
                 result["company_name"] = info.get("longName", None)
                 
                 # Checklist fields

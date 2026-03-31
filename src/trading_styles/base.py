@@ -67,7 +67,9 @@ class TradingStyleStrategy(ABC):
         MATP for Stocks, Resistance/ATH for ETFs.
         """
         price = analysis.current_price
-        is_etf = any(keyword in str(getattr(analysis, 'industry', '')).lower() for keyword in ['etf', 'exchange traded fund'])
+        industry = str(getattr(analysis, 'industry', '')).lower()
+        q_type = str(getattr(analysis, 'quoteType', '')).lower()
+        is_etf = 'etf' in industry or 'exchange traded fund' in industry or q_type == 'etf'
         
         if is_etf:
             # For ETFs, use the next significant resistance or ATH
@@ -91,14 +93,21 @@ class TradingStyleStrategy(ABC):
     def calculate_max_buy_price(self, analysis: Any) -> float:
         """
         Standard formula for Maximum Buy Price (Entry Ceiling).
-        Formula: Target / 1.15 (providing a 15% upside requirement).
+        Formula: Target / (Required Upside).
+        Required Upside: 15% for Stocks, 10% for ETFs.
         """
         target = getattr(analysis, 'target_price', None)
         if not target:
             target = self.get_primary_target(analysis)
             
+        industry = str(getattr(analysis, 'industry', '')).lower()
+        q_type = str(getattr(analysis, 'quoteType', '')).lower()
+        is_etf = 'etf' in industry or 'exchange traded fund' in industry or q_type == 'etf'
+        
+        required_upside = 1.10 if is_etf else 1.15
+            
         if target:
-            return float(target / 1.15)
+            return float(target / required_upside)
         
         # Absolute fallback: 5% above current price if no target found
         return float(analysis.current_price * 1.05)

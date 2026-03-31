@@ -28,6 +28,7 @@ class StockAnalysis:
     company_name: Optional[str] = None
     sector: Optional[str] = None
     industry: Optional[str] = None
+    quoteType: Optional[str] = None
     
     # Historical Data (for charts)
     history: Optional[pd.DataFrame] = None
@@ -467,6 +468,7 @@ class StockAnalyzer:
         analysis.company_name = data.get("company_name")
         analysis.sector = data.get("sector")
         analysis.industry = data.get("industry")
+        analysis.quoteType = data.get("quoteType")
         
         # Earnings
         analysis.last_earnings_date = data.get("last_earnings_date")
