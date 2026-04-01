@@ -26,7 +26,7 @@ class TVChartGenerator:
                 "close": row['Close'],
             })
             
-        candlestick_series = {
+        candlestick_left = {
             "type": 'Candlestick',
             "data": candles_data,
             "options": {
@@ -35,6 +35,18 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
+                "priceScaleId": "left"
+            }
+        }
+        candlestick_right = {
+            "type": 'Candlestick',
+            "data": candles_data,
+            "options": {
+                "upColor": 'rgba(0,0,0,0)',
+                "downColor": 'rgba(0,0,0,0)',
+                "borderVisible": False,
+                "wickUpColor": 'rgba(0,0,0,0)',
+                "wickDownColor": 'rgba(0,0,0,0)',
                 "priceScaleId": "right"
             }
         }
@@ -170,50 +182,38 @@ class TVChartGenerator:
                     "title": title[:30] # Truncate long notes
                 })
 
-        candlestick_series["priceLines"] = price_lines
-        series.append(candlestick_series)
+        candlestick_right["priceLines"] = price_lines
+        series.append(candlestick_left)
+        series.append(candlestick_right)
 
         # 2. EMAs
         for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
-            ema_data = []
             if show_ema and ema in df.columns:
                 ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
-            series.append({
-                "type": 'Line',
-                "data": ema_data,
-                "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "right"}
-            })
+                series.append({
+                    "type": 'Line',
+                    "data": ema_data,
+                    "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "right"}
+                })
+                series.append({
+                    "type": 'Line',
+                    "data": ema_data,
+                    "options": {"color": "rgba(0,0,0,0)", "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False}
+                })
                     
         # 2.5 BOLL
         if show_bollinger and 'Bollinger_Upper' in df.columns and 'Bollinger_Lower' in df.columns:
-            series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": float(row['Bollinger_Upper'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Upper'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL", "priceScaleId": "right"}
-            })
-            series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": float(row['Bollinger_Lower'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Lower'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "right"}
-            })
+            for b_col, b_title in [('Bollinger_Upper', 'Upper BOLL'), ('Bollinger_Lower', 'Lower BOLL')]:
+                b_data = [{"time": row[date_col], "value": float(row[b_col])} for _, row in df.iterrows() if pd.notna(row[b_col])]
+                series.append({"type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": b_title, "priceScaleId": "right"}})
+                series.append({"type": 'Line', "data": b_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False}})
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
         if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
-            series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": float(row['Trend_Center'])} for _, row in df.iterrows() if pd.notna(row['Trend_Center'])],
-                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Channel Mid", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
-            })
-            series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": float(row['Trend_Upper'])} for _, row in df.iterrows() if pd.notna(row['Trend_Upper'])],
-                "options": {"color": '#FF5722', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Top", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
-            })
-            series.append({
-                "type": 'Line',
-                "data": [{"time": row[date_col], "value": float(row['Trend_Lower'])} for _, row in df.iterrows() if pd.notna(row['Trend_Lower'])],
-                "options": {"color": '#4CAF50', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Bot", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
-            })
+            for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 2), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1.5), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1.5)]:
+                t_data = [{"time": row[date_col], "value": float(row[t_col])} for _, row in df.iterrows() if pd.notna(row[t_col])]
+                series.append({"type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "title": t_title, "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}})
+                series.append({"type": 'Line', "data": t_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False, "priceLineVisible": False}})
 
         # 3. ATR
         atr_data = []
@@ -450,7 +450,7 @@ class TVChartGenerator:
             "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
             "crosshair": { "mode": 1 },
             "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
-            "leftPriceScale": { "visible": False },
+            "leftPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 }
         }
 
@@ -536,6 +536,9 @@ class TVChartGenerator:
                         const mainBottomMargin = Math.min(0.10 + totalSubpaneHeight, 0.85); // buffer for scale minimums
                         
                         chart.priceScale('right').applyOptions({{
+                            scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
+                        }});
+                        chart.priceScale('left').applyOptions({{
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         
