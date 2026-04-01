@@ -520,6 +520,14 @@ def main():
                     
         st.header("⚙️ Settings")
         
+        # New: Global Checklist Toggle
+        show_checklist = st.checkbox(
+            "📋 Show Investment Checklist", 
+            value=st.session_state.get('show_checklist', False),
+            help="Show the fundamental growth checklist regardless of trading style."
+        )
+        st.session_state['show_checklist'] = show_checklist
+        
         # Ticker History Dropdown
         db_tickers = db.get_all_tickers()
         if db_tickers:
@@ -752,9 +760,9 @@ def main():
                         trend_color = "green" if analysis.market_trend == "Uptrend" else "red" if analysis.market_trend == "Downtrend" else "gray"
                         st.markdown(f"### Market Trend: :{trend_color}[{analysis.market_trend}]")
                         
-                    # Show Investment Checklist ONLY for Growth Investing
-                    # Use both selected_style and analysis.trading_style for absolute certainty
-                    if selected_style == "Growth Investing" and analysis.trading_style == "Growth Investing":
+                    # Show Investment Checklist for Growth Investing OR if manually toggled
+                    show_checklist_global = st.session_state.get('show_checklist', False)
+                    if (selected_style == "Growth Investing" and analysis.trading_style == "Growth Investing") or show_checklist_global:
                         render_checklist(analysis)
                     
                     # AI-Powered Trade Thesis
