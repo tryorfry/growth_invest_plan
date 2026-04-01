@@ -83,7 +83,8 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                     "R/R": f"{best['rr']:.1f}x",
                     "ATR(w)": f"{analysis.atr:.2f}",
                     "Next E": f"in {analysis.days_until_earnings}d" if analysis.next_earnings_date else "N/A",
-                    "Sector": analysis.sector or "Unknown"
+                    "Sector": analysis.sector or "Unknown",
+                    "ScoreNum": best['score']
                 })
         
         if leaderboard_data:
@@ -111,7 +112,7 @@ def render_multi_style_report(data: Union[StockAnalysis, List[StockAnalysis]]):
                         wm.add_stock_to_watchlist(watchlist.id, t, note)
                     st.success(f"Added {len(selected_tickers)} stocks to '{watchlist.name}'")
 
-            st.dataframe(df_leader, use_container_width=True, hide_index=True)
+            st.dataframe(df_leader.drop(columns=['ScoreNum']), use_container_width=True, hide_index=True)
             
         st.divider()
 
