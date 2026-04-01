@@ -708,15 +708,17 @@ def main():
                     
                     with col_e1:
                         if analysis.last_earnings_date:
-                            days_since = (pd.Timestamp.now().date() - (analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date)).days
-                            st.metric("Last Earnings", f"{days_since}d ago", help=f"Date: {analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date}")
+                            last_date = analysis.last_earnings_date.date() if hasattr(analysis.last_earnings_date, 'date') else analysis.last_earnings_date
+                            days_since = (pd.Timestamp.now().date() - last_date).days
+                            st.metric("Last Earnings", str(last_date), f"{days_since}d ago", delta_color="off", help="Days since last earnings")
                         else:
                             st.metric("Last Earnings", "N/A")
                             
                     with col_e2:
                         if analysis.next_earnings_date:
+                            next_date = analysis.next_earnings_date.date() if hasattr(analysis.next_earnings_date, 'date') else analysis.next_earnings_date
                             days_until = analysis.days_until_earnings
-                            st.metric("Next Earnings", f"in {days_until}d", help=f"Date: {analysis.next_earnings_date.date() if hasattr(analysis.next_earnings_date, 'date') else analysis.next_earnings_date}")
+                            st.metric("Next Earnings", str(next_date), f"in {days_until}d", delta_color="off", help="Days until next earnings")
                         else:
                             st.metric("Next Earnings", "N/A")
                             
