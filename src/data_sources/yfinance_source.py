@@ -330,52 +330,60 @@ class YFinanceSource(TechnicalDataSource):
         }
     
     def _get_earnings_dates(self, stock: yf.Ticker) -> Dict[str, Any]:
-        """Extract past and future earnings dates"""
+        """Extract past and future earnings dates with robust sorting and TZ handling"""
         result = {}
         
-        # Last earnings date and all past dates
-        earnings = stock.earnings_dates
-        if earnings is not None and not earnings.empty:
-            now = pd.Timestamp.now(tz=earnings.index.tz)
-            past_earnings = earnings[earnings.index < now]
-            if not past_earnings.empty:
-                result["last_earnings_date"] = past_earnings.index[0]
-                result["past_earnings_dates"] = past_earnings.index.tolist()
-        
-        # Next earnings date
-        next_earnings = None
-        days_until = None
-        
-        # Try calendar first
-        cal = stock.calendar
-        if cal and "Earnings Date" in cal:
-            dates = cal["Earnings Date"]
-            if dates:
-                next_earnings = dates[0]
-        
-        # Fallback to earnings_dates
-        if not next_earnings and earnings is not None and not earnings.empty:
-            now = pd.Timestamp.now(tz=earnings.index.tz)
-            future = earnings[earnings.index > now].sort_index()
-            if not future.empty:
-                next_earnings = future.index[0]
-        
-        if next_earnings:
-            # Handle timezone conversion
-            if not isinstance(next_earnings, pd.Timestamp):
-                next_earnings = pd.Timestamp(next_earnings)
-            
-            if next_earnings.tz:
-                now = pd.Timestamp.now(tz=next_earnings.tz)
+        try:
+            # 1. Fetch entire earnings series from yfinance
+            earnings = stock.earnings_dates
+            if earnings is not None and not earnings.empty:
+                # Ensure it's sorted by time (descending: newest first)
+                earnings = earnings.sort_index(ascending=False)
+                
+                # Standardize 'now' with correct timezone if available
+                tz = earnings.index.tz
+                now = pd.Timestamp.now(tz=tz) if tz else pd.Timestamp.now()
+                
+                # Filter for history
+                past_earnings = earnings[earnings.index <= now]
+                if not past_earnings.empty:
+                    result["last_earnings_date"] = past_earnings.index[0]
+                    result["past_earnings_dates"] = past_earnings.index.tolist()
+                
+                # Filter for future (ascending: nearest first)
+                future = earnings[earnings.index > now].sort_index(ascending=True)
+                if not future.empty:
+                    result["next_earnings_date"] = future.index[0]
+        except Exception as e:
+            print(f"Warning: yfinance earnings_dates extraction failed: {e}")
+
+        # 2. Try the calendar as a secondary source for Next Earnings Date
+        if not result.get("next_earnings_date"):
+            try:
+                cal = stock.calendar
+                if cal and "Earnings Date" in cal:
+                    dates = cal["Earnings Date"]
+                    if dates and isinstance(dates, (list, tuple)):
+                        result["next_earnings_date"] = pd.Timestamp(dates[0])
+            except Exception as e:
+                print(f"Warning: yfinance calendar extraction failed: {e}")
+
+        # 3. Calculate 'days_until' if we found a next date
+        next_date = result.get("next_earnings_date")
+        if next_date:
+            # Handle mixed TZ cases for safe subtraction
+            if hasattr(next_date, 'tzinfo') and next_date.tzinfo:
+                now = pd.Timestamp.now(tz=next_date.tzinfo)
             else:
                 now = pd.Timestamp.now()
+                # If next_date was found in a TZ-aware series but somehow became naive,
+                # we force it back to naive for comparison or vice versa.
+                if hasattr(next_date, 'tz') and next_date.tz:
+                    next_date = next_date.tz_localize(None)
+
+            delta = next_date - now
+            result["days_until_earnings"] = max(0, delta.days)
             
-            delta = next_earnings - now
-            days_until = delta.days
-            
-            result["next_earnings_date"] = next_earnings
-            result["days_until_earnings"] = days_until
-        
         return result
     
     def _get_financial_data(self, stock: yf.Ticker) -> Dict[str, Any]:

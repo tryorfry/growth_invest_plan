@@ -34,7 +34,7 @@ class MacrotrendsSource(FundamentalDataSource):
         # 1. Get the base URL (resolves the company name slug)
         base_search_url = f"{self.BASE_URL}/{ticker}"
         try:
-            response = requests.get(base_search_url, impersonate="chrome110", timeout=self.TIMEOUT, follow_redirects=True)
+            response = requests.get(base_search_url, impersonate="chrome110", timeout=self.TIMEOUT, allow_redirects=True)
             if response.status_code != 200:
                 return None
             

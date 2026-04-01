@@ -476,6 +476,10 @@ class StockAnalyzer:
         analysis.next_earnings_date = data.get("next_earnings_date")
         analysis.days_until_earnings = data.get("days_until_earnings")
         
+        # Trigger fallback if data is missing
+        if not analysis.last_earnings_date or not analysis.next_earnings_date:
+            self._try_extract_fallback_earnings(analysis)
+        
         analysis.dividend_dates = data.get("dividend_dates", [])
         analysis.insider_buy_dates = data.get("insider_buy_dates", [])
         analysis.insider_sell_dates = data.get("insider_sell_dates", [])
@@ -506,6 +510,60 @@ class StockAnalyzer:
         analysis.total_cash = data.get("total_cash")
         analysis.shares_outstanding = data.get("shares_outstanding")
         analysis.earnings_growth = data.get("earnings_growth")
+
+    def _try_extract_fallback_earnings(self, analysis: StockAnalysis) -> None:
+        """Uses Finviz data as a fallback to extract earnings dates if YFinance fails."""
+        # Only proceed if we are missing one or both
+        if analysis.last_earnings_date and analysis.next_earnings_date:
+            return
+
+        finviz_earnings = analysis.finviz_data.get("Earnings")  # e.g. "Feb 03 AMC" or "Jan 29"
+        if not finviz_earnings or finviz_earnings == "-":
+            return
+
+        try:
+            # 1. Clean the string (e.g. "Feb 03 AMC" -> "Feb 03")
+            parts = finviz_earnings.split(' ')
+            if len(parts) < 2:
+                return
+            
+            clean_date_str = f"{parts[0]} {parts[1]}"
+            
+            # 2. Parse with the current year as a baseline
+            now = datetime.now()
+            current_year = now.year
+            
+            # Attempt to parse Mmm DD format
+            try:
+                parsed_date = datetime.strptime(f"{clean_date_str} {current_year}", "%b %d %Y")
+            except ValueError:
+                # Handle cases like "May 06" vs "May 6"
+                parsed_date = datetime.strptime(f"{clean_date_str} {current_year}", "%b %d %Y")
+
+            # 3. Handle Year-Wrap Logic
+            # If the parsed date is more than 6 months in the past, Finviz likely refers to NEXT year
+            if (now - parsed_date).days > 180:
+                parsed_date = parsed_date.replace(year=current_year + 1)
+            # If the parsed date is more than 6 months in the future, Finviz likely refers to PREVIOUS year
+            elif (parsed_date - now).days > 180:
+                parsed_date = parsed_date.replace(year=current_year - 1)
+            
+            # 4. Assignment
+            ts_date = pd.Timestamp(parsed_date)
+            
+            # If it's in the past and we don't have a last_earnings_date
+            if parsed_date <= now:
+                if not analysis.last_earnings_date:
+                    analysis.last_earnings_date = ts_date
+            # If it's in the future and we don't have a next_earnings_date
+            else:
+                if not analysis.next_earnings_date:
+                    analysis.next_earnings_date = ts_date
+                    analysis.days_until_earnings = (ts_date.date() - now.date()).days
+                    
+        except Exception as e:
+            # Silent fail as this is a fallback
+            pass
 
     def _calculate_support_resistance(self, analysis: StockAnalysis) -> None:
         """
