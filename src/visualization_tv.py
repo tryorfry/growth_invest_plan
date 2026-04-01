@@ -35,7 +35,8 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
-                "priceScaleId": "left"
+                "priceScaleId": "left",
+                "lastValueVisible": False
             }
         }
         candlestick_right = {
