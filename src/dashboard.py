@@ -507,16 +507,6 @@ def main():
         from src import __version__
         st.caption(f"v{__version__}")
         
-        # Deployment Debugger
-        with st.expander("🔍 Debug Deployment"):
-            import os, datetime
-            for fname in ["src/analyzer.py", "src/models.py", "src/dashboard.py"]:
-                try:
-                    mtime = os.path.getmtime(fname)
-                    dt = datetime.datetime.fromtimestamp(mtime)
-                    st.text(f"{fname.split('/')[-1]}: {dt.strftime('%H:%M:%S')}")
-                except:
-                    st.text(f"{fname}: Error")
                     
         st.header("⚙️ Settings")
         
