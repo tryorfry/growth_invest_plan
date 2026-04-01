@@ -35,7 +35,7 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
-                "priceScaleId": "left"
+                "priceScaleId": "right"
             }
         }
 
@@ -181,7 +181,7 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": ema_data,
-                "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "left"}
+                "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "right"}
             })
                     
         # 2.5 BOLL
@@ -189,12 +189,12 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Upper'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Upper'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL", "priceScaleId": "left"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Upper BOLL", "priceScaleId": "right"}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Bollinger_Lower'])} for _, row in df.iterrows() if pd.notna(row['Bollinger_Lower'])],
-                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "left"}
+                "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": "Lower BOLL", "priceScaleId": "right"}
             })
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
@@ -202,17 +202,17 @@ class TVChartGenerator:
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Center'])} for _, row in df.iterrows() if pd.notna(row['Trend_Center'])],
-                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Channel Mid", "priceScaleId": "left", "lastValueVisible": True, "priceLineVisible": False}
+                "options": {"color": '#FF9800', "lineWidth": 2, "lineStyle": 0, "title": "Channel Mid", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Upper'])} for _, row in df.iterrows() if pd.notna(row['Trend_Upper'])],
-                "options": {"color": '#FF5722', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Top", "priceScaleId": "left", "lastValueVisible": True, "priceLineVisible": False}
+                "options": {"color": '#FF5722', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Top", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
             series.append({
                 "type": 'Line',
                 "data": [{"time": row[date_col], "value": float(row['Trend_Lower'])} for _, row in df.iterrows() if pd.notna(row['Trend_Lower'])],
-                "options": {"color": '#4CAF50', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Bot", "priceScaleId": "left", "lastValueVisible": True, "priceLineVisible": False}
+                "options": {"color": '#4CAF50', "lineWidth": 1.5, "lineStyle": 2, "title": "Channel Bot", "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}
             })
 
         # 3. ATR
@@ -449,8 +449,8 @@ class TVChartGenerator:
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
             "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
             "crosshair": { "mode": 1 },
-            "rightPriceScale": { "visible": False },
-            "leftPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
+            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
+            "leftPriceScale": { "visible": False },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 }
         }
 
@@ -535,7 +535,7 @@ class TVChartGenerator:
                         
                         const mainBottomMargin = Math.min(0.10 + totalSubpaneHeight, 0.85); // buffer for scale minimums
                         
-                        chart.priceScale('left').applyOptions({{
+                        chart.priceScale('right').applyOptions({{
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         
