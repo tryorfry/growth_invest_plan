@@ -686,7 +686,7 @@ def main():
                         st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()}) - Trade with caution!")
                     
                     # Key Metrics Row 1: Price & Technicals
-                    col1, col2, col3, col4, col5 = st.columns(5)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         st.metric("Current Price", f"${analysis.current_price:.2f}")
                     with col2:
@@ -698,9 +698,10 @@ def main():
                     with col3:
                         st.metric("RSI (14)", f"{analysis.rsi:.1f}")
                     with col4:
-                        st.metric("ATR (14w)", f"{analysis.atr:.2f}")
-                    with col5:
-                        st.metric("ATR (14d)", f"{analysis.atr_daily:.2f}")
+                        if analysis.trading_style in ["Swing Trading", "Trend Trading"]:
+                            st.metric("ATR (14d)", f"{analysis.atr_daily:.2f}")
+                        else:
+                            st.metric("ATR (14w)", f"{analysis.atr:.2f}")
 
                     # Key Metrics Row 2: Earnings & Sentiment
                     st.divider()
