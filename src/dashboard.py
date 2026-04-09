@@ -864,6 +864,8 @@ def main():
                                 st.markdown("#### ✅ Strategy Validation")
                                 has_patterns = len(getattr(analysis, 'swing_patterns', [])) > 0
                                 rr_ratio = getattr(analysis, 'reward_to_risk', 0)
+                                if rr_ratio is None:
+                                    rr_ratio = 0.0
                                 trend = getattr(analysis, 'market_trend', 'Unknown')
                                 
                                 # Trend Check
