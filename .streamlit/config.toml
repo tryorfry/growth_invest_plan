@@ -1,7 +1,7 @@
 [server]
-# How long (ms) the server waits for a ping response before closing connection
-# 180000 ms = 3 minutes
-pingTimeout = 180000
+# How long (s) the interval the server pings the client to keep connection alive
+# 1200 s = 20 minutes
+websocketPingInterval = 1200
 maxUploadSize = 200
 headless = true
 enableXsrfProtection = true
