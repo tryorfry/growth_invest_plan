@@ -5,7 +5,6 @@ from datetime import datetime
 import statistics
 import re
 import pandas as pd
-from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 from .base import AnalystDataSource
@@ -44,9 +43,9 @@ class MarketBeatSource(AnalystDataSource):
         # 1. Try direct ticker first (MarketBeat often redirects)
         direct_url = f"https://www.marketbeat.com/stocks/{ticker}/price-target/"
         try:
-            response = requests.get(direct_url, impersonate="chrome110", timeout=self.TIMEOUT)
-            if response.status_code == 200:
-                result = self._parse_analyst_data(response.content, last_earnings_date)
+            resp = self._get_response_sync(direct_url)
+            if resp:
+                result = self._parse_analyst_data(resp.content, last_earnings_date)
                 if result: return result
         except: pass
 
@@ -54,9 +53,9 @@ class MarketBeatSource(AnalystDataSource):
         for exchange in self.EXCHANGES:
             url = f"{self.BASE_URL}/{exchange}/{ticker}/price-target/"
             try:
-                response = requests.get(url, impersonate="chrome110", timeout=self.TIMEOUT)
-                if response.status_code == 200:
-                    result = self._parse_analyst_data(response.content, last_earnings_date)
+                resp = self._get_response_sync(url)
+                if resp:
+                    result = self._parse_analyst_data(resp.content, last_earnings_date)
                     if result: return result
             except Exception as e:
                 print(f"Error fetching MarketBeat ({exchange}/{ticker}): {e}")

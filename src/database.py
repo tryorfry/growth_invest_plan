@@ -130,7 +130,11 @@ class Database:
             # Trading Journal extensions
             ("transactions", "strategy_used", "VARCHAR(50)"),
             ("transactions", "initial_risk_per_share", "FLOAT"),
-            ("transactions", "ai_conviction_score", "FLOAT")
+            ("transactions", "ai_conviction_score", "FLOAT"),
+            
+            # Historical Earnings Gap Analysis
+            ("analyses", "earnings_history_json", "TEXT"),
+            ("analyses", "projected_gap_risk", "FLOAT")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls

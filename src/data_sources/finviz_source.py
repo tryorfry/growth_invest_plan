@@ -1,7 +1,6 @@
 """Finviz data source for fundamental metrics"""
 
 from typing import Dict, Any, Optional
-from curl_cffi import requests
 from bs4 import BeautifulSoup
 import streamlit as st
 
@@ -35,19 +34,10 @@ class FinvizSource(FundamentalDataSource):
     def _fetch_sync(_self, ticker: str) -> Optional[Dict[str, Any]]:
         """Synchronous fetch logic for thread execution"""
         url = f"{_self.BASE_URL}?t={ticker}&p=d"
-        
-        try:
-            response = requests.get(url, impersonate="chrome110", timeout=_self.TIMEOUT)
-            
-            if response.status_code != 200:
-                print(f"Failed to fetch Finviz data: HTTP {response.status_code}")
-                return None
-            
-            return _self._parse_snapshot_table(response.content)
-            
-        except Exception as e:
-            print(f"Error fetching Finviz data: {e}")
-            return None
+        html = _self._make_request_sync(url)
+        if html:
+            return _self._parse_snapshot_table(html.encode('utf-8'))
+        return None
     
     def _parse_snapshot_table(_self, html_content: bytes) -> Dict[str, str]:
         """

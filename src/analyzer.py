@@ -15,6 +15,8 @@ from .data_sources.macro_source import MacroSource
 from .data_sources.macrotrends_source import MacrotrendsSource
 from .data_sources.earnings_source import EarningsSource
 from .trading_styles.factory import get_trading_style
+from .database import Database
+from .models import Stock, Analysis
 
 
 @dataclass
@@ -112,9 +114,6 @@ class StockAnalysis:
     # Candlestick patterns
     recent_patterns: List[Dict[str, Any]] = field(default_factory=list)
     
-    # Candlestick patterns
-    recent_patterns: List[Dict[str, Any]] = field(default_factory=list)
-    
     # Volume Profile
     volume_profile_hvns: List[float] = field(default_factory=list)
     volume_profile_lvns: List[float] = field(default_factory=list)
@@ -180,8 +179,115 @@ class StockAnalyzer:
         self.analyst_source = analyst_source or MarketBeatSource()
         self.news_source = news_source or NewsSentimentSource()
         self.macrotrends_source = macrotrends_source or MacrotrendsSource()
+        self.earnings_source = EarningsSource()
     
-    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False) -> Optional[StockAnalysis]:
+        """
+        Entry point for analysis with Cache-Aside logic.
+        """
+        ticker = ticker.upper()
+        
+        # 1. Check for cached analysis (TTL: 24h)
+        if not force_refresh:
+            cached = self._get_cached_analysis(ticker, trading_style_name)
+            if cached:
+                if verbose:
+                    print(f"Using cached analysis for {ticker} (Last updated: {cached.analysis_timestamp})")
+                return cached
+        
+        # 2. If no cache or force refresh, perform fresh analysis
+        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose)
+        return analysis
+
+    def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
+        """Fetch analysis from DB if within TTL"""
+        from datetime import timedelta
+        import json
+        
+        db = Database("stock_analysis.db")
+        session = db.SessionLocal()
+        try:
+            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            if not stock:
+                return None
+            
+            # Find latest analysis for this style
+            analysis_record = session.query(Analysis).filter(
+                Analysis.stock_id == stock.id,
+                Analysis.trading_style == trading_style
+            ).order_by(Analysis.analysis_timestamp.desc()).first()
+            
+            if not analysis_record or not analysis_record.analysis_timestamp:
+                return None
+            
+            # Check TTL
+            age = datetime.utcnow() - analysis_record.analysis_timestamp
+            if age > timedelta(hours=ttl_hours):
+                return None
+            
+            # Verify critical data is present (especially for new features)
+            if not analysis_record.earnings_history_json:
+                return None
+                
+            # Convert DB model to DTO
+            # This is a simplified conversion for the cache layer
+            dto = StockAnalysis(
+                ticker=ticker,
+                timestamp=analysis_record.timestamp,
+                analysis_timestamp=analysis_record.analysis_timestamp,
+                trading_style=analysis_record.trading_style,
+                current_price=analysis_record.current_price or 0.0,
+                open=analysis_record.open_price or 0.0,
+                high=analysis_record.high or 0.0,
+                low=analysis_record.low or 0.0,
+                close=analysis_record.close or 0.0,
+                atr=analysis_record.atr or 0.0,
+                atr_daily=analysis_record.atr_daily or 0.0,
+                ema20=analysis_record.ema20 or 0.0,
+                ema50=analysis_record.ema50 or 0.0,
+                ema200=analysis_record.ema200 or 0.0,
+                rsi=analysis_record.rsi or 0.0,
+                macd=analysis_record.macd or 0.0,
+                macd_signal=analysis_record.macd_signal or 0.0,
+                bollinger_upper=analysis_record.bollinger_upper or 0.0,
+                bollinger_lower=analysis_record.bollinger_lower or 0.0,
+                last_earnings_date=analysis_record.last_earnings_date,
+                next_earnings_date=analysis_record.next_earnings_date,
+                days_until_earnings=analysis_record.days_until_earnings,
+                revenue=analysis_record.revenue,
+                operating_income=analysis_record.operating_income,
+                basic_eps=analysis_record.basic_eps,
+                median_price_target=analysis_record.median_price_target,
+                analyst_source=analysis_record.analyst_source,
+                news_sentiment=analysis_record.news_sentiment,
+                news_summary=analysis_record.news_summary,
+                projected_gap_risk=analysis_record.projected_gap_risk
+            )
+            
+            # Deserialize JSON
+            if analysis_record.earnings_history_json:
+                try:
+                    dto.earnings_history = json.loads(analysis_record.earnings_history_json)
+                except:
+                    dto.earnings_history = []
+            
+            # Map Finviz data
+            dto.finviz_data = {
+                "Market Cap": analysis_record.market_cap or "N/A",
+                "P/E": str(analysis_record.pe_ratio or "N/A"),
+                "PEG": str(analysis_record.peg_ratio or "N/A"),
+                "ROE": f"{analysis_record.roe}%" if analysis_record.roe else "N/A",
+                "ROA": f"{analysis_record.roa}%" if analysis_record.roa else "N/A"
+            }
+            
+            # Re-fetch history for charts (History is too big for DB, we always fetch live for the chart)
+            # This ensures charts are always up to date even if stats are cached
+            return dto
+            
+        finally:
+            session.close()
+
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         

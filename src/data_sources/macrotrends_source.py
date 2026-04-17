@@ -4,7 +4,6 @@ import re
 import json
 import asyncio
 from typing import Dict, Any, Optional, List
-from curl_cffi import requests
 from bs4 import BeautifulSoup
 from .base import FundamentalDataSource
 
@@ -34,8 +33,8 @@ class MacrotrendsSource(FundamentalDataSource):
         # 1. Get the base URL (resolves the company name slug)
         base_search_url = f"{self.BASE_URL}/{ticker}"
         try:
-            response = requests.get(base_search_url, impersonate="chrome110", timeout=self.TIMEOUT, allow_redirects=True)
-            if response.status_code != 200:
+            response = self._get_response_sync(base_search_url, allow_redirects=True)
+            if not response:
                 return None
             
             # The URL will now look like macrotrends.net/stocks/charts/AAPL/apple/revenue
@@ -70,12 +69,12 @@ class MacrotrendsSource(FundamentalDataSource):
     def _scrape_metric(self, url: str) -> Optional[float]:
         """Scrape the latest quarterly value for a specific metric page"""
         try:
-            response = requests.get(url, impersonate="chrome110", timeout=self.TIMEOUT)
-            if response.status_code != 200:
+            html = self._make_request_sync(url)
+            if not html:
                 return None
             
             # Method 1: Look for 'original_data' in script tags (reliable)
-            data_match = re.search(r'var original_data = (\[.*?\]);', response.text, re.DOTALL)
+            data_match = re.search(r'var original_data = (\[.*?\]);', html, re.DOTALL)
             if data_match:
                 try:
                     data = json.loads(data_match.group(1))
@@ -93,7 +92,7 @@ class MacrotrendsSource(FundamentalDataSource):
                     pass
 
             # Method 2: Fallback to HTML table parsing
-            soup = BeautifulSoup(response.content, 'html.parser')
+            soup = BeautifulSoup(html, 'html.parser')
             # Look for the second table (Quarterly)
             tables = soup.find_all("table", class_="historical_data_table")
             if len(tables) >= 2:

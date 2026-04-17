@@ -49,7 +49,10 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             shares_outstanding=_safe_int(analysis.shares_outstanding),
             earnings_growth=_safe_float(analysis.earnings_growth),
             news_sentiment=_safe_float(analysis.news_sentiment),
-            news_summary=analysis.news_summary
+            news_summary=analysis.news_summary,
+            # Persist Earnings Gap Analysis
+            earnings_history_json=_serialize_earnings_history(analysis.earnings_history),
+            projected_gap_risk=_safe_float(analysis.projected_gap_risk)
         )
         
         # Add Finviz data (already using _safe_float)
@@ -104,6 +107,16 @@ def _safe_int(val):
             return int(val)
         return int(val) if val and val != '-' else None
     except (ValueError, TypeError, OverflowError):
+        return None
+
+def _serialize_earnings_history(history):
+    """Safely convert earnings history list to JSON string"""
+    import json
+    if not history:
+        return None
+    try:
+        return json.dumps(history)
+    except:
         return None
 
 def _safe_float_parse(val_str: str):

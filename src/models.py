@@ -110,6 +110,10 @@ class Analysis(Base):
     news_sentiment = Column(Float)
     news_summary = Column(Text)
     
+    # Historical Earnings Gap Analysis
+    earnings_history_json = Column(Text) # JSON string of last 12 events
+    projected_gap_risk = Column(Float)   # Average absolute gap %
+    
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

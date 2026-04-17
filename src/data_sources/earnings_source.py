@@ -3,10 +3,22 @@
 import yfinance as yf
 import pandas as pd
 import streamlit as st
-from typing import Dict, Any, List
+import requests
+from typing import Dict, Any, List, Optional
+from .base import DataSource
 
-class EarningsSource:
+class EarningsSource(DataSource):
     """Analyzes historical stock performance following earnings reports"""
+
+    def get_source_name(self) -> str:
+        return "EarningsDrift"
+
+    async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Asynchronous wrapper for fetch_earnings_drift"""
+        import asyncio
+        loop = asyncio.get_running_loop()
+        limit = kwargs.get('limit', 12)
+        return await loop.run_in_executor(None, self.fetch_earnings_drift, ticker, limit)
     
     @st.cache_data(ttl=3600)
     def fetch_earnings_drift(_self, ticker: str, limit: int = 12) -> Dict[str, Any]:
