@@ -13,6 +13,7 @@ from .data_sources.marketbeat_source import MarketBeatSource
 from .data_sources.news_source import NewsSentimentSource
 from .data_sources.macro_source import MacroSource
 from .data_sources.macrotrends_source import MacrotrendsSource
+from .data_sources.earnings_source import EarningsSource
 from .trading_styles.factory import get_trading_style
 
 
@@ -138,6 +139,10 @@ class StockAnalysis:
     style_results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     style_analyses: Dict[str, Any] = field(default_factory=dict) # Full StockAnalysis objects for each style
     best_style: Optional[str] = None
+    
+    # Historical Earnings Gaps & Risk
+    earnings_history: List[Dict[str, Any]] = field(default_factory=list)
+    projected_gap_risk: Optional[float] = None
     
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
@@ -304,6 +309,24 @@ class StockAnalyzer:
                         
         if analysis.median_price_target:
             analysis.max_buy_price = analysis.median_price_target / 1.15
+        
+        # 3. Fetch Historical Earnings Gap Analysis
+        try:
+            earnings_src = EarningsSource()
+            # Fetch last 12 events to ensure we have a good sample for risk calculation
+            drift_data = earnings_src.fetch_earnings_drift(ticker, limit=12)
+            if drift_data and drift_data.get("analyzed_events", 0) > 0:
+                # Store the full history of events
+                analysis.earnings_history = drift_data.get("events", [])
+                
+                # Calculate Projected Gap Risk as the Mean Absolute T0 Return (The "Expected Move")
+                # We prioritize recent data but use the provided events
+                t0_returns = [abs(e.get("t0_return", 0)) for e in analysis.earnings_history if "t0_return" in e]
+                if t0_returns:
+                    analysis.projected_gap_risk = sum(t0_returns) / len(t0_returns)
+        except Exception as e:
+            if verbose:
+                print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
         
         return analysis
 
