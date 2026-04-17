@@ -78,36 +78,39 @@ class AIAnalyzer:
 
     def _construct_prompt(self, symbol: str, data: Dict[str, Any]) -> str:
         """Formats the raw dictionary data into a readable text prompt for the LLM."""
-        
-        lines = [f"Please analyze {symbol} based on the following current market telemetry:\n"]
-        
-        # Pull safe defaults if nested data is missing
-        current_price = data.get("current_price", "Unknown")
-        trend = data.get("trend", "Unknown")
-        support = data.get("support", "Unknown")
-        resistance = data.get("resistance", "Unknown")
-        
-        lines.append(f"- Current Price: ${current_price}")
-        lines.append(f"- Moving Average Trend: {trend}")
-        lines.append(f"- Nearest Support Level: ${support}")
-        lines.append(f"- Nearest Resistance Level: ${resistance}")
-        
-        if "sentiment" in data:
-            sentiment_data = data["sentiment"]
-            if isinstance(sentiment_data, dict):
-                s_score = sentiment_data.get("score", "N/A")
-                s_label = sentiment_data.get("label", "Neutral")
-            else:
-                # Handle raw float case
-                s_score = f"{float(sentiment_data):.2f}" if sentiment_data is not None else "0.00"
-                s_label = "Bullish" if float(s_score) > 0.15 else "Bearish" if float(s_score) < -0.15 else "Neutral"
-            lines.append(f"- News Sentiment Score: {s_score} ({s_label})")
+        try:
+            lines = [f"Please analyze {symbol} based on the following current market telemetry:\n"]
             
-        if "hvn" in data:
-            lines.append(f"- High Volume Node (HVN / Smart Money Level): ${data['hvn']}")
+            # Pull safe defaults if nested data is missing
+            current_price = data.get("current_price", "Unknown")
+            trend = data.get("trend", "Unknown")
+            support = data.get("support", "Unknown")
+            resistance = data.get("resistance", "Unknown")
             
-        if "earnings" in data:
-            lines.append(f"- Post-Earnings Drift Status: {data['earnings'].get('drift_direction', 'None')}")
+            lines.append(f"- Current Price: ${current_price}")
+            lines.append(f"- Moving Average Trend: {trend}")
+            lines.append(f"- Nearest Support Level: ${support}")
+            lines.append(f"- Nearest Resistance Level: ${resistance}")
             
-        lines.append("\nBased purely on these metrics, provide a single-paragraph trade thesis.")
-        return "\n".join(lines)
+            if "sentiment" in data:
+                sentiment_data = data["sentiment"]
+                if isinstance(sentiment_data, dict):
+                    s_score = sentiment_data.get("score", "N/A")
+                    s_label = sentiment_data.get("label", "Neutral")
+                else:
+                    # Handle raw float case
+                    s_score = f"{float(sentiment_data):.2f}" if sentiment_data is not None else "0.00"
+                    s_label = "Bullish" if float(s_score) > 0.15 else "Bearish" if float(s_score) < -0.15 else "Neutral"
+                lines.append(f"- News Sentiment Score: {s_score} ({s_label})")
+                
+            if "hvn" in data:
+                lines.append(f"- High Volume Node (HVN / Smart Money Level): ${data['hvn']}")
+                
+            if "earnings" in data:
+                lines.append(f"- Post-Earnings Drift Status: {data['earnings'].get('drift_direction', 'None')}")
+                
+            lines.append("\nBased purely on these metrics, provide a single-paragraph trade thesis.")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.error(f"Prompt Construction Error: {e}")
+            return f"Error assembling data for analysis: {str(e)}"

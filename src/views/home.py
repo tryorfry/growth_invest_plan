@@ -52,6 +52,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     Renders the primary Analysis (Home) page.
     """
     st.title(f"📊 {selected_style} Analyzer")
+    st.caption("Modular View v1.1.0")
     st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
     
     # 1. Trigger Analysis
