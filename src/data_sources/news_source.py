@@ -5,6 +5,7 @@ from textblob import TextBlob
 import pandas as pd
 import asyncio
 import streamlit as st
+import requests
 from typing import List, Dict, Any
 
 class NewsSentimentSource:
@@ -32,6 +33,7 @@ class NewsSentimentSource:
             Dict containing average sentiment and a list of scored articles.
         """
         try:
+            # Let yfinance handle its own session/impersonation if it prefers curl_cffi
             stock = yf.Ticker(ticker)
             news_items = stock.news
             
@@ -92,5 +94,6 @@ class NewsSentimentSource:
             }
             
         except Exception as e:
+            # Fallback: Try a direct news feed fetch if yfinance fails
             print(f"Error fetching news for {ticker}: {e}")
             return {"average_sentiment": 0.0, "articles": [], "sentiment_label": "Neutral", "error": str(e)}

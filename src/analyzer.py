@@ -457,9 +457,10 @@ class StockAnalyzer:
             fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
             news_task = asyncio.create_task(self.news_source.fetch(ticker))
             macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
+            earnings_task = asyncio.create_task(self.earnings_source.fetch(ticker))
             
-            results = await asyncio.gather(weekly_task, daily_task, fundamental_task, news_task, macrotrends_task, return_exceptions=True)
-            tech_w, tech_d, fundamental_data, news_data, macrotrends_data = results
+            results = await asyncio.gather(weekly_task, daily_task, fundamental_task, news_task, macrotrends_task, earnings_task, return_exceptions=True)
+            tech_w, tech_d, fundamental_data, news_data, macrotrends_data, drift_data = results
             
             if isinstance(tech_d, Exception) or not tech_d:
                 print(f"Error: Could not fetch basic technical data for {ticker}")
@@ -479,6 +480,10 @@ class StockAnalyzer:
                 main_analysis.revenue = macrotrends_data.get('revenue', main_analysis.revenue)
                 main_analysis.operating_income = macrotrends_data.get('operating_income', main_analysis.operating_income)
                 main_analysis.basic_eps = macrotrends_data.get('eps_diluted', main_analysis.basic_eps)
+            
+            if not isinstance(drift_data, Exception) and drift_data:
+                main_analysis.projected_gap_risk = drift_data.get("avg_t0_return")
+                main_analysis.earnings_history = drift_data.get("events", [])
 
             # Analyst data (usually same for all)
             if main_analysis.last_earnings_date:

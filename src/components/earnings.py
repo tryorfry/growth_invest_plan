@@ -4,10 +4,11 @@ from src.analyzer import StockAnalysis
 
 def render_earnings_analysis_section(analysis: StockAnalysis):
     """Render historical earnings gap analysis and risk magnitude"""
-    if not analysis.earnings_history:
-        return
-
     st.subheader("📊 Earnings Gap Analysis")
+    
+    if not analysis.earnings_history:
+        st.info("Historical earnings gap data is currently unavailable for this ticker or could not be fetched.")
+        return
     
     # Summary Metrics for Risk
     risk_col1, risk_col2, risk_col3 = st.columns(3)

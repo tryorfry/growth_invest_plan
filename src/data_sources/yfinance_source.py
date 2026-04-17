@@ -51,28 +51,34 @@ class YFinanceSource(TechnicalDataSource):
         except Exception as e:
             # Fallback direct request if yfinance fails to parse (NoneType bug)
             print(f"yfinance failed, attempting direct fetch for {ticker}: {e}")
-            import requests
-            session = requests.Session()
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-            })
             url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range={self.period}&interval=1d"
-            r = session.get(url)
-            data = r.json()
-            if 'chart' in data and data['chart']['result']:
-                result = data['chart']['result'][0]
-                timestamps = result['timestamp']
-                quote = result['indicators']['quote'][0]
-                hist = pd.DataFrame({
-                    'Open': quote['open'],
-                    'High': quote['high'],
-                    'Low': quote['low'],
-                    'Close': quote['close'],
-                    'Volume': quote['volume']
-                }, index=pd.to_datetime(timestamps, unit='s', utc=True))
-                # yfinance returns timezone-aware localized series, so we convert back to simple naive dates based on market tz
-                hist.index = hist.index.tz_convert('America/New_York')
-            else:
+            try:
+                # Use robust helper from DataSource base class
+                r = self._get_response_sync(url)
+                if r and r.status_code == 200:
+                    data = r.json()
+                    result = data.get('chart', {}).get('result', [{}])[0]
+                    if result:
+                        timestamps = result.get('timestamp')
+                        quote_data = result.get('indicators', {}).get('quote', [{}])[0]
+                        if timestamps and quote_data and all(k in quote_data for k in ['open', 'high', 'low', 'close']):
+                            hist = pd.DataFrame({
+                                'Open': quote_data.get('open', []),
+                                'High': quote_data.get('high', []),
+                                'Low': quote_data.get('low', []),
+                                'Close': quote_data.get('close', []),
+                                'Volume': quote_data.get('volume', [])
+                            }, index=pd.to_datetime(timestamps, unit='s', utc=True))
+                            # yfinance returns timezone-aware localized series, so we convert back to simple naive dates based on market tz
+                            hist.index = hist.index.tz_convert('America/New_York')
+                        else:
+                            hist = pd.DataFrame()
+                    else:
+                        hist = pd.DataFrame()
+                else:
+                    hist = pd.DataFrame()
+            except Exception as ef:
+                print(f"Manual direct fetch fallback also failed for {ticker}: {ef}")
                 hist = pd.DataFrame()
         
         if hist.empty:
@@ -328,14 +334,19 @@ class YFinanceSource(TechnicalDataSource):
             "current_price": latest['Close'],
             "timestamp": latest_date
         }
-    
     def _get_earnings_dates(self, stock: yf.Ticker) -> Dict[str, Any]:
         """Extract past and future earnings dates with robust sorting and TZ handling"""
         result = {}
         
         try:
             # 1. Fetch entire earnings series from yfinance
-            earnings = stock.earnings_dates
+            # Use a robust try block for yfinance internals
+            try:
+                earnings = stock.earnings_dates
+            except Exception as e:
+                print(f"Warning: stock.earnings_dates accessor failed for {stock.ticker}: {e}")
+                earnings = None
+                
             if earnings is not None and not earnings.empty:
                 # Ensure it's sorted by time (descending: newest first)
                 earnings = earnings.sort_index(ascending=False)
