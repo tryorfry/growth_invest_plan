@@ -352,8 +352,8 @@ class StockAnalyzer:
             news_data = {}
             
         if news_data:
-            analysis.news_sentiment = news_data.get("news_sentiment")
-            analysis.news_summary = news_data.get("news_summary")
+            analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
+            analysis.news_summary = news_data.get("sentiment_label", "Neutral")
             
         # 2. Process Macrotrends data (Primary for core financials)
         if isinstance(macrotrends_data, Exception):
@@ -430,6 +430,12 @@ class StockAnalyzer:
                 t0_returns = [abs(e.get("t0_return", 0)) for e in analysis.earnings_history if "t0_return" in e]
                 if t0_returns:
                     analysis.projected_gap_risk = sum(t0_returns) / len(t0_returns)
+                
+                # RECOVERY: Map most recent event to last_earnings_date if missing
+                if not analysis.last_earnings_date and analysis.earnings_history:
+                    # History is usually sorted newest first
+                    latest_event = analysis.earnings_history[0]
+                    analysis.last_earnings_date = latest_event.get("date")
         except Exception as e:
             if verbose:
                 print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
@@ -474,8 +480,10 @@ class StockAnalyzer:
             if not isinstance(fundamental_data, Exception) and fundamental_data:
                 main_analysis.finviz_data = fundamental_data
             if not isinstance(news_data, Exception) and news_data:
-                main_analysis.news_sentiment = news_data.get("news_sentiment")
-                main_analysis.news_summary = news_data.get("news_summary")
+                # Align keys from NewsSentimentSource with StockAnalysis properties
+                main_analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
+                main_analysis.news_summary = news_data.get("sentiment_label", "Neutral")
+                
             if not isinstance(macrotrends_data, Exception) and macrotrends_data:
                 main_analysis.revenue = macrotrends_data.get('revenue', main_analysis.revenue)
                 main_analysis.operating_income = macrotrends_data.get('operating_income', main_analysis.operating_income)
@@ -484,6 +492,19 @@ class StockAnalyzer:
             if not isinstance(drift_data, Exception) and drift_data:
                 main_analysis.projected_gap_risk = drift_data.get("avg_t0_return")
                 main_analysis.earnings_history = drift_data.get("events", [])
+                
+                # RECOVERY: If primary provider failed to get earnings dates, try to recover from drift fallback
+                if not main_analysis.last_earnings_date and main_analysis.earnings_history:
+                    # History is usually sorted newest first
+                    latest_event = main_analysis.earnings_history[0]
+                    main_analysis.last_earnings_date = latest_event.get("date")
+                    
+                # Recalculate days until earnings if we recovered dates
+                if main_analysis.next_earnings_date:
+                    try:
+                        next_date = pd.to_datetime(main_analysis.next_earnings_date).tz_localize(None)
+                        main_analysis.days_until_earnings = (next_date - datetime.now().replace(tzinfo=None)).days
+                    except: pass
 
             # Analyst data (usually same for all)
             if main_analysis.last_earnings_date:
