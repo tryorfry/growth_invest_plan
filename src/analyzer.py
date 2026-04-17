@@ -347,31 +347,32 @@ class StockAnalyzer:
         if fundamental_data:
             analysis.finviz_data = fundamental_data
             
+        # 1. Map News Sentiment safely
         if isinstance(news_data, Exception):
-            print(f"Warning: News fetch failed: {news_data}")
-            news_data = {}
+            if verbose: print(f"Warning: News fetch failed: {news_data}")
+            news_data = {"average_sentiment": 0.0, "sentiment_label": "Neutral"}
             
         if news_data:
             analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
             analysis.news_summary = news_data.get("sentiment_label", "Neutral")
+        else:
+            analysis.news_sentiment = 0.0
+            analysis.news_summary = "Neutral"
             
         # 2. Process Macrotrends data (Primary for core financials)
         if isinstance(macrotrends_data, Exception):
-            print(f"Warning: Macrotrends fetch failed: {macrotrends_data}")
+            if verbose: print(f"Warning: Macrotrends fetch failed: {macrotrends_data}")
             macrotrends_data = None
             
         if macrotrends_data:
-            # Override with Macrotrends data if available
             analysis.revenue = macrotrends_data.get('revenue', analysis.revenue)
             analysis.operating_income = macrotrends_data.get('operating_income', analysis.operating_income)
             analysis.basic_eps = macrotrends_data.get('eps_diluted', analysis.basic_eps)
-            if verbose:
-                print(f"Using Macrotrends for core financials.")
+            if verbose: print(f"Using Macrotrends for core financials.")
             
         # Calculate Support & Resistance if history exists
         if analysis.history is not None and not analysis.history.empty:
             self._calculate_support_resistance(analysis)
-            # Execute Strategy Pattern Trade Setup
             style_strategy.calculate_trade_setup(analysis)
             
             if analysis.suggested_entry and analysis.suggested_stop_loss:
@@ -380,13 +381,10 @@ class StockAnalyzer:
                     analysis.risk_per_unit = risk
                     analysis.position_size_units = int(100.0 // risk)
             
-        # 2. Fetch Analyst Targets (Dependent on earnings date from technical data)
+        # 3. Fetch Analyst Targets
         if analysis.last_earnings_date:
-            analyst_data = None
-            
-            # Try primary analyst source (default: MarketBeat)
             if verbose:
-                print(f"Fetching analyst ratings (post {analysis.last_earnings_date.date()}) from {self.analyst_source.get_source_name()}...")
+                print(f"Fetching analyst ratings from {self.analyst_source.get_source_name()}...")
                 
             analyst_data = await self.analyst_source.fetch(
                 ticker, 
@@ -398,47 +396,32 @@ class StockAnalyzer:
                 analysis.marketbeat_action_recent = analyst_data.get("recent_action")
                 analysis.analyst_source = self.analyst_source.get_source_name()
             else:
-                # Fallback to YFinance if primary fails and isn't already YFinance
                 if not isinstance(self.analyst_source, YFinanceAnalystSource):
-                    if verbose:
-                        print(f"Primary analyst source failed, falling back to YFinance...")
-                    
                     yf_source = YFinanceAnalystSource()
-                    analyst_data = await yf_source.fetch(
-                        ticker,
-                        last_earnings_date=analysis.last_earnings_date
-                    )
+                    analyst_data = await yf_source.fetch(ticker, last_earnings_date=analysis.last_earnings_date)
                     if analyst_data:
                         analysis.median_price_target = analyst_data.get("median_price_target")
-                        analysis.marketbeat_action_recent = analyst_data.get("recent_action")
                         analysis.analyst_source = "YFinance (Fallback)"
                         
         if analysis.median_price_target:
             analysis.max_buy_price = analysis.median_price_target / 1.15
         
-        # 3. Fetch Historical Earnings Gap Analysis
+        # 4. Fetch Historical Earnings Gap Analysis
         try:
             earnings_src = EarningsSource()
-            # Fetch last 12 events to ensure we have a good sample for risk calculation
             drift_data = earnings_src.fetch_earnings_drift(ticker, limit=12)
             if drift_data and drift_data.get("analyzed_events", 0) > 0:
-                # Store the full history of events
                 analysis.earnings_history = drift_data.get("events", [])
                 
-                # Calculate Projected Gap Risk as the Mean Absolute T0 Return (The "Expected Move")
-                # We prioritize recent data but use the provided events
                 t0_returns = [abs(e.get("t0_return", 0)) for e in analysis.earnings_history if "t0_return" in e]
                 if t0_returns:
                     analysis.projected_gap_risk = sum(t0_returns) / len(t0_returns)
                 
-                # RECOVERY: Map most recent event to last_earnings_date if missing
                 if not analysis.last_earnings_date and analysis.earnings_history:
-                    # History is usually sorted newest first
                     latest_event = analysis.earnings_history[0]
                     analysis.last_earnings_date = latest_event.get("date")
         except Exception as e:
-            if verbose:
-                print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
+            if verbose: print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
         
         return analysis
 

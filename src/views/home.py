@@ -107,19 +107,54 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
                 st.metric(f"ATR (14{'d' if analysis.trading_style in ['Swing Trading', 'Trend Trading'] else 'w'})", f"{atr_val:.2f}")
 
-            # Second row metrics
+            # Key Metrics Row 2: Earnings & Sentiment
             st.divider()
-            col_e1, col_e2, col_s = st.columns([1, 1, 1])
-            with col_e1: st.metric("Last Earnings", str(analysis.last_earnings_date.date()) if analysis.last_earnings_date else "N/A")
-            with col_e2: st.metric("Next Earnings", str(analysis.next_earnings_date.date()) if analysis.next_earnings_date else "N/A")
+            col_e1, col_e2, col_e3, col_s = st.columns([1, 1, 2, 1])
+            
+            with col_e1:
+                if analysis.last_earnings_date:
+                    last_dt = pd.to_datetime(analysis.last_earnings_date).tz_localize(None).date()
+                    days_since = (pd.Timestamp.now().normalize().date() - last_dt).days
+                    st.metric("Last Earnings", str(last_dt), f"{days_since}d ago", delta_color="off")
+                else:
+                    st.metric("Last Earnings", "N/A")
+                    
+            with col_e2:
+                if analysis.next_earnings_date:
+                    next_dt = pd.to_datetime(analysis.next_earnings_date).tz_localize(None).date()
+                    days_until = (next_dt - pd.Timestamp.now().normalize().date()).days
+                    st.metric("Next Earnings", str(next_dt), f"in {days_until}d", delta_color="off")
+                else:
+                    st.metric("Next Earnings", "N/A")
+                    
+            with col_e3:
+                if analysis.next_earnings_date:
+                    next_dt = pd.to_datetime(analysis.next_earnings_date).tz_localize(None).date()
+                    days_until = (next_dt - pd.Timestamp.now().normalize().date()).days
+                    
+                    if days_until <= 3: color, label = "#ef5350", "CRITICAL"
+                    elif days_until <= 10: color, label = "#FF9800", "WARNING"
+                    else: color, label = "#26a69a", "SAFE"
+                    
+                    st.markdown(f"""
+                        <div style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+                            <div style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 4px;">Earnings Proximity</div>
+                            <div style="background-color: {color}; height: 8px; border-radius: 4px; width: 100%;"></div>
+                            <div style="font-size: 0.7rem; font-weight: bold; margin-top: 4px; color: {color};">{label}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                     st.markdown('<div style="height: 60px; display: flex; align-items: center; opacity: 0.5;">No Earnings Data</div>', unsafe_allow_html=True)
+
             with col_s:
-                if analysis.news_sentiment:
-                    sentiment_label = "Positive" if analysis.news_sentiment > 0.1 else "Negative" if analysis.news_sentiment < -0.1 else "Neutral"
-                    st.metric("Sentiment", sentiment_label, f"{analysis.news_sentiment:.2f}")
-                else: st.metric("Sentiment", "N/A")
+                if analysis.news_sentiment is not None:
+                    label = "Bullish" if analysis.news_sentiment > 0.15 else "Bearish" if analysis.news_sentiment < -0.15 else "Neutral"
+                    st.metric("Sentiment", label, f"{analysis.news_sentiment:.2f}")
+                else:
+                    st.metric("Sentiment", "N/A")
 
             # Sections
-            if analysis.earnings_history:
+            if analysis.earnings_history and len(analysis.earnings_history) > 0:
                 st.divider()
                 render_earnings_analysis_section(analysis)
             
@@ -136,7 +171,11 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             with st.spinner("Generating AI Analysis..."):
                 ai_engine = AIAnalyzer()
                 if ai_engine.is_available():
-                    ai_payload = {"current_price": analysis.current_price, "trend": getattr(analysis, 'market_trend', 'Unknown')}
+                    ai_payload = {
+                        "current_price": analysis.current_price, 
+                        "trend": getattr(analysis, 'market_trend', 'Unknown'),
+                        "sentiment": analysis.news_sentiment
+                    }
                     st.info(ai_engine.generate_thesis(analysis.ticker, ai_payload))
                 else:
                     st.warning("⚠️ AI Analysis unavailable.")
@@ -146,8 +185,8 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             st.subheader("🎯 Trade Execution Setup")
             with st.container(border=True):
                 col_e, col_sl = st.columns(2)
-                with col_e: st.metric("Suggested Entry", f"${float(analysis.suggested_entry):.2f}" if getattr(analysis, 'suggested_entry', None) else "WAIT")
-                with col_sl: st.metric("Stop Loss", f"${float(analysis.suggested_stop_loss):.2f}" if getattr(analysis, 'suggested_stop_loss', None) else "N/A")
+                with col_e: st.metric("Suggested Entry", f"${float(analysis.suggested_entry):.2f}" if getattr(analysis, 'suggested_entry', None) is not None else "WAIT")
+                with col_sl: st.metric("Stop Loss", f"${float(analysis.suggested_stop_loss):.2f}" if getattr(analysis, 'suggested_stop_loss', None) is not None else "N/A")
                 
                 if getattr(analysis, 'reward_to_risk', None):
                     st.divider()
