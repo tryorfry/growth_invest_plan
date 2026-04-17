@@ -13,9 +13,9 @@ from src.utils import save_analysis, render_ticker_header
 from src.components.checklist import render_checklist
 from src.components.earnings import render_earnings_analysis_section
 
-async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing"):
+async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing", force_refresh: bool = False):
     """Analyze a stock ticker"""
-    return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False)
+    return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False, force_refresh=force_refresh)
 
 def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
     """Load historical analyses for a ticker"""
@@ -58,7 +58,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     if analyze_button and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
             try:
-                fetched_analysis = asyncio.run(analyze_stock(ticker, analyzer, selected_style))
+                fetched_analysis = asyncio.run(analyze_stock(ticker, analyzer, selected_style, force_refresh=True))
                 
                 if fetched_analysis:
                     save_analysis(db, fetched_analysis)

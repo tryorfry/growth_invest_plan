@@ -226,7 +226,15 @@ class StockAnalyzer:
                 return None
             
             # Verify critical data is present (especially for new features)
+            # If any are missing, we treat the cache as invalid to force a fresh pull of fixes
             if not analysis_record.earnings_history_json:
+                return None
+            
+            if analysis_record.news_sentiment is None:
+                return None
+                
+            if not analysis_record.last_earnings_date:
+                # We might have recovered this in fresh analyze, but old DB records won't have it
                 return None
                 
             # Convert DB model to DTO
