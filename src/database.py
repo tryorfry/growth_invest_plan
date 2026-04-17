@@ -167,11 +167,14 @@ class Database:
                         if "postgresql" in self.db_url and col_type == "DATETIME":
                             sql_type = "TIMESTAMP"
                             
-                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {sql_type}"))
-                        conn.commit()
-                        print(f"Added column {col} to {table}")
+                        # Use a dedicated connection for the DDL statement
+                        with self.engine.begin() as ddl_conn:
+                            ddl_conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{col}" {sql_type}'))
+                        print(f"✅ Migrated: Added column {col} to {table}")
                     except Exception as e:
-                        print(f"Error adding column {col}: {e}")
+                        # Silently ignore "already exists" errors (PG code 42701)
+                        if "already exists" not in str(e).lower():
+                            print(f"❌ Error adding column {col} to {table}: {e}")
                     
         print(f"Database initialized at: {self.db_url.split('@')[-1] if '@' in self.db_url else self.db_url}")
         

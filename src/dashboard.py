@@ -49,23 +49,6 @@ def init_database():
     db = Database("stock_analysis.db")
     db.init_db()
     
-    # Self-healing migration: ensure theme_preference and show_hvn columns exist
-    try:
-        import sqlite3 as _sqlite3
-        _conn = _sqlite3.connect("stock_analysis.db")
-        _cur = _conn.cursor()
-        _cur.execute("PRAGMA table_info(users)")
-        _cols = [row[1] for row in _cur.fetchall()]
-        if _cols:  # only if table exists
-            if 'theme_preference' not in _cols:
-                _cur.execute("ALTER TABLE users ADD COLUMN theme_preference VARCHAR(20) DEFAULT 'dark'")
-            if 'show_hvn' not in _cols:
-                _cur.execute("ALTER TABLE users ADD COLUMN show_hvn INTEGER DEFAULT 1")
-            _conn.commit()
-        _conn.close()
-    except Exception:
-        pass  # Fresh DB will have the column from create_all()
-    
     # Seed admin user if needed
     with db.get_session() as session:
         from src.auth import AuthManager
