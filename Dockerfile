@@ -14,6 +14,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
+    git \
     libsqlite3-dev \
     libffi-dev \
     libpq-dev \

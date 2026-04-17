@@ -22,3 +22,4 @@ pytest-cov
 bcrypt
 google-genai
 streamlit-lightweight-charts
+specify-cli>=0.7.2
