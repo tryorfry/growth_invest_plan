@@ -161,7 +161,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             if hasattr(analysis, 'market_trend') and analysis.market_trend:
                 st.markdown(f"### Market Trend: :{'green' if analysis.market_trend == 'Uptrend' else 'red' if analysis.market_trend == 'Downtrend' else 'gray'}[{analysis.market_trend}]")
 
-            if st.session_state.get('show_checklist', False) or (selected_style == "Growth Investing" and analysis.trading_style == "Growth Investing"):
+            if st.session_state.get('show_checklist', False):
                 render_checklist(analysis)
 
             # AI Thesis
@@ -171,10 +171,14 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             with st.spinner("Generating AI Analysis..."):
                 ai_engine = AIAnalyzer()
                 if ai_engine.is_available():
+                    # Format payload to match AIAnalyzer expectation
                     ai_payload = {
                         "current_price": analysis.current_price, 
                         "trend": getattr(analysis, 'market_trend', 'Unknown'),
-                        "sentiment": analysis.news_sentiment
+                        "sentiment": {
+                            "score": analysis.news_sentiment if analysis.news_sentiment is not None else 0.0,
+                            "label": analysis.news_summary if analysis.news_summary else "Neutral"
+                        }
                     }
                     st.info(ai_engine.generate_thesis(analysis.ticker, ai_payload))
                 else:

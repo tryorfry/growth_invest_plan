@@ -93,8 +93,14 @@ class AIAnalyzer:
         lines.append(f"- Nearest Resistance Level: ${resistance}")
         
         if "sentiment" in data:
-            s_score = data["sentiment"].get("score", "N/A")
-            s_label = data["sentiment"].get("label", "Neutral")
+            sentiment_data = data["sentiment"]
+            if isinstance(sentiment_data, dict):
+                s_score = sentiment_data.get("score", "N/A")
+                s_label = sentiment_data.get("label", "Neutral")
+            else:
+                # Handle raw float case
+                s_score = f"{float(sentiment_data):.2f}" if sentiment_data is not None else "0.00"
+                s_label = "Bullish" if float(s_score) > 0.15 else "Bearish" if float(s_score) < -0.15 else "Neutral"
             lines.append(f"- News Sentiment Score: {s_score} ({s_label})")
             
         if "hvn" in data:

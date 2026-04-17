@@ -290,6 +290,20 @@ class StockAnalyzer:
             
             # Re-fetch history for charts (History is too big for DB, we always fetch live for the chart)
             # This ensures charts are always up to date even if stats are cached
+            try:
+                # We use the yfinance source to get history matching the style
+                yf_source = YFinanceSource()
+                # Growth: W/5y, Swing/Trend: D/2y
+                period = "5y" if trading_style == "Growth Investing" else "2y"
+                interval = "1wk" if trading_style == "Growth Investing" else "1d"
+                
+                # Fetch history
+                history = yf_source.fetch_history(ticker, period=period, interval=interval)
+                if history is not None and not history.empty:
+                    dto.history = history
+            except Exception as e:
+                print(f"Warning: Failed to re-fetch history for cached {ticker}: {e}")
+                
             return dto
             
         finally:
