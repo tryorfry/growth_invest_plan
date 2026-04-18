@@ -138,7 +138,12 @@ def main():
             ms_ticker = render_hybrid_ticker_input(key_prefix="ms_report") or "AAPL"
             if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
                 tickers = [t.strip().upper() for t in ms_ticker.split(",") if t.strip()]
-                results = asyncio.run(asyncio.gather(*[run_multi_style_analysis(t, analyzer) for t in tickers]))
+                async def run_parallel_analysis(ticker_list, analyzer_inst):
+                    # We create the coroutines INSIDE the async function so they are bound to the loop created by asyncio.run
+                    tasks = [run_multi_style_analysis(t, analyzer_inst) for t in ticker_list]
+                    return await asyncio.gather(*tasks)
+
+                results = asyncio.run(run_parallel_analysis(tickers, analyzer))
                 valid = [r for r in results if r]
                 if valid:
                     st.session_state['ms_results'] = valid

@@ -196,7 +196,7 @@ class StockAnalyzer:
                 return cached
         
         # 2. If no cache or force refresh, perform fresh analysis
-        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose)
+        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh)
         return analysis
 
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
@@ -309,7 +309,7 @@ class StockAnalyzer:
         finally:
             session.close()
 
-    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True) -> Optional[StockAnalysis]:
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         
@@ -431,7 +431,7 @@ class StockAnalyzer:
         # 4. Fetch Historical Earnings Gap Analysis
         try:
             earnings_src = EarningsSource()
-            drift_data = earnings_src.fetch_earnings_drift(ticker, limit=12)
+            drift_data = await earnings_src.fetch(ticker, limit=12, force_refresh=force_refresh)
             if drift_data and drift_data.get("analyzed_events", 0) > 0:
                 analysis.earnings_history = drift_data.get("events", [])
                 
@@ -442,6 +442,8 @@ class StockAnalyzer:
                 if not analysis.last_earnings_date and analysis.earnings_history:
                     latest_event = analysis.earnings_history[0]
                     analysis.last_earnings_date = latest_event.get("date")
+                    if verbose: print(f"Recovered Last Earnings Date from history: {analysis.last_earnings_date}")
+                    
         except Exception as e:
             if verbose: print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
         
