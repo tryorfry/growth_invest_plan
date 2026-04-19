@@ -281,20 +281,29 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 st.divider()
                 st.caption("Timeframe & Zoom (Interactive Selection)")
                 
-                # 🏎️ PERFORMANCE & UI: Use Segmented Control / Pills for highlighting
+                # 🛡️ SAFETY & BUG FIX: Normalize values to prevent "Render Error" due to case mismatch
+                allowed_tf = ["D", "W"]
+                tframe = st.session_state.get('timeframe', 'D')
+                if tframe not in allowed_tf: tframe = "D"
+                
+                allowed_zoom = ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"]
+                zrange = str(st.session_state.get('zoom', '1y')).lower()
+                if zrange not in allowed_zoom: zrange = "1y"
+
                 st.session_state['timeframe'] = st.segmented_control(
                     "Interval", 
-                    options=["5m", "15m", "1h", "D", "W"], 
+                    options=allowed_tf, 
                     selection_mode="single",
-                    default=st.session_state.get('timeframe', 'D'),
+                    default=tframe,
+                    format_func=lambda x: "Daily" if x == "D" else "Weekly",
                     label_visibility="collapsed"
                 )
                 
                 st.session_state['zoom'] = st.pills(
                     "Range",
-                    options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
+                    options=allowed_zoom,
                     selection_mode="single",
-                    default=st.session_state.get('zoom', '1y'),
+                    default=zrange,
                     label_visibility="collapsed"
                 )
 
