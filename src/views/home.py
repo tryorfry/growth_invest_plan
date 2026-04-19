@@ -14,6 +14,7 @@ from src.components.checklist import render_checklist
 from src.components.earnings import render_earnings_analysis_section
 
 from src.components.news_catalyst import render_news_catalysts
+from src.components.market_map import render_global_market_map
 
 async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing", force_refresh: bool = False):
     """Analyze a stock ticker"""
@@ -57,16 +58,19 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     from src.data_sources.macro_source import MacroSource
     
     with st.expander("🌍 Global Market Snapshot", expanded=True):
+        # 🟢 NEW: Global World Map
+        snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
+        if snapshot:
+            render_global_market_map(snapshot)
+            st.divider()
+            
         snapshot_container = st.empty()
-        with snapshot_container:
-            # Fetch global metrics asynchronously for max speed
-            snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
             if snapshot:
                 # Grouping indices for better localized overview
                 groups = {
                     "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Bitcoin", "Ethereum"],
                     "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
-                    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "Nifty 50"]
+                    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "SGX", "Nifty 50"]
                 }
                 
                 for group_name, members in groups.items():

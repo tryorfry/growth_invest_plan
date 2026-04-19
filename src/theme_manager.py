@@ -150,6 +150,33 @@ class ThemeManager:
                 }
             }
             
+            /* Premium Glassmorphism Utility */
+            .macro-card {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(8px);
+                border-radius: 12px;
+                padding: 1.25rem;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                text-align: center;
+                transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            }
+            .macro-card:hover {
+                transform: translateY(-4px);
+                border-color: rgba(255, 255, 255, 0.25);
+                background: rgba(255, 255, 255, 0.08);
+            }
+            .macro-label { color: #94a3b8; font-size: 0.8rem; font-weight: 500; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+            .macro-value { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.25rem; }
+            .macro-delta { font-size: 0.85rem; font-weight: 600; }
+            
+            /* Light Mode adjustments for Glassmorphism */
+            [data-user-theme="light"] .macro-card {
+                background: rgba(0, 0, 0, 0.03);
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                color: #31333F;
+            }
+            [data-user-theme="light"] .macro-label { color: #64748b; }
+
             /* Add subtle hover effects to buttons */
             button[kind="primary"] {
                 transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out;

@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 class MacroSource:
     """Source for global market indicators (Yields, VIX, Crypto, etc.)"""
@@ -23,10 +23,25 @@ class MacroSource:
         'Nikkei 225': '^N225',
         'Hang Seng': '^HSI',
         'Straits Times': '^STI',
+        'SGX': 'S68.SI',
         'Nifty 50': '^NSEI',
         'ASX 200': '^AXJO',
         'Bitcoin': 'BTC-USD',
         'Ethereum': 'ETH-USD'
+    }
+
+    # Geographic metadata for world map visualization
+    GEOGRAPHIC_CONFIG = {
+        'S&P 500': {'lat': 37.09, 'lon': -95.71, 'country': 'USA'},
+        'Nasdaq': {'lat': 40.71, 'lon': -74.00, 'country': 'USA'},
+        'FTSE 100': {'lat': 55.37, 'lon': -3.43, 'country': 'UK'},
+        'DAX 40': {'lat': 51.16, 'lon': 10.45, 'country': 'Germany'},
+        'Nikkei 225': {'lat': 36.20, 'lon': 138.25, 'country': 'Japan'},
+        'Hang Seng': {'lat': 22.31, 'lon': 114.16, 'country': 'Hong Kong'},
+        'Straits Times': {'lat': 1.35, 'lon': 103.81, 'country': 'Singapore'},
+        'SGX': {'lat': 4.35, 'lon': 103.81, 'country': 'Singapore'}, # Offset slightly from STI
+        'Nifty 50': {'lat': 20.59, 'lon': 78.96, 'country': 'India'},
+        'ASX 200': {'lat': -25.27, 'lon': 133.77, 'country': 'Australia'}
     }
     
     SECTOR_ETFS = {
@@ -84,11 +99,16 @@ class MacroSource:
                     curr = hist['Close'].iloc[-1]
                     prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
                     pct = ((curr - prev) / prev) * 100
+                    
+                    geo = MacroSource.GEOGRAPHIC_CONFIG.get(name, {})
                     return {
                         'name': name,
                         'value': curr,
                         'pct_change': pct,
-                        'type': 'Crypto' if 'USD' in ticker else 'Index'
+                        'type': 'Crypto' if 'USD' in ticker else 'Index',
+                        'lat': geo.get('lat'),
+                        'lon': geo.get('lon'),
+                        'country': geo.get('country')
                     }
             except Exception as e:
                 print(f"Error fetching {name}: {e}")

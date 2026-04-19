@@ -98,6 +98,7 @@ class StockAnalysis:
     # News Sentiment
     news_sentiment: Optional[float] = None
     news_summary: Optional[str] = None
+    news_data: Dict[str, Any] = field(default_factory=dict)
     
     # Options data
     implied_volatility: Optional[float] = None
@@ -490,6 +491,7 @@ class StockAnalyzer:
                 # Align keys from NewsSentimentSource with StockAnalysis properties
                 main_analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
                 main_analysis.news_summary = news_data.get("sentiment_label", "Neutral")
+                main_analysis.news_data = news_data
                 
             if not isinstance(macrotrends_data, Exception) and macrotrends_data:
                 main_analysis.revenue = macrotrends_data.get('revenue', main_analysis.revenue)
