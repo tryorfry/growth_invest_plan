@@ -100,8 +100,11 @@ def main():
         render_backtesting_page()
         
     elif page == "🌍 Market Pulse":
-        from src.views.market_pulse import render_market_pulse_page
-        render_market_pulse_page()
+        if st.session_state.get('user_tier') != 'admin':
+            st.error("🔒 Admin Only")
+        else:
+            from src.views.market_pulse import render_market_pulse_page
+            render_market_pulse_page()
         
     elif page == "🔍 Screener":
         from src.views.screener import render_screener_page

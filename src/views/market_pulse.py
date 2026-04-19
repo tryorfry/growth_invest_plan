@@ -180,29 +180,52 @@ def render_market_pulse_page():
                 st.toast("Redirecting to Multi-Style engine...", icon="🚀")
                 st.rerun()
 
-            # Clean Row-based list for the top 15
-            for i, t in enumerate(top_tickers[:15]):
-                with st.container(border=True):
-                    c1, c2, c3, c4 = st.columns([0.15, 0.45, 0.2, 0.2])
-                    with c1: st.markdown(f"**{t['ticker']}**")
-                    with c2: st.caption(t['company'])
-                    with c3:
-                        if t.get('is_fallback'): st.write("---")
-                        else: st.write(f"{t['price']} ({t['change']})")
-                    with c4:
-                        if st.button("Analyze", key=f"mp_list_{t['ticker']}_{i}", use_container_width=True):
-                            st.session_state['main_dash_text'] = t['ticker']
-                            st.session_state['go_to_page'] = '🏠 Home'
-                            st.rerun()
+            # --- NEW INTERACTIVE TABLE VIEW ---
+            df_display = pd.DataFrame(top_tickers)
             
-            if len(top_tickers) > 15:
-                with st.expander("Show more leaders..."):
-                    df_rest = pd.DataFrame(top_tickers[15:])
-                    cols = ['ticker', 'company', 'market_cap']
-                    if not is_fallback: cols.extend(['price', 'change'])
-                    df_rest = df_rest[cols]
-                    df_rest.columns = [c.capitalize() for c in cols]
-                    st.dataframe(df_rest, use_container_width=True, hide_index=True)
+            # Formatting Display Columns
+            display_cols = ['ticker', 'company', 'market_cap']
+            if not is_fallback:
+                display_cols.extend(['price', 'change'])
+            
+            # Map columns for cleaner display
+            col_map = {
+                'ticker': 'Ticker',
+                'company': 'Company Name',
+                'market_cap': 'Valuation',
+                'price': 'Last Price',
+                'change': '1D Change'
+            }
+            
+            # Configure the table
+            st.data_editor(
+                df_display[display_cols].rename(columns=col_map),
+                column_config={
+                    "Ticker": st.column_config.TextColumn("Ticker", help="Stock Symbol", width="small"),
+                    "Company Name": st.column_config.TextColumn("Company", width="large"),
+                    "Valuation": st.column_config.TextColumn("Market Cap", help="Total Valuation"),
+                    "Last Price": st.column_config.TextColumn("Price"),
+                    "1D Change": st.column_config.TextColumn("Change %", help="Daily performance", width="small")
+                },
+                use_container_width=True,
+                hide_index=True,
+                disabled=True, # Read-only but selectable
+                key=f"mp_table_{selected_sector}"
+            )
+            
+            # Quick Action for individual ticker
+            st.write("")
+            c_label, c_ticker, c_go = st.columns([0.2, 0.4, 0.4])
+            with c_label:
+                st.markdown("**Quick Analyze:**")
+            with c_ticker:
+                target_ticker = st.selectbox("Select ticker from list:", [t['ticker'] for t in top_tickers], label_visibility="collapsed")
+            with c_go:
+                if st.button(f"🔬 Deep-Dive {target_ticker}", type="secondary", use_container_width=True):
+                    st.session_state['main_dash_text'] = target_ticker
+                    st.session_state['go_to_page'] = '🏠 Home'
+                    st.rerun()
+
         else:
             st.warning(f"No results found for {selected_sector}. Try a manual reload.")
 
