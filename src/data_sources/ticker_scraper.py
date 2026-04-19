@@ -9,6 +9,20 @@ from .base import DataSource
 class SectorTickerScraper(DataSource):
     """Fetches top-performing or top-cap tickers for a specific sector"""
     
+    SECTOR_MAPPING = {
+        "Technology": "sec_technology",
+        "Healthcare": "sec_healthcare",
+        "Financials": "sec_financial",
+        "Consumer Discretionary": "sec_consumercyclical",
+        "Communication Services": "sec_communicationservices",
+        "Industrials": "sec_industrials",
+        "Consumer Staples": "sec_consumerdefensive",
+        "Energy": "sec_energy",
+        "Utilities": "sec_utilities",
+        "Real Estate": "sec_realestate",
+        "Basic Materials": "sec_basicmaterials"
+    }
+
     # Top 15 Leaders per GICS Sector (S&P 500 Verified)
     SP500_GOLDEN_LIST = {
         "Technology": [
