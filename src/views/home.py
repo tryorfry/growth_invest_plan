@@ -59,25 +59,33 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     
     from src.config.market_config import MARKET_GROUPS
     
+    # 🏎️ PERFORMANCE FIX: Cache the global snapshot fetch (5 min TTL)
+    @st.cache_data(ttl=300)
+    def cached_fetch_snapshot():
+        return asyncio.run(MacroSource.fetch_global_snapshot())
+    
     has_analysis = st.session_state.get('current_analysis') is not None
     
     with st.expander("🌍 Global Market Snapshot", expanded=not has_analysis):
-        # 🟢 NEW: Global World Map
-        snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
+        # 🟢 Global World Map
+        snapshot = cached_fetch_snapshot()
         if snapshot:
             render_global_market_map(snapshot)
             st.divider()
             
-        snapshot_container = st.empty()
         if snapshot:
             # Render each configured market group
-            for group_name, members in MARKET_GROUPS.items():
+            for i, (group_name, members) in enumerate(MARKET_GROUPS.items()):
+                # Add a distinct divider between segments (Equities, Commodities, Forex)
+                if i > 0:
+                    st.markdown("---")
+                
                 st.caption(group_name)
                 group_data = [item for item in snapshot if item['name'] in members]
                 if group_data:
                     cols = st.columns(len(group_data))
-                    for i, item in enumerate(group_data):
-                        with cols[i]:
+                    for idx, item in enumerate(group_data):
+                        with cols[idx]:
                             color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
                             
                             # Specialized formatting for Forex (more decimals)
