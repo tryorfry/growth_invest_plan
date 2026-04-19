@@ -69,17 +69,13 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     def cached_analyze_stock(ticker, _analyzer, style_name):
         return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
 
-    # 🎯 UX FIX: Instant-Collapse Callback
-    def trigger_analysis_start():
-        st.session_state['current_analysis'] = None
-        st.session_state['analysis_started'] = True
-
+    # Check state for expander expansion
     has_analysis = st.session_state.get('current_analysis') is not None
     is_working = st.session_state.get('analysis_started', False)
     
-    # Collapse if analysis exists OR if we just started one
+    # 🌍 Global Market Snapshot
+    # Force collapse if we just started an analysis or if a result exists
     with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
-        # 🟢 Global World Map
         snapshot = cached_fetch_snapshot()
         if snapshot:
             render_global_market_map(snapshot)
@@ -115,7 +111,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
 
     # 1. Handle User Input
     if analyze_button and ticker:
-        trigger_analysis_start()
+        # Note: on_click handles the instant collapse, here we do the heavy lifting
         with st.spinner(f"Analyzing {ticker}..."):
             try:
                 fetched_analysis = cached_analyze_stock(ticker, analyzer, selected_style)
@@ -124,7 +120,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     save_analysis(db, fetched_analysis)
                     st.session_state['current_analysis'] = fetched_analysis
                     st.session_state['current_ticker'] = ticker
-                    st.session_state['analysis_started'] = False # Reset flag
+                    st.session_state['analysis_started'] = False # Reset UI flag
                     
                     # Alerts logic
                     try:

@@ -146,7 +146,18 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                     st.session_state['active_trading_style'] = selected_style
                     if 'current_analysis' in st.session_state: del st.session_state['current_analysis']
             
-            analyze_button = st.button("🔍 Analyze", type="primary", use_container_width=True, disabled=analyze_disabled)
+            # 🎯 UX FIX: Callback for instant collapse
+            def on_analyze_click():
+                st.session_state['analysis_started'] = True
+                st.session_state['current_analysis'] = None
+
+            analyze_button = st.button(
+                "🔍 Analyze", 
+                type="primary", 
+                use_container_width=True, 
+                disabled=analyze_disabled,
+                on_click=on_analyze_click
+            )
             
             st.divider()
             st.subheader("⚖️ Position Sizing")
