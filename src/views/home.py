@@ -254,7 +254,11 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     with col_pt: st.metric("Target Price", f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A")
 
             # --- CHART SETTINGS ---
-            with st.expander("🛠️ Chart Strategy & Indicators", expanded=False):
+            tf_map = {"5m": "5m", "15m": "15m", "1h": "1h", "D": "Daily", "W": "Weekly"}
+            current_tf = tf_map.get(st.session_state.get('timeframe', 'D'), st.session_state.get('timeframe', 'D'))
+            current_zoom = st.session_state.get('zoom', '1y').upper()
+            
+            with st.expander(f"🛠️ Chart Strategy & Indicators ({current_tf} | {current_zoom})", expanded=False):
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.session_state['chart_prefs']['ema'] = st.checkbox("Show EMAs (20, 50, 200)", value=st.session_state['chart_prefs'].get('ema', True))
