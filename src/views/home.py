@@ -13,6 +13,8 @@ from src.utils import save_analysis, render_ticker_header
 from src.components.checklist import render_checklist
 from src.components.earnings import render_earnings_analysis_section
 
+from src.components.news_catalyst import render_news_catalysts
+
 async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing", force_refresh: bool = False):
     """Analyze a stock ticker"""
     return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False, force_refresh=force_refresh)
@@ -51,10 +53,42 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     """
     Renders the primary Analysis (Home) page.
     """
-    st.title(f"📊 {selected_style} Analyzer")
-    st.caption("Modular View v1.1.0")
-    st.markdown("Comprehensive stock analysis with technical indicators, fundamentals, and sentiment analysis")
+    # --- MARKET SNAPSHOT ROW (GLOBAL & CRYPTO) ---
+    from src.data_sources.macro_source import MacroSource
     
+    with st.expander("🌍 Global Market Snapshot", expanded=True):
+        snapshot_container = st.empty()
+        with snapshot_container:
+            # Fetch global metrics asynchronously for max speed
+            snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
+            if snapshot:
+                # Grouping indices for better localized overview
+                groups = {
+                    "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Bitcoin", "Ethereum"],
+                    "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
+                    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "Nifty 50"]
+                }
+                
+                for group_name, members in groups.items():
+                    st.caption(group_name)
+                    group_data = [item for item in snapshot if item['name'] in members]
+                    if group_data:
+                        cols = st.columns(len(group_data))
+                        for i, item in enumerate(group_data):
+                            with cols[i]:
+                                color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
+                                st.markdown(f"""
+                                    <div class="macro-card">
+                                        <div class="macro-label">{item['name']}</div>
+                                        <div class="macro-value">{item['value']:,.0f}</div>
+                                        <div class="macro-delta" style="color: {color};">
+                                            {'▲' if item['pct_change'] >= 0 else '▼'} {abs(item['pct_change']):.2f}%
+                                        </div>
+                                    </div>
+                                """, unsafe_allow_html=True)
+    
+    st.write("") # Padding
+
     # 1. Trigger Analysis
     if analyze_button and ticker:
         with st.spinner(f"Analyzing {ticker}..."):
@@ -107,6 +141,11 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             with col4:
                 atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
                 st.metric(f"ATR (14{'d' if analysis.trading_style in ['Swing Trading', 'Trend Trading'] else 'w'})", f"{atr_val:.2f}")
+
+            # --- NEWS CATALYST SECTION (Top 3) ---
+            st.divider()
+            if hasattr(analysis, 'news_data') and analysis.news_data:
+                render_news_catalysts(analysis.news_data)
 
             # Key Metrics Row 2: Earnings & Sentiment
             st.divider()
