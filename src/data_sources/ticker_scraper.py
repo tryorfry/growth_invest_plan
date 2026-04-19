@@ -52,35 +52,56 @@ class SectorTickerScraper(DataSource):
                 return []
 
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Finviz table rows for tickers usually have class 'screener-body-table-nw'
-            # Or they are inside a table with class 'screener_table'
-            table = soup.find('table', class_='screener_table')
+            # The new layout uses 'screener-view-table' or 'screener_table'
+            table = soup.find('table', class_=lambda x: x and ('screener_table' in x or 'screener-view-table' in x))
             if not table:
+                # Fallback: search for any styled-row if table class is obscured
+                rows = soup.find_all('tr', class_=lambda x: x and 'styled-row' in x)
+            else:
+                # Primary row selector for new redesign
+                rows = table.find_all('tr', class_=lambda x: x and ('screener-body-table-nw' in x or 'styled-row' in x))
+            
+            if not rows:
                 return []
 
             tickers = []
-            rows = table.find_all('tr', class_=lambda x: x and 'screener-body-table-nw' in x)
-            
             for row in rows[:count]:
-                cols = row.find_all('td')
-                if len(cols) < 10: continue
-                
-                # Column mapping for v=111 Overview:
-                # 0: No, 1: Ticker, 2: Company, 3: Sector, 4: Industry, 5: Country, 6: Market Cap, 7: P/E, 8: Price, 9: Change, 10: Volume
+                # NEW REDESIGN Strategy: Look for data-boxover-* attributes first
+                # These are much more stable than column indices
                 try:
-                    ticker = cols[1].get_text(strip=True)
-                    company = cols[2].get_text(strip=True)
-                    market_cap = cols[6].get_text(strip=True)
-                    price = cols[8].get_text(strip=True)
-                    change = cols[9].get_text(strip=True)
+                    ticker = None
+                    company = None
+                    mcap = None
                     
-                    tickers.append({
-                        "ticker": ticker,
-                        "company": company,
-                        "market_cap": market_cap,
-                        "price": price,
-                        "change": change
-                    })
+                    # Try to find a cell that has the data attributes
+                    attr_cell = row.find(lambda tag: tag.has_attr('data-boxover-ticker'))
+                    if attr_cell:
+                        ticker = attr_cell.get('data-boxover-ticker')
+                        company = attr_cell.get('data-boxover-company')
+                        mcap = attr_cell.get('data-boxover-value')
+                    
+                    # Fallback to column indices if attributes not found
+                    cols = row.find_all('td')
+                    if len(cols) >= 10:
+                        if not ticker: ticker = cols[1].get_text(strip=True)
+                        if not company: company = cols[2].get_text(strip=True)
+                        if not mcap: mcap = cols[6].get_text(strip=True)
+                        price = cols[8].get_text(strip=True)
+                        change = cols[9].get_text(strip=True)
+                    else:
+                        # Minimal fallback for very compact rows
+                        ticker = ticker or row.find('a', class_='tab-link').get_text(strip=True)
+                        price = "N/A"
+                        change = "N/A"
+
+                    if ticker:
+                        tickers.append({
+                            "ticker": ticker,
+                            "company": company or "N/A",
+                            "market_cap": mcap or "N/A",
+                            "price": price if 'price' in locals() else "N/A",
+                            "change": change if 'change' in locals() else "N/A"
+                        })
                 except Exception as row_e:
                     continue
             
