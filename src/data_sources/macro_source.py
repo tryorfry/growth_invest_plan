@@ -1,6 +1,7 @@
 import yfinance as yf
 import pandas as pd
 import asyncio
+import streamlit as st
 from typing import Dict, Any, Optional, List
 from src.config.market_config import TICKER_CONFIG
 
@@ -24,43 +25,50 @@ class MacroSource:
     }
     
     @staticmethod
-    async def fetch_global_snapshot() -> List[Dict[str, Any]]:
+    @st.cache_data(ttl=300)
+    def fetch_global_snapshot() -> List[Dict[str, Any]]:
         """
         Fetches multiple global indices and crypto assets in parallel.
         Returns a list of dicts with metrics and geo-coordinates.
         """
-        async def fetch_one(ticker: str, info: Dict[str, Any]):
-            try:
-                # Use a small loop to run yfinance in a thread to keep it async-friendly
-                loop = asyncio.get_event_loop()
-                import yfinance as yf
-                t = yf.Ticker(ticker)
-                
-                # Period 5d for safer results on holidays
-                hist = await loop.run_in_executor(None, t.history, '5d')
-                
-                if not hist.empty:
-                    curr = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
-                    pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
+        async def fetch_all():
+            async def fetch_one(ticker: str, info: Dict[str, Any]):
+                try:
+                    import yfinance as yf
+                    t = yf.Ticker(ticker)
+                    # Use a thread for the blocking yfinance call
+                    loop = asyncio.get_event_loop()
+                    hist = await loop.run_in_executor(None, t.history, '5d')
                     
-                    return {
-                        'name': info['name'],
-                        'short': info.get('short', info['name']),
-                        'value': curr,
-                        'pct_change': pct,
-                        'type': info.get('type', 'Index'),
-                        'lat': info.get('lat'),
-                        'lon': info.get('lon'),
-                        'country': info.get('country')
-                    }
-            except Exception as e:
-                print(f"Error fetching {info.get('name', ticker)}: {e}")
-            return None
+                    if not hist.empty:
+                        curr = hist['Close'].iloc[-1]
+                        prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
+                        pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
+                        
+                        return {
+                            'name': info['name'],
+                            'short': info.get('short', info['name']),
+                            'value': curr,
+                            'pct_change': pct,
+                            'type': info.get('type', 'Index'),
+                            'lat': info.get('lat'),
+                            'lon': info.get('lon'),
+                            'country': info.get('country')
+                        }
+                except Exception as e:
+                    print(f"Error fetching {info.get('name', ticker)}: {e}")
+                return None
 
-        tasks = [fetch_one(t, info) for t, info in TICKER_CONFIG.items()]
-        results = await asyncio.gather(*tasks)
-        return [r for r in results if r]
+            tasks = [fetch_one(t, info) for t, info in TICKER_CONFIG.items()]
+            results = await asyncio.gather(*tasks)
+            return [r for r in results if r]
+
+        # Use new_event_loop for compatibility with Streamlit's threading model
+        try:
+            loop = asyncio.new_event_loop()
+            return loop.run_until_complete(fetch_all())
+        except:
+            return asyncio.run(fetch_all())
 
     @staticmethod
     def fetch_sector_data() -> Dict[str, float]:

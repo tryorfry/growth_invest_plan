@@ -59,12 +59,13 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     
     from src.config.market_config import MARKET_GROUPS
     
-    # 🏎️ PERFORMANCE FIX: Cache the global snapshot fetch (5 min TTL)
-    @st.cache_data(ttl=300)
-    def cached_fetch_snapshot():
-        return asyncio.run(MacroSource.fetch_global_snapshot())
+    has_analysis = st.session_state.get('current_analysis') is not None
+    is_working = st.session_state.get('analysis_started', False)
     
-    # 🏎️ PERFORMANCE FIX: Cache ticker analysis (60 sec TTL)
+    # 🌍 Global Market Snapshot
+    # Force collapse if we just started an analysis or if a result exists
+    with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
+        snapshot = MacroSource.fetch_global_snapshot()
     @st.cache_resource(ttl=60)
     def cached_analyze_stock(ticker, _analyzer, style_name):
         return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
