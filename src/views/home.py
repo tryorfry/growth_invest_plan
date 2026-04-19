@@ -146,17 +146,13 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 st.warning(f"⚠️ **Earnings Alert:** Next earnings in {analysis.days_until_earnings} days ({analysis.next_earnings_date.date()})")
             
             # Metrics Rows
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2 = st.columns(2)
             with col1: st.metric("Current Price", f"${analysis.current_price:.2f}")
             with col2:
                 if analysis.median_price_target:
                     upside = ((analysis.median_price_target - analysis.current_price) / analysis.current_price) * 100
                     st.metric("Calculated MATP", f"${analysis.median_price_target:.2f}", f"{upside:+.1f}%")
                 else: st.metric("Calculated MATP", "N/A")
-            with col3: st.metric("RSI (14)", f"{analysis.rsi:.1f}")
-            with col4:
-                atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
-                st.metric(f"ATR (14{'d' if analysis.trading_style in ['Swing Trading', 'Trend Trading'] else 'w'})", f"{atr_val:.2f}")
 
             # --- NEWS CATALYST SECTION (Top 3) ---
             st.divider()
@@ -259,6 +255,16 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             current_zoom = st.session_state.get('zoom', '1y').upper()
             
             with st.expander(f"🛠️ Chart Strategy & Indicators ({current_tf} | {current_zoom})", expanded=False):
+                # 📊 Technical Metrics (Consolidated)
+                meta_col1, meta_col2 = st.columns(2)
+                with meta_col1:
+                    st.metric("RSI (14)", f"{analysis.rsi:.1f}")
+                with meta_col2:
+                    atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
+                    st.metric(f"ATR (14{'d' if analysis.trading_style in ['Swing Trading', 'Trend Trading'] else 'w'})", f"{atr_val:.2f}")
+                
+                st.divider()
+                
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.session_state['chart_prefs']['ema'] = st.checkbox("Show EMAs (20, 50, 200)", value=st.session_state['chart_prefs'].get('ema', True))
@@ -273,12 +279,24 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     st.session_state['chart_prefs']['ts'] = st.checkbox("Show Trade Setup Overlay", value=st.session_state['chart_prefs'].get('ts', True))
                 
                 st.divider()
-                st.caption("Timeframe & Zoom (Interactive Mode)")
-                col_tf, col_zm = st.columns(2)
-                with col_tf:
-                    st.session_state['timeframe'] = st.selectbox("Interval", ["5m", "15m", "1h", "D", "W"], index=3)
-                with col_zm:
-                    st.session_state['zoom'] = st.selectbox("Range", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"], index=3)
+                st.caption("Timeframe & Zoom (Interactive Selection)")
+                
+                # 🏎️ PERFORMANCE & UI: Use Segmented Control / Pills for highlighting
+                st.session_state['timeframe'] = st.segmented_control(
+                    "Interval", 
+                    options=["5m", "15m", "1h", "D", "W"], 
+                    selection_mode="single",
+                    default=st.session_state.get('timeframe', 'D'),
+                    label_visibility="collapsed"
+                )
+                
+                st.session_state['zoom'] = st.pills(
+                    "Range",
+                    options=["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"],
+                    selection_mode="single",
+                    default=st.session_state.get('zoom', '1y'),
+                    label_visibility="collapsed"
+                )
 
             # Chart
             st.subheader("📈 Technical Chart")
