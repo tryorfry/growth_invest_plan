@@ -2,47 +2,12 @@ import yfinance as yf
 import pandas as pd
 import asyncio
 from typing import Dict, Any, Optional, List
+from src.config.market_config import TICKER_CONFIG
 
 class MacroSource:
     """Source for global market indicators (Yields, VIX, Crypto, etc.)"""
     
-    TICKERS = {
-        '10Y_Yield': '^TNX',
-        '5Y_Yield': '^FVX',
-        'Short_Yield': '^IRX',
-        'VIX': '^VIX',
-        'SPY': 'SPY',
-        'Dollar_Index': 'DX-Y.NYB'
-    }
-
-    SNAPSHOT_CONFIG = {
-        'S&P 500': '^GSPC',
-        'Nasdaq': '^IXIC',
-        'FTSE 100': '^FTSE',
-        'DAX 40': '^GDAXI',
-        'Nikkei 225': '^N225',
-        'Hang Seng': '^HSI',
-        'Straits Times': '^STI',
-        'SGX': 'S68.SI',
-        'Nifty 50': '^NSEI',
-        'ASX 200': '^AXJO',
-        'Bitcoin': 'BTC-USD',
-        'Ethereum': 'ETH-USD'
-    }
-
-    # Geographic metadata for world map visualization
-    GEOGRAPHIC_CONFIG = {
-        'S&P 500': {'lat': 37.09, 'lon': -95.71, 'country': 'USA'},
-        'Nasdaq': {'lat': 40.71, 'lon': -74.00, 'country': 'USA'},
-        'FTSE 100': {'lat': 55.37, 'lon': -3.43, 'country': 'UK'},
-        'DAX 40': {'lat': 51.16, 'lon': 10.45, 'country': 'Germany'},
-        'Nikkei 225': {'lat': 36.20, 'lon': 138.25, 'country': 'Japan'},
-        'Hang Seng': {'lat': 22.31, 'lon': 114.16, 'country': 'Hong Kong'},
-        'Straits Times': {'lat': 1.35, 'lon': 103.81, 'country': 'Singapore'},
-        'SGX': {'lat': 4.35, 'lon': 103.81, 'country': 'Singapore'}, # Offset slightly from STI
-        'Nifty 50': {'lat': 20.59, 'lon': 78.96, 'country': 'India'},
-        'ASX 200': {'lat': -25.27, 'lon': 133.77, 'country': 'Australia'}
-    }
+    # Centralized configuration now handled by TICKER_CONFIG in src.config.market_config
     
     SECTOR_ETFS = {
         'Technology': 'XLK',
@@ -59,62 +24,41 @@ class MacroSource:
     }
     
     @staticmethod
-    def fetch_macro_data() -> Dict[str, Any]:
-        """Fetch current macro indicators and recent trends (Sync for legacy support)"""
-        data = {}
-        try:
-            for key, ticker in MacroSource.TICKERS.items():
-                t = yf.Ticker(ticker)
-                hist = t.history(period='5d')
-                if not hist.empty:
-                    current = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else current
-                    change = current - prev
-                    data[key] = {
-                        'value': current,
-                        'change': change,
-                        'pct_change': (change / prev) * 100 if prev != 0 else 0,
-                        'symbol': ticker
-                    }
-            if '10Y_Yield' in data and 'Short_Yield' in data:
-                data['Yield_Spread'] = {
-                    'value': data['10Y_Yield']['value'] - data['Short_Yield']['value'],
-                    'label': "10Y - 3M Spread"
-                }
-            return data
-        except Exception as e:
-            print(f"Error fetching macro data: {e}")
-            return {}
-
-    @staticmethod
     async def fetch_global_snapshot() -> List[Dict[str, Any]]:
-        """Parallel fetch for global performance cards (Async)"""
-        async def fetch_one(name: str, ticker: str):
+        """
+        Fetches multiple global indices and crypto assets in parallel.
+        Returns a list of dicts with metrics and geo-coordinates.
+        """
+        async def fetch_one(ticker: str, info: Dict[str, Any]):
             try:
                 # Use a small loop to run yfinance in a thread to keep it async-friendly
                 loop = asyncio.get_event_loop()
+                import yfinance as yf
                 t = yf.Ticker(ticker)
+                
+                # Period 5d for safer results on holidays
                 hist = await loop.run_in_executor(None, t.history, '5d')
+                
                 if not hist.empty:
                     curr = hist['Close'].iloc[-1]
                     prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
-                    pct = ((curr - prev) / prev) * 100
+                    pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
                     
-                    geo = MacroSource.GEOGRAPHIC_CONFIG.get(name, {})
                     return {
-                        'name': name,
+                        'name': info['name'],
+                        'short': info.get('short', info['name']),
                         'value': curr,
                         'pct_change': pct,
-                        'type': 'Crypto' if 'USD' in ticker else 'Index',
-                        'lat': geo.get('lat'),
-                        'lon': geo.get('lon'),
-                        'country': geo.get('country')
+                        'type': info.get('type', 'Index'),
+                        'lat': info.get('lat'),
+                        'lon': info.get('lon'),
+                        'country': info.get('country')
                     }
             except Exception as e:
-                print(f"Error fetching {name}: {e}")
+                print(f"Error fetching {info.get('name', ticker)}: {e}")
             return None
 
-        tasks = [fetch_one(n, t) for n, t in MacroSource.SNAPSHOT_CONFIG.items()]
+        tasks = [fetch_one(t, info) for t, info in TICKER_CONFIG.items()]
         results = await asyncio.gather(*tasks)
         return [r for r in results if r]
 
@@ -122,6 +66,7 @@ class MacroSource:
     def fetch_sector_data() -> Dict[str, float]:
         """Fetch daily performance for all major sectors"""
         sector_perf = {}
+        import yfinance as yf
         try:
             for name, ticker in MacroSource.SECTOR_ETFS.items():
                 t = yf.Ticker(ticker)
@@ -137,14 +82,13 @@ class MacroSource:
             return {}
 
     @staticmethod
-    def fetch_historical_macro(key: str, period: str = '1y') -> Optional[pd.DataFrame]:
+    def fetch_historical_macro(ticker: str, period: str = '1y') -> Optional[pd.DataFrame]:
         """Fetch historical data for a specific macro indicator"""
-        ticker = MacroSource.TICKERS.get(key)
-        if not ticker: return None
+        import yfinance as yf
         try:
             t = yf.Ticker(ticker)
             hist = t.history(period=period)
             return hist if not hist.empty else None
         except Exception as e:
-            print(f"Error fetching historical macro data for {key}: {e}")
+            print(f"Error fetching historical macro data for {ticker}: {e}")
             return None

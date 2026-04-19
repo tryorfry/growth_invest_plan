@@ -57,6 +57,8 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     # --- MARKET SNAPSHOT ROW (GLOBAL & CRYPTO) ---
     from src.data_sources.macro_source import MacroSource
     
+    from src.config.market_config import MARKET_GROUPS
+    
     with st.expander("🌍 Global Market Snapshot", expanded=True):
         # 🟢 NEW: Global World Map
         snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
@@ -66,14 +68,8 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             
         snapshot_container = st.empty()
         if snapshot:
-            # Grouping indices for better localized overview
-            groups = {
-                "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Bitcoin", "Ethereum"],
-                "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
-                "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "SGX", "Nifty 50"]
-            }
-            
-            for group_name, members in groups.items():
+            # Render each configured market group
+            for group_name, members in MARKET_GROUPS.items():
                 st.caption(group_name)
                 group_data = [item for item in snapshot if item['name'] in members]
                 if group_data:
@@ -81,10 +77,14 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     for i, item in enumerate(group_data):
                         with cols[i]:
                             color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
+                            
+                            # Specialized formatting for Forex (more decimals)
+                            val_fmt = f"{item['value']:,.4f}" if item['type'] == 'Forex' else f"{item['value']:,.2f}"
+                            
                             st.markdown(f"""
                                 <div class="macro-card">
                                     <div class="macro-label">{item['name']}</div>
-                                    <div class="macro-value">{item['value']:,.0f}</div>
+                                    <div class="macro-value">{val_fmt}</div>
                                     <div class="macro-delta" style="color: {color};">
                                         {'▲' if item['pct_change'] >= 0 else '▼'} {abs(item['pct_change']):.2f}%
                                     </div>

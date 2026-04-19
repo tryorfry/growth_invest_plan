@@ -1,4 +1,4 @@
-"""Configuration management for the application"""
+"""Application configuration"""
 
 import os
 from pathlib import Path

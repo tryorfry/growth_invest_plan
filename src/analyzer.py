@@ -472,9 +472,15 @@ class StockAnalyzer:
             news_task = asyncio.create_task(self.news_source.fetch(ticker))
             macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
             earnings_task = asyncio.create_task(self.earnings_source.fetch(ticker))
+            # 🚀 OPTIMIZATION: Pull analyst targets into parallel block
+            analyst_task = asyncio.create_task(self.analyst_source.fetch(ticker))
             
-            results = await asyncio.gather(weekly_task, daily_task, fundamental_task, news_task, macrotrends_task, earnings_task, return_exceptions=True)
-            tech_w, tech_d, fundamental_data, news_data, macrotrends_data, drift_data = results
+            results = await asyncio.gather(
+                weekly_task, daily_task, fundamental_task, news_task, 
+                macrotrends_task, earnings_task, analyst_task, 
+                return_exceptions=True
+            )
+            tech_w, tech_d, fundamental_data, news_data, macrotrends_data, drift_data, analyst_data = results
             
             if isinstance(tech_d, Exception) or not tech_d:
                 print(f"Error: Could not fetch basic technical data for {ticker}")
@@ -483,6 +489,12 @@ class StockAnalyzer:
             # Base analysis object (using daily as default history)
             main_analysis = StockAnalysis(ticker=ticker, analysis_timestamp=datetime.now())
             self._populate_technical_data(main_analysis, tech_d)
+            
+            # Populate analyst targets
+            if not isinstance(analyst_data, Exception) and analyst_data:
+                main_analysis.median_price_target = analyst_data.get("median_price_target")
+                main_analysis.marketbeat_action_recent = analyst_data.get("recent_action")
+                main_analysis.analyst_source = self.analyst_source.get_source_name()
             
             # Add fundamental/news data once
             if not isinstance(fundamental_data, Exception) and fundamental_data:
@@ -515,14 +527,6 @@ class StockAnalyzer:
                         main_analysis.days_until_earnings = (next_date - datetime.now().replace(tzinfo=None)).days
                     except: pass
 
-            # Analyst data (usually same for all)
-            if main_analysis.last_earnings_date:
-                analyst_data = await self.analyst_source.fetch(ticker, last_earnings_date=main_analysis.last_earnings_date)
-                if analyst_data:
-                    main_analysis.median_price_target = analyst_data.get("median_price_target")
-                    main_analysis.marketbeat_action_recent = analyst_data.get("recent_action")
-                    main_analysis.analyst_source = self.analyst_source.get_source_name()
-            
             if main_analysis.median_price_target:
                 main_analysis.max_buy_price = main_analysis.median_price_target / 1.15
 
