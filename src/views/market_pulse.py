@@ -193,9 +193,6 @@ def render_market_pulse_page():
     else:
         st.info(f"Leaderboard currently unavailable for {selected_sector}. Try again later.")
 
-    else:
-        st.info(f"Leaderboard currently unavailable for {selected_sector}. Try again later.")
-
     st.divider()
     st.subheader("📈 Yield Trend (1 Year)")
     
