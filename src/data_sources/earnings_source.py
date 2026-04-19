@@ -18,12 +18,17 @@ class EarningsSource(DataSource):
     async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """Asynchronous wrapper for fetch_earnings_drift"""
         import asyncio
+        import time
         loop = asyncio.get_running_loop()
         limit = kwargs.get('limit', 12)
-        return await loop.run_in_executor(None, self.fetch_earnings_drift, ticker, limit)
+        force_refresh = kwargs.get('force_refresh', False)
+        
+        # If force refresh, pass current time as a buster to bypass @st.cache_data
+        cache_buster = time.time() if force_refresh else 0
+        return await loop.run_in_executor(None, self.fetch_earnings_drift, ticker, limit, cache_buster)
     
     @st.cache_data(ttl=3600)
-    def fetch_earnings_drift(_self, ticker: str, limit: int = 12) -> Dict[str, Any]:
+    def fetch_earnings_drift(_self, ticker: str, limit: int = 12, _cache_buster: float = 0) -> Dict[str, Any]:
         """
         Fetches historical earnings dates and calculates the T+1 and T+14 day returns.
         
@@ -37,29 +42,51 @@ class EarningsSource(DataSource):
         try:
             stock = yf.Ticker(ticker)
             
-            # 1. Get earnings dates
+            calendar = None
+            
+            # --- Attempt A: JSON QuoteSummary Endpoint (Highly Stable) ---
             try:
-                calendar = stock.get_earnings_dates(limit=limit)
-            except Exception as e:
-                print(f"yfinance get_earnings_dates failed for {ticker}: {e}")
+                url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}?modules=earningsHistory,calendarEvents"
+                response = _self._get_response_sync(url)
+                if response and response.status_code == 200:
+                    data = response.json()
+                    result = data.get('quoteSummary', {}).get('result', [{}])[0]
+                    
+                    # Process History (for Drift)
+                    history_data = result.get('earningsHistory', {}).get('history', [])
+                    if history_data:
+                        events_list = []
+                        for h in history_data:
+                            q_date = h.get('quarter', {}).get('fmt')
+                            if q_date:
+                                events_list.append({
+                                    "Earnings Date": pd.to_datetime(q_date),
+                                    "EPS Estimate": h.get('epsEstimate', {}).get('raw'),
+                                    "Reported EPS": h.get('epsActual', {}).get('raw')
+                                })
+                        if events_list:
+                            calendar = pd.DataFrame(events_list).set_index("Earnings Date")
+                            if verbose: print(f"Successfully fetched {len(calendar)} historical events from JSON for {ticker}")
+            except Exception as ej:
+                if verbose: print(f"JSON earnings fetch failed for {ticker}: {ej}")
+
+            # --- Attempt B: yfinance primary ---
+            if calendar is None or calendar.empty:
+                try:
+                    calendar = stock.get_earnings_dates(limit=limit)
+                except Exception as e:
+                    if verbose: print(f"yfinance get_earnings_dates failed for {ticker}: {e}")
+            
+            # --- Attempt C: HTML Fallback Scraper (Legacy) ---
+            if calendar is None or calendar.empty:
                 calendar = _self._scrape_fallback_calendar(ticker, limit)
             
             if calendar is None or calendar.empty:
-                # One last try via calendar property if get_earnings_dates failed
-                try:
-                    cal = stock.calendar
-                    if cal and 'Earnings Date' in cal:
-                        # This only gives future usually, so not useful for history drift
-                        pass
-                except: pass
                 return {"analyzed_events": 0, "events": [], "avg_t1_return": 0.0, "avg_t14_return": 0.0}
                 
-            # yfinance returns future and past dates, we only want past
-            try:
-                tz_info = calendar.index.tz
-            except AttributeError:
-                tz_info = None
-                
+            # yfinance or manual scrapers return future and past dates, we only want past
+            calendar = calendar.sort_index(ascending=False)
+            tz_info = getattr(calendar.index, 'tz', None)
             now = pd.Timestamp.now(tz=tz_info) if tz_info else pd.Timestamp.now()
             calendar = calendar[calendar.index < now]
             
