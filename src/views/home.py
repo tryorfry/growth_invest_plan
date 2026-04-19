@@ -249,12 +249,15 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     with col_rr: st.metric("Reward/Risk", f"{analysis.reward_to_risk:.2f}x")
                     with col_pt: st.metric("Target Price", f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A")
 
-            # --- CHART SETTINGS ---
-            tf_map = {"5m": "5m", "15m": "15m", "1h": "1h", "D": "Daily", "W": "Weekly"}
-            current_tf = tf_map.get(st.session_state.get('timeframe', 'D'), st.session_state.get('timeframe', 'D'))
-            current_zoom = st.session_state.get('zoom', '1y').upper()
+            # Chart Heading
+            st.subheader("📈 Technical Chart")
             
-            with st.expander(f"🛠️ Chart Strategy & Indicators ({current_tf} | {current_zoom})", expanded=False):
+            # --- CHART SETTINGS (Collapsed inside Technical Chart block) ---
+            tf_map = {"D": "Daily", "W": "Weekly"}
+            current_tf_label = tf_map.get(st.session_state.get('timeframe', 'D'), st.session_state.get('timeframe', 'D'))
+            current_zoom_label = str(st.session_state.get('zoom', '1y')).upper()
+            
+            with st.expander(f"🛠️ Chart Strategy & Indicators ({current_tf_label} | {current_zoom_label})", expanded=False):
                 # 📊 Technical Metrics (Consolidated)
                 meta_col1, meta_col2 = st.columns(2)
                 with meta_col1:
@@ -277,43 +280,13 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 with c3:
                     st.session_state['show_hvn'] = st.checkbox("Show High Volume Nodes (HVN)", value=st.session_state.get('show_hvn', True))
                     st.session_state['chart_prefs']['ts'] = st.checkbox("Show Trade Setup Overlay", value=st.session_state['chart_prefs'].get('ts', True))
-                
-                st.divider()
-                st.caption("Timeframe & Zoom (Interactive Selection)")
-                
-                # 🛡️ SAFETY & BUG FIX: Normalize values to prevent "Render Error" due to case mismatch
-                allowed_tf = ["D", "W"]
-                tframe = st.session_state.get('timeframe', 'D')
-                if tframe not in allowed_tf: tframe = "D"
-                
-                allowed_zoom = ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"]
-                zrange = str(st.session_state.get('zoom', '1y')).lower()
-                if zrange not in allowed_zoom: zrange = "1y"
 
-                st.session_state['timeframe'] = st.segmented_control(
-                    "Interval", 
-                    options=allowed_tf, 
-                    selection_mode="single",
-                    default=tframe,
-                    format_func=lambda x: "Daily" if x == "D" else "Weekly",
-                    label_visibility="collapsed"
-                )
-                
-                st.session_state['zoom'] = st.pills(
-                    "Range",
-                    options=allowed_zoom,
-                    selection_mode="single",
-                    default=zrange,
-                    label_visibility="collapsed"
-                )
-
-            # Chart
-            st.subheader("📈 Technical Chart")
+            # Main Chart Rendering
             prefs = st.session_state['chart_prefs']
             chart_gen.generate_candlestick_chart(
                 analysis,
                 timeframe=st.session_state.get('timeframe', 'D'),
-                default_range=st.session_state.get('zoom', '1Y'),
+                default_range=st.session_state.get('zoom', '1y'),
                 show_ema=prefs.get('ema', True),
                 show_atr=prefs.get('atr', True),
                 show_rsi=prefs.get('rsi', False),

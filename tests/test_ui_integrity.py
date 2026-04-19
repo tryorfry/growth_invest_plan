@@ -50,12 +50,30 @@ def test_no_duplicated_snapshots():
     matches = re.findall(r'st\.expander\("🌍 Global Market Snapshot"', content)
     assert len(matches) == 1, f"UI DUPLICATION ERROR: Found {len(matches)} Global Market Snapshot expanders"
 
+def test_chart_settings_order():
+    """Ensure Chart Settings expander is placed AFTER the Technical Chart subheader"""
+    content = read_file(HOME_PAGE)
+    header_idx = content.find('st.subheader("📈 Technical Chart")')
+    expander_idx = content.find('st.expander(f"🛠️ Chart Strategy & Indicators')
+    
+    assert header_idx != -1, "Technical Chart subheader not found"
+    assert expander_idx != -1, "Chart Strategy expander not found"
+    assert expander_idx > header_idx, "UI LAYOUT ERROR: Chart Strategy expander must be placed AFTER the Technical Chart heading"
+
+def test_no_redundant_chart_controls():
+    """Ensure no redundant pills/segmented controls are present in home.py"""
+    content = read_file(HOME_PAGE)
+    assert "st.pills" not in content, "REDUNDANCY ERROR: st.pills found in home.py (should use chart toolbar)"
+    assert "st.segmented_control" not in content, "REDUNDANCY ERROR: st.segmented_control found in home.py"
+
 if __name__ == "__main__":
     # Allow running directly for quick feedback
     try:
         test_home_page_landmarks("🌍 Global Market Snapshot")
         test_home_page_landmarks("🛠️ Chart Strategy & Indicators")
         test_no_duplicated_snapshots()
-        print("✅ UI Landmarks Verification: PASSED")
+        test_chart_settings_order()
+        test_no_redundant_chart_controls()
+        print("✅ UI Landmarks & Layout Verification: PASSED")
     except AssertionError as e:
         print(f"❌ UI Landmarks Verification: FAILED - {e}")

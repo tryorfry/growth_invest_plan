@@ -472,19 +472,19 @@ class TVChartGenerator:
                 ">
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Views:</span>
-                        <button class="tvc-tf-btn" data-tf="D">Daily</button>
-                        <button class="tvc-tf-btn" data-tf="W">Weekly</button>
+                        <button class="tvc-tf-btn {'active' if timeframe == 'D' else ''}" data-tf="D">Daily</button>
+                        <button class="tvc-tf-btn {'active' if timeframe == 'W' else ''}" data-tf="W">Weekly</button>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Zoom:</span>
-                        <button class="tvc-btn" data-range="1W">1W</button>
-                        <button class="tvc-btn" data-range="2W">2W</button>
-                        <button class="tvc-btn" data-range="1M">1M</button>
-                        <button class="tvc-btn" data-range="3M">3M</button>
-                        <button class="tvc-btn" data-range="6M">6M</button>
-                        <button class="tvc-btn" data-range="1Y">1Y</button>
-                        <button class="tvc-btn" data-range="5Y">5Y</button>
-                        <button class="tvc-btn" data-range="ALL">ALL</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '1W' else ''}" data-range="1W">1W</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '2W' else ''}" data-range="2W">2W</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '1M' else ''}" data-range="1M">1M</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '3M' else ''}" data-range="3M">3M</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '6M' else ''}" data-range="6M">6M</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '1Y' else ''}" data-range="1Y">1Y</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == '5Y' else ''}" data-range="5Y">5Y</button>
+                        <button class="tvc-btn {'active' if default_range.upper() == 'ALL' else ''}" data-range="ALL">ALL</button>
                     </div>
                 </div>
                 <style>
@@ -659,7 +659,8 @@ class TVChartGenerator:
                         
                         // Apply Default Range Zoom
                         setTimeout(() => {{
-                            const defaultZoomBtn = document.querySelector(`.tvc-btn[data-range="{default_range}"]`);
+                            const searchRange = "{default_range}".toUpperCase();
+                            const defaultZoomBtn = document.querySelector(`.tvc-btn[data-range="${{searchRange}}"]`);
                             if(defaultZoomBtn) defaultZoomBtn.click();
                         }}, 50);
 
