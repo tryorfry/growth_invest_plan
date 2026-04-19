@@ -28,7 +28,12 @@ class SectorTickerScraper(DataSource):
         "Basic Materials": "sec_basicmaterials"
     }
 
-    # Top 15 Leaders per GICS Sector (S&P 500 Verified)
+    # --- EMERGENCY SAFETY NET ---
+    # These hardcoded values are ONLY used as a last resort if BOTH:
+    # 1. The live Finviz scan is blocked/down.
+    # 2. The automatically updated Wikipedia benchmark cache (data/sp500_benchmark.json) is missing.
+    # 
+    # You DO NOT need to manually update this list; the system self-heals via Wikipedia weekly.
     SP500_GOLDEN_LIST = {
         "Technology": [
             ("AAPL", "Apple Inc."), ("MSFT", "Microsoft Corp."), ("NVDA", "NVIDIA Corp."), 
