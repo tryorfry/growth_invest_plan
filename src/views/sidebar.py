@@ -59,12 +59,17 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
         if tier == 'admin':
             nav_options.extend(["🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard"])
 
+        # Determine the default index for navigation
+        default_nav_index = 0
         if 'go_to_page' in st.session_state:
             target_page = st.session_state.pop('go_to_page')
             if target_page in nav_options:
+                default_nav_index = nav_options.index(target_page)
                 st.session_state['nav_radio'] = target_page
+        elif 'nav_radio' in st.session_state and st.session_state['nav_radio'] in nav_options:
+            default_nav_index = nav_options.index(st.session_state['nav_radio'])
             
-        page = st.radio("Navigation", options=nav_options, key="nav_radio")
+        page = st.radio("Navigation", options=nav_options, index=default_nav_index, key="nav_radio")
         
         if tier == 'free':
             st.info("⭐ Upgrade to Premium to unlock the Market Pulse and Advanced Analytics!")
