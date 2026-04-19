@@ -65,31 +65,31 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
             st.divider()
             
         snapshot_container = st.empty()
-            if snapshot:
-                # Grouping indices for better localized overview
-                groups = {
-                    "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Bitcoin", "Ethereum"],
-                    "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
-                    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "SGX", "Nifty 50"]
-                }
-                
-                for group_name, members in groups.items():
-                    st.caption(group_name)
-                    group_data = [item for item in snapshot if item['name'] in members]
-                    if group_data:
-                        cols = st.columns(len(group_data))
-                        for i, item in enumerate(group_data):
-                            with cols[i]:
-                                color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
-                                st.markdown(f"""
-                                    <div class="macro-card">
-                                        <div class="macro-label">{item['name']}</div>
-                                        <div class="macro-value">{item['value']:,.0f}</div>
-                                        <div class="macro-delta" style="color: {color};">
-                                            {'▲' if item['pct_change'] >= 0 else '▼'} {abs(item['pct_change']):.2f}%
-                                        </div>
+        if snapshot:
+            # Grouping indices for better localized overview
+            groups = {
+                "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Bitcoin", "Ethereum"],
+                "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
+                "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "SGX", "Nifty 50"]
+            }
+            
+            for group_name, members in groups.items():
+                st.caption(group_name)
+                group_data = [item for item in snapshot if item['name'] in members]
+                if group_data:
+                    cols = st.columns(len(group_data))
+                    for i, item in enumerate(group_data):
+                        with cols[i]:
+                            color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
+                            st.markdown(f"""
+                                <div class="macro-card">
+                                    <div class="macro-label">{item['name']}</div>
+                                    <div class="macro-value">{item['value']:,.0f}</div>
+                                    <div class="macro-delta" style="color: {color};">
+                                        {'▲' if item['pct_change'] >= 0 else '▼'} {abs(item['pct_change']):.2f}%
                                     </div>
-                                """, unsafe_allow_html=True)
+                                </div>
+                            """, unsafe_allow_html=True)
     
     st.write("") # Padding
 
