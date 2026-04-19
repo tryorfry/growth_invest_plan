@@ -121,28 +121,44 @@ def render_market_pulse_page():
     
     # 2. Fetch and Render Leaderboard
     with st.spinner(f"Fetching leaders for {selected_sector}..."):
-        top_tickers = scraper.fetch_top_tickers(selected_sector)
+        # Use a session-state buster to allow manual refreshes
+        buster = st.session_state.get(f'buster_{selected_sector}', 0)
+        top_tickers = scraper.fetch_top_tickers(selected_sector, _cache_buster=buster)
         
     if top_tickers:
+        # Check if we are in fallback mode
+        is_fallback = any(t.get('is_fallback') for t in top_tickers)
+        
         # Action Buttons for the whole batch
         with col_btn:
             st.write("") # Padding
-            batch_btn = st.button(f"🚀 Run Multi-Style Analysis on {selected_sector} Leaders", type="primary", use_container_width=True)
-            if batch_btn:
-                ticker_string = ",".join([t['ticker'] for t in top_tickers])
-                # Direct redirection logic using session state
-                # The hybrid input uses {key_prefix}_text as its key
-                st.session_state['ms_report_text'] = ticker_string
-                st.session_state['go_to_page'] = '🏁 Multi-Style'
-                st.toast(f"Loading {len(top_tickers)} tickers into Multi-Style engine...", icon="🚀")
-                import time
-                time.sleep(0.5)
-                st.rerun()
+            c_batch, c_reload = st.columns([0.7, 0.3])
+            with c_batch:
+                batch_btn = st.button(f"🚀 Run Multi-Style Analysis on {selected_sector} Leaders", type="primary", use_container_width=True)
+            with c_reload:
+                if st.button("🔄 Reload", help="Bypass cache and fetch fresh data from Finviz"):
+                    import time
+                    st.session_state[f'buster_{selected_sector}'] = time.time()
+                    st.rerun()
 
         # Render Leaderboard as an interactive list
-        st.markdown(f"### 🏆 {selected_sector} Leaders")
-        
-        # We can't put buttons in a dataframe easily, so we use a loop with columns for the top 10
+        if is_fallback:
+            st.warning("⚠️ **S&P 500 Benchmark Mode**: Live connection to Finviz is currently blocked. Showing verified index leaders.")
+            st.markdown(f"### 🏛️ {selected_sector} (S&P 500 Giants)")
+        else:
+            st.markdown(f"### 🏆 {selected_sector} Leaders")
+            
+        if batch_btn:
+            ticker_string = ",".join([t['ticker'] for t in top_tickers])
+            # Direct redirection logic using session state
+            st.session_state['ms_report_text'] = ticker_string
+            st.session_state['go_to_page'] = '🏁 Multi-Style'
+            st.toast(f"Loading {len(top_tickers)} tickers into Multi-Style engine...", icon="🚀")
+            import time
+            time.sleep(0.5)
+            st.rerun()
+
+        # We can't put buttons in a dataframe easily, so we use a loop with columns for the top 15
         # for a crisp UI experience
         for i, t in enumerate(top_tickers[:15]): # Show top 15 with quick actions
             with st.container(border=True):
@@ -152,7 +168,10 @@ def render_market_pulse_page():
                 with c2:
                     st.caption(f"{t['company']}")
                 with c3:
-                    st.write(f"{t['price']} ({t['change']})")
+                    if t.get('is_fallback'):
+                        st.write("---")
+                    else:
+                        st.write(f"{t['price']} ({t['change']})")
                 with c4:
                     if st.button("Analyze", key=f"mp_ana_{t['ticker']}_{i}", use_container_width=True):
                         st.session_state['main_dash_text'] = t['ticker']
@@ -162,8 +181,17 @@ def render_market_pulse_page():
         if len(top_tickers) > 15:
             st.caption(f"... and {len(top_tickers)-15} more leaders below.")
             df_rest = pd.DataFrame(top_tickers[15:])
-            df_rest.columns = ['Ticker', 'Company', 'Market Cap', 'Price', 'Change %']
+            # Filter columns to only what exists
+            cols_to_show = ['ticker', 'company', 'market_cap']
+            if not is_fallback:
+                cols_to_show.extend(['price', 'change'])
+            
+            df_rest = df_rest[cols_to_show]
+            df_rest.columns = [c.replace('_', ' ').title() for c in cols_to_show]
             st.dataframe(df_rest, use_container_width=True, hide_index=True)
+
+    else:
+        st.info(f"Leaderboard currently unavailable for {selected_sector}. Try again later.")
 
     else:
         st.info(f"Leaderboard currently unavailable for {selected_sector}. Try again later.")
