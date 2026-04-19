@@ -4,11 +4,16 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 from bs4 import BeautifulSoup
 import streamlit as st
+import json
+import os
+import time
 from .base import DataSource
 
 class SectorTickerScraper(DataSource):
     """Fetches top-performing or top-cap tickers for a specific sector"""
-    
+    # Benchmark cache path
+    BENCHMARK_FILE = "data/sp500_benchmark.json"
+
     SECTOR_MAPPING = {
         "Technology": "sec_technology",
         "Healthcare": "sec_healthcare",
@@ -148,6 +153,9 @@ class SectorTickerScraper(DataSource):
             if not response or response.status_code != 200:
                 return _self._get_fallback_list(sector_name)
 
+            # Trigger a background refresh of the SP500 index once a week
+            _self._maybe_refresh_index()
+
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # --- BRUTE FORCE STRATEGY ---
@@ -207,8 +215,15 @@ class SectorTickerScraper(DataSource):
             return _self._get_fallback_list(sector_name)
 
     def _get_fallback_list(self, sector_name: str) -> List[Dict[str, Any]]:
-        """Provides a static list of S&P 500 leaders as an emergency fallback"""
-        leaders = self.SP500_GOLDEN_LIST.get(sector_name, [])
+        """Provides a list of S&P 500 leaders. Prioritizes local JSON cache over hardcoded list."""
+        # 1. Try to load from local JSON cache first
+        local_data = self._load_benchmark_cache()
+        leaders = local_data.get(sector_name)
+        
+        # 2. Fallback to hardcoded list if cache is empty or sector missing
+        if not leaders:
+            leaders = self.SP500_GOLDEN_LIST.get(sector_name, [])
+        
         return [
             {
                 "ticker": ticker,
@@ -219,3 +234,60 @@ class SectorTickerScraper(DataSource):
                 "is_fallback": True
             } for ticker, company in leaders
         ]
+
+    def _maybe_refresh_index(self):
+        """Checks if the S&P 500 index cache needs a refresh (every 7 days)"""
+        try:
+            os.makedirs("data", exist_ok=True)
+            needs_update = True
+            if os.path.exists(self.BENCHMARK_FILE):
+                mtime = os.path.getmtime(self.BENCHMARK_FILE)
+                if (time.time() - mtime) < 7 * 24 * 3600: # 7 days
+                    needs_update = False
+            
+            if needs_update:
+                st.info("🔄 Updating S&P 500 Benchmark Data from Wikipedia...")
+                self._refresh_sp500_index()
+        except Exception as e:
+            print(f"Error checking benchmark cache: {e}")
+
+    def _refresh_sp500_index(self):
+        """Scrapes Wikipedia for the latest S&P 500 GICS sector constituents"""
+        wiki_url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+        try:
+            resp = self._get_response_sync(wiki_url)
+            if not resp or resp.status_code != 200:
+                return
+            
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            table = soup.find('table', {'id': 'constituents'})
+            if not table:
+                return
+            
+            new_data = {}
+            for row in table.find_all('tr')[1:]:
+                cols = row.find_all('td')
+                if len(cols) >= 4:
+                    ticker = cols[0].text.strip().replace('.', '-')
+                    company = cols[1].text.strip()
+                    sector = cols[3].text.strip()
+                    
+                    if sector not in new_data:
+                        new_data[sector] = []
+                    new_data[sector].append((ticker, company))
+            
+            if new_data:
+                with open(self.BENCHMARK_FILE, 'w') as f:
+                    json.dump(new_data, f)
+        except Exception as e:
+            print(f"Error refreshing S&P 500 index: {e}")
+
+    def _load_benchmark_cache(self) -> Dict[str, Any]:
+        """Loads the S&P 500 benchmark data from local storage"""
+        if os.path.exists(self.BENCHMARK_FILE):
+            try:
+                with open(self.BENCHMARK_FILE, 'r') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {}
