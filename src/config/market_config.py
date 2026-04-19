@@ -4,7 +4,7 @@
 MARKET_GROUPS = {
     "🇺🇸 US & 🪙 Crypto": ["S&P 500", "Nasdaq", "Dow Jones", "Bitcoin", "Ethereum"],
     "🇬🇧 Europe & 🇦🇺 Pacific": ["FTSE 100", "DAX 40", "ASX 200"],
-    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "SGX", "Nifty 50"],
+    "🈯 Asia": ["Nikkei 225", "Hang Seng", "Straits Times", "Nifty 50"],
     "📦 Commodities": ["Crude Oil", "Gold", "Silver"],
     "💱 Forex": ["USD Index", "USD/SGD", "XAU/USD"]
 }
@@ -22,8 +22,7 @@ TICKER_CONFIG = {
     "^GDAXI": {"name": "DAX 40", "short": "DAX", "type": "Index", "on_map": True, "lat": 51.16, "lon": 10.45, "country": "Germany"},
     "^N225": {"name": "Nikkei 225", "short": "N225", "type": "Index", "on_map": True, "lat": 36.20, "lon": 138.25, "country": "Japan"},
     "^HSI":  {"name": "Hang Seng", "short": "HSI", "type": "Index", "on_map": True, "lat": 22.31, "lon": 114.16, "country": "Hong Kong"},
-    "^STI":  {"name": "Straits Times", "short": "STI", "type": "Index", "on_map": True, "lat": 5.00, "lon": 98.00, "country": "Singapore"},
-    "S68.SI": {"name": "SGX", "short": "SGX", "type": "Index", "on_map": True, "lat": -8.00, "lon": 115.00, "country": "Singapore"},
+    "^STI":  {"name": "Straits Times", "short": "STI", "type": "Index", "on_map": True, "lat": 1.35, "lon": 103.82, "country": "Singapore"},
     "^NSEI": {"name": "Nifty 50", "short": "NIFTY", "type": "Index", "on_map": True, "lat": 20.59, "lon": 78.96, "country": "India"},
     "^AXJO": {"name": "ASX 200", "short": "ASX", "type": "Index", "on_map": True, "lat": -25.27, "lon": 133.77, "country": "Australia"},
     
