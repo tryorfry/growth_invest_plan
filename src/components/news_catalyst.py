@@ -4,16 +4,12 @@ from typing import List, Dict, Any
 def render_news_catalysts(news_data: Dict[str, Any]):
     """
     Renders Top 3 news headlines as high-fidelity cards with sentiment badges.
-    
-    Args:
-        news_data: Dict containing 'articles' list and sentiment summaries.
     """
-    st.subheader("🗞️ Latest Catalysts & News")
-    
-    articles = news_data.get('articles', [])
-    if not articles:
-        st.info("No recent high-impact news catalysts found for this ticker.")
-        return
+    with st.expander("🗞️ Latest Catalysts & News", expanded=False):
+        articles = news_data.get('articles', [])
+        if not articles:
+            st.info("No recent high-impact news catalysts found for this ticker.")
+            return
         
     # Limit to Top 3 for brokerage-style clarity
     for article in articles[:3]:

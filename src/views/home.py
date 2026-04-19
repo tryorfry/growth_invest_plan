@@ -59,7 +59,9 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     
     from src.config.market_config import MARKET_GROUPS
     
-    with st.expander("🌍 Global Market Snapshot", expanded=True):
+    has_analysis = st.session_state.get('current_analysis') is not None
+    
+    with st.expander("🌍 Global Market Snapshot", expanded=not has_analysis):
         # 🟢 NEW: Global World Map
         snapshot = asyncio.run(MacroSource.fetch_global_snapshot())
         if snapshot:
@@ -148,8 +150,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
 
             # --- NEWS CATALYST SECTION (Top 3) ---
             st.divider()
-            if hasattr(analysis, 'news_data') and analysis.news_data:
-                render_news_catalysts(analysis.news_data)
+            render_news_catalysts(getattr(analysis, 'news_data', {}))
 
             # Key Metrics Row 2: Earnings & Sentiment
             st.divider()
