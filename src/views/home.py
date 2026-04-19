@@ -59,6 +59,11 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     
     from src.config.market_config import MARKET_GROUPS
     
+    # 🏎️ PERFORMANCE FIX: Cache ticker analysis (60 sec TTL)
+    @st.cache_resource(ttl=60)
+    def cached_analyze_stock(ticker, _analyzer, style_name):
+        return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
+
     has_analysis = st.session_state.get('current_analysis') is not None
     is_working = st.session_state.get('analysis_started', False)
     
@@ -66,18 +71,6 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     # Force collapse if we just started an analysis or if a result exists
     with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
         snapshot = MacroSource.fetch_global_snapshot()
-    @st.cache_resource(ttl=60)
-    def cached_analyze_stock(ticker, _analyzer, style_name):
-        return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
-
-    # Check state for expander expansion
-    has_analysis = st.session_state.get('current_analysis') is not None
-    is_working = st.session_state.get('analysis_started', False)
-    
-    # 🌍 Global Market Snapshot
-    # Force collapse if we just started an analysis or if a result exists
-    with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
-        snapshot = cached_fetch_snapshot()
         if snapshot:
             render_global_market_map(snapshot)
             st.divider()
