@@ -18,7 +18,13 @@ def read_file(path):
     "Show High Volume Nodes (HVN)",
     "MacroSource.fetch_global_snapshot()",
     "cached_analyze_stock",
-    "render_news_catalysts"
+    "render_news_catalysts",
+    "render_checklist",
+    "render_earnings_analysis_section",
+    "🤖 AI Investment Thesis",
+    "🎯 Trade Execution Setup",
+    "Suggested Entry",
+    "Stop Loss"
 ])
 def test_home_page_landmarks(landmark):
     """Ensure essential UI components exist in home.py"""
@@ -28,7 +34,10 @@ def test_home_page_landmarks(landmark):
 @pytest.mark.parametrize("landmark", [
     "🔍 Analyze",
     "on_analyze_click",
-    "analysis_started"
+    "analysis_started",
+    "🎨 UI Theme",
+    "🚪 Logout",
+    "Navigation"
 ])
 def test_sidebar_landmarks(landmark):
     """Ensure essential UI components exist in sidebar.py"""
