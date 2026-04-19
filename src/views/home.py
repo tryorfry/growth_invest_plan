@@ -260,6 +260,29 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     with col_rr: st.metric("Reward/Risk", f"{analysis.reward_to_risk:.2f}x")
                     with col_pt: st.metric("Target Price", f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A")
 
+            # --- CHART SETTINGS ---
+            with st.expander("🛠️ Chart Strategy & Indicators", expanded=False):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.session_state['chart_prefs']['ema'] = st.checkbox("Show EMAs (20, 50, 200)", value=st.session_state['chart_prefs'].get('ema', True))
+                    st.session_state['chart_prefs']['atr'] = st.checkbox("Show ATR Volatility", value=st.session_state['chart_prefs'].get('atr', True))
+                    st.session_state['chart_prefs']['sr'] = st.checkbox("Show S/R Levels", value=st.session_state['chart_prefs'].get('sr', True))
+                with c2:
+                    st.session_state['chart_prefs']['rsi'] = st.checkbox("Show RSI (Oscillator)", value=st.session_state['chart_prefs'].get('rsi', False))
+                    st.session_state['chart_prefs']['macd'] = st.checkbox("Show MACD", value=st.session_state['chart_prefs'].get('macd', False))
+                    st.session_state['chart_prefs']['boll'] = st.checkbox("Show Bollinger Bands", value=st.session_state['chart_prefs'].get('boll', False))
+                with c3:
+                    st.session_state['show_hvn'] = st.checkbox("Show High Volume Nodes (HVN)", value=st.session_state.get('show_hvn', True))
+                    st.session_state['chart_prefs']['ts'] = st.checkbox("Show Trade Setup Overlay", value=st.session_state['chart_prefs'].get('ts', True))
+                
+                st.divider()
+                st.caption("Timeframe & Zoom (Interactive Mode)")
+                col_tf, col_zm = st.columns(2)
+                with col_tf:
+                    st.session_state['timeframe'] = st.selectbox("Interval", ["5m", "15m", "1h", "D", "W"], index=3)
+                with col_zm:
+                    st.session_state['zoom'] = st.selectbox("Range", ["1mo", "3mo", "6mo", "1y", "2y", "5y", "max"], index=3)
+
             # Chart
             st.subheader("📈 Technical Chart")
             prefs = st.session_state['chart_prefs']
