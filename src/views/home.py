@@ -64,9 +64,21 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     def cached_fetch_snapshot():
         return asyncio.run(MacroSource.fetch_global_snapshot())
     
+    # 🏎️ PERFORMANCE FIX: Cache ticker analysis (60 sec TTL)
+    @st.cache_data(ttl=60)
+    def cached_analyze_stock(ticker, _analyzer, style_name):
+        return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
+
+    # 🎯 UX FIX: Instant-Collapse Callback
+    def trigger_analysis_start():
+        st.session_state['current_analysis'] = None
+        st.session_state['analysis_started'] = True
+
     has_analysis = st.session_state.get('current_analysis') is not None
+    is_working = st.session_state.get('analysis_started', False)
     
-    with st.expander("🌍 Global Market Snapshot", expanded=not has_analysis):
+    # Collapse if analysis exists OR if we just started one
+    with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
         # 🟢 Global World Map
         snapshot = cached_fetch_snapshot()
         if snapshot:
@@ -100,19 +112,19 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                                     </div>
                                 </div>
                             """, unsafe_allow_html=True)
-    
-    st.write("") # Padding
 
-    # 1. Trigger Analysis
+    # 1. Handle User Input
     if analyze_button and ticker:
+        trigger_analysis_start()
         with st.spinner(f"Analyzing {ticker}..."):
             try:
-                fetched_analysis = asyncio.run(analyze_stock(ticker, analyzer, selected_style, force_refresh=True))
+                fetched_analysis = cached_analyze_stock(ticker, analyzer, selected_style)
                 
                 if fetched_analysis:
                     save_analysis(db, fetched_analysis)
                     st.session_state['current_analysis'] = fetched_analysis
                     st.session_state['current_ticker'] = ticker
+                    st.session_state['analysis_started'] = False # Reset flag
                     
                     # Alerts logic
                     try:

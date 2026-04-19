@@ -531,15 +531,15 @@ class StockAnalyzer:
                 main_analysis.max_buy_price = main_analysis.median_price_target / 1.15
 
             # 2. Run each style
-            styles = ["Growth Investing", "Swing Trading", "Trend Trading"]
+            # 2. Run all style strategies in parallel to save time
+            style_configs = ["Growth Investing", "Swing Trading", "Trend Trading"]
             style_scores = {}
             
-            for style_name in styles:
-                # Create a clone for each style to avoid interference
-                import copy
+            async def process_style(style_name):
+                # We need to clone the analysis to prevent styles from overwriting each other
                 style_analysis = copy.copy(main_analysis)
                 
-                # Explicitly reset mutable state or create shallow copies of nested collections
+                # Explicitly reset mutable state
                 style_analysis.setup_notes = []
                 style_analysis.support_levels = []
                 style_analysis.resistance_levels = []
@@ -548,10 +548,13 @@ class StockAnalyzer:
                 style_analysis.volume_profile_lvns = []
                 style_analysis.finviz_data = main_analysis.finviz_data.copy() if main_analysis.finviz_data else {}
                 
-                # Use specific history for growth
+                # Use correct history
                 if style_name == "Growth Investing" and not isinstance(tech_w, Exception) and tech_w:
                     style_analysis.history = tech_w.get("history")
                     style_analysis.atr = tech_w.get("atr", 0.0)
+                else:
+                    style_analysis.history = tech_d.get("history")
+                    style_analysis.atr = tech_d.get("atr", 0.0)
                 
                 style_strategy = get_trading_style(style_name)
                 style_analysis.trading_style = style_strategy.style_name
@@ -568,9 +571,14 @@ class StockAnalyzer:
                 
                 # Score it
                 score = style_strategy.score_setup(style_analysis)
+                return style_name, style_analysis, score
+
+            # Parallelize the style tasks
+            tasks = [process_style(s) for s in style_configs]
+            style_results_list = await asyncio.gather(*tasks)
+            
+            for style_name, style_analysis, score in style_results_list:
                 style_scores[style_name] = score
-                
-                # Save relevant summary
                 main_analysis.style_results[style_name] = {
                     "score": score,
                     "trend": style_analysis.market_trend,
@@ -583,8 +591,6 @@ class StockAnalyzer:
                     "notes": style_analysis.setup_notes,
                     "patterns": [p['pattern'] for p in getattr(style_analysis, 'swing_patterns', [])]
                 }
-                
-                # Save the full analysis object for deep-dive
                 main_analysis.style_analyses[style_name] = style_analysis
                 
             # 3. Determine best style
