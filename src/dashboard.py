@@ -42,6 +42,7 @@ def init_database():
 
 @st.cache_resource
 def init_analyzer():
+    """Initializes and caches the StockAnalyzer instance"""
     return StockAnalyzer()
 
 @st.cache_resource

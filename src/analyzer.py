@@ -187,10 +187,12 @@ class StockAnalyzer:
         self.macrotrends_source = macrotrends_source or MacrotrendsSource()
         self.earnings_source = EarningsSource()
     
-    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, **kwargs) -> Optional[StockAnalysis]:
         """
         Entry point for analysis with Cache-Aside logic.
         """
+        nlv = kwargs.get('nlv', 10000.0)
+        risk_pct = kwargs.get('risk_pct', 1.0)
         ticker = ticker.upper()
         
         # 1. Check for cached analysis (TTL: 24h)
@@ -202,7 +204,7 @@ class StockAnalyzer:
                 return cached
         
         # 2. If no cache or force refresh, perform fresh analysis
-        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, nlv, risk_pct)
+        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, nlv=nlv, risk_pct=risk_pct)
         return analysis
 
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
@@ -314,18 +316,12 @@ class StockAnalyzer:
         finally:
             session.close()
 
-    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, **kwargs) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
-        
-        Args:
-            ticker: Stock ticker symbol
-            trading_style_name: Trading style (e.g. "Growth Investing" or "Swing Trading")
-            verbose: Print progress messages
-            
-        Returns:
-            StockAnalysis object with all collected data or None if failed
         """
+        nlv = kwargs.get('nlv', 10000.0)
+        risk_pct = kwargs.get('risk_pct', 1.0)
         # Get historical data (usually 5 years weekly for Growth, Daily for Swing/Trend)
         # Note: Swing and Trend strategies need daily data for patterns/defaults
         interval = "1d" if trading_style_name in ["Swing Trading", "Trend Trading"] else "1wk"
@@ -438,7 +434,7 @@ class StockAnalyzer:
                 risk = abs(float(analysis.suggested_entry) - float(analysis.suggested_stop_loss))
                 if risk > 0:
                     analysis.risk_per_unit = risk
-                    risk_cash = nlv * (risk_pct / 100.0)
+                    risk_cash = float(nlv) * (float(risk_pct) / 100.0)
                     analysis.position_size_units = int(risk_cash // risk)
             
         # 3. Fetch Analyst Targets
@@ -491,11 +487,13 @@ class StockAnalyzer:
         
         return analysis
 
-    async def multi_analyze(self, ticker: str, verbose: bool = True, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
+    async def multi_analyze(self, ticker: str, verbose: bool = True, **kwargs) -> Optional[StockAnalysis]:
         """
         Runs all available trading styles for a ticker and finds the best one.
         Optimized by fetching data in parallel and reusing sources.
         """
+        nlv = kwargs.get('nlv', 10000.0)
+        risk_pct = kwargs.get('risk_pct', 1.0)
         ticker = ticker.upper()
         import asyncio
         from .trading_styles.factory import get_trading_style
