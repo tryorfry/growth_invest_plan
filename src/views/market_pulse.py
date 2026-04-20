@@ -34,7 +34,7 @@ def render_market_pulse_page():
     
     # Fetch Data
     with st.spinner("Fetching global market data..."):
-        macro_data = MacroSource.fetch_macro_data()
+        macro_data = MacroSource().fetch_macro_data()
     
     if not macro_data:
         st.error("Could not fetch market pulse data. Please check your internet connection.")
@@ -103,7 +103,7 @@ def render_market_pulse_page():
         st.divider()
         st.subheader("📊 Sector Heatmap (1D)")
         with st.spinner("Calculating sector trends..."):
-            sector_data = MacroSource.fetch_sector_data()
+            sector_data = MacroSource().fetch_sector_data()
             
         if sector_data:
             df_sector = pd.DataFrame(list(sector_data.items()), columns=['Sector', 'Performance'])
@@ -125,7 +125,7 @@ def render_market_pulse_page():
 
         st.divider()
         st.subheader("📈 Yield Trend (1 Year)")
-        hist_10y = MacroSource.fetch_historical_macro('10Y_Yield')
+        hist_10y = MacroSource().fetch_historical_macro('10Y_Yield')
         if isinstance(hist_10y, pd.DataFrame) and not hist_10y.empty:
             st.line_chart(hist_10y['Close'])
 

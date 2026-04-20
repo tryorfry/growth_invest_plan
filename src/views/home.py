@@ -70,7 +70,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     # 🌍 Global Market Snapshot
     # Force collapse if we just started an analysis or if a result exists
     with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
-        snapshot = MacroSource.fetch_global_snapshot()
+        snapshot = MacroSource().fetch_global_snapshot()
         if snapshot:
             render_global_market_map(snapshot)
             st.divider()
