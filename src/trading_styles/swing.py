@@ -130,7 +130,9 @@ class SwingStyle(TradingStyleStrategy):
             reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema20 else "EMA20 Support"
             notes.append(f"🎯 Entry set near {reason} (${support_floor:.2f}).")
             
-            raw_stop = support_floor - atr_daily
+            # SL = Support - 1 ATR - 10% ATR (noise)
+            noise_buffer = atr_daily * 0.1
+            raw_stop = support_floor - atr_daily - noise_buffer
             stop_loss = self._adjust_decimals(raw_stop, is_entry=False)
             analysis.atr_used = atr_daily
             analysis.atr_type = "Daily"
@@ -165,7 +167,9 @@ class SwingStyle(TradingStyleStrategy):
             raw_entry = nearest_resistance * 0.9965 # -0.35%
             entry = self._adjust_decimals(raw_entry, is_entry=False) # Selling short
             
-            raw_stop = nearest_resistance + atr_daily
+            # SL = Resistance + 1 ATR + 10% ATR (noise/buffer for shorts)
+            noise_buffer = atr_daily * 0.1
+            raw_stop = nearest_resistance + atr_daily + noise_buffer
             stop_loss = self._adjust_decimals(raw_stop, is_entry=True) # Buy to cover stop
             analysis.atr_used = atr_daily
             analysis.atr_type = "Daily"

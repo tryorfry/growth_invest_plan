@@ -1,4 +1,4 @@
-"""Unit tests for Trading Formulas (SL = Support - 1 ATR + Buffers)"""
+"""Unit tests for Trading Formulas (SL = Support - 1 ATR - Noise Buffer)"""
 
 import pytest
 import pandas as pd
@@ -19,6 +19,7 @@ class MockAnalysis:
         self.resistance_levels = []
         self.volume_profile_hvns = []
         self.suggested_entry = None
+        self.suggest_stop_loss = None # Note: typo in base class might be picked up, but analyze uses suggested_stop_loss
         self.suggested_stop_loss = None
         self.target_price = None
         self.reward_to_risk = 0.0
@@ -31,30 +32,30 @@ class MockAnalysis:
         self.last_earnings_date = "2024-01-01"
 
 def test_growth_style_atr_w():
-    """Verify Growth Style uses 14w ATR"""
-    # Floor: 100. Entry: 100 * 1.005 = 100.5. SL: 100 - 10 = 90.0.
-    # Round down 90.0 -> 89.99
+    """Verify Growth Style uses 14w ATR - 10% Noise"""
+    # Floor: 100. ATR: 10. Buffer: 1. SL: 100 - 10 - 1 = 89.0.
+    # Round down 89.0 -> 88.99
     analysis = MockAnalysis(current_price=105.0, ema50=100.0, ema200=80.0, atr=10.0, atr_daily=5.0, support_levels=[100.0])
     style = GrowthStyle()
     style.calculate_trade_setup(analysis)
     
-    assert analysis.suggested_stop_loss == 89.99
+    assert analysis.suggested_stop_loss == 88.99
     assert analysis.atr_used == 10.0
 
 def test_swing_style_atr_d():
-    """Verify Swing Style uses 14d ATR"""
-    # Floor: 100. Entry: 100 * 1.0035 = 100.35 -> 100.44. SL: 100 - 5 = 95.0.
-    # Round down 95.0 -> 94.99
+    """Verify Swing Style uses 14d ATR - 10% Noise"""
+    # Floor: 100. ATR: 5. Buffer: 0.5. SL: 100 - 5 - 0.5 = 94.5.
+    # Round down 94.5 -> 94.44
     analysis = MockAnalysis(current_price=105.0, ema20=100.0, ema50=90.0, atr=10.0, atr_daily=5.0, support_levels=[100.0])
     analysis.resistance_levels = [130.0]
     style = SwingStyle()
     style.calculate_trade_setup(analysis)
     
-    assert analysis.suggested_stop_loss == 94.99
+    assert analysis.suggested_stop_loss == 94.44
     assert analysis.atr_used == 5.0
 
 def test_trend_style_noise_buffer():
-    """Verify Trend Style uses 14d ATR + Noise Buffer"""
+    """Verify Trend Style uses 14d ATR - 10% Noise"""
     analysis = MockAnalysis(current_price=110.0, ema20=100.0, ema50=90.0, ema200=80.0, atr=10.0, atr_daily=5.0)
     analysis.history = pd.DataFrame({
         'High': [110]*30, 'Low': [90]*30, 'Close': [105]*30,
@@ -64,35 +65,24 @@ def test_trend_style_noise_buffer():
     style.get_primary_target = lambda a: 150.0
     style.calculate_trade_setup(analysis)
     
-    # SL = (100 - 5) + (5 * 0.2) = 96.0.
-    # Round down 96.0 -> 95.99
-    assert analysis.suggested_stop_loss == 95.99
+    # Floor: 100. ATR: 5. Noise: 0.5. SL: 100 - 5 - 0.5 = 94.5.
+    # Round down 94.5 -> 94.44
+    assert analysis.suggested_stop_loss == 94.44
     assert analysis.atr_used == 5.0
+
 def test_trend_style_extended_price():
     """Verify Trend Style: SL stays near Support even if price is far away (MCD case)"""
-    # Current Price: 308.99. Entry: 308.99.
-    # Support (EMA20): 308.99. Distant Support (HL): 299.41.
-    # New logic should pick EMA20 (308.99) as support_floor.
-    # SL = 308.99 - 4.97 = 304.02.
+    # Current Price: 308.99. Support: 308.99. ATR: 4.97. Noise: 0.497.
+    # SL = 308.99 - 4.97 - 0.497 = 303.52 -> 303.44 (rounded)
     analysis = MockAnalysis(current_price=308.99, ema20=308.99, ema50=290.0, ema200=280.0, atr_daily=4.97)
-    # We need to trigger reversal_setup too
     analysis.history = pd.DataFrame({
         'High': [310]*60, 'Low': [290]*60, 'Close': [300]*60,
         'Trend_Upper': [320]*60, 'Trend_Lower': [280]*60, 'Trend_Center': [300]*60
     })
     
-    # Mocking hl_data and dt_data inside PatternRecognition needs care,
-    # but here TrendStyle calls it directly.
-    # We'll mock the internal call result by setting necessary flags if needed.
-    
     style = TrendStyle()
     style.get_primary_target = lambda a: 350.0
     style.calculate_trade_setup(analysis)
     
-    # With EMA setup (ema20 > ema50 > ema200):
-    # Support floor = 308.99.
-    # 308.99 - 4.97 = 304.02.
-    # noise_buffer = 4.97 * 0.2 = 0.994.
-    # stop_loss = 305.014 -> 304.99?
-    assert analysis.suggested_stop_loss > 303.0
+    assert analysis.suggested_stop_loss == 303.44
     assert analysis.atr_used == 4.97

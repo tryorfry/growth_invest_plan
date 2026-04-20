@@ -109,8 +109,9 @@ class GrowthStyle(TradingStyleStrategy):
         reason = "Horizontal Support" if support_floor in valid_supports and support_floor != ema50 else "EMA50 Support"
         notes.append(f"🎯 Entry set near {reason} (${support_floor:.2f}).")
         
-        # Execute Stop Loss math
-        stop_loss_raw = support_floor - atr
+        # Execute Stop Loss math: Support - 1 ATR - 10% ATR (noise)
+        noise_buffer = atr * 0.1
+        stop_loss_raw = support_floor - atr - noise_buffer
         stop_loss = self._adjust_decimals(stop_loss_raw, is_entry=False)
         
         analysis.suggested_entry = entry

@@ -133,11 +133,11 @@ class TrendStyle(TradingStyleStrategy):
             target_entry = max(last_hl, ema20) if ema20 > 0 else last_hl
             entry = self._adjust_decimals(target_entry, is_entry=True)
             
-            # SL = support_level - 1xATR + noise buffer
+            # SL = support_level - 1xATR - 10%xATR (noise buffer)
             support_floor = max(last_hl, ema20) if ema20 > 0 else last_hl
             sl_base = support_floor - atr
-            noise_buffer = atr * 0.2
-            stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
+            noise_buffer = atr * 0.1
+            stop_loss = self._adjust_decimals(sl_base - noise_buffer, is_entry=False)
             analysis.atr_used = atr
             analysis.atr_type = "Daily"
             
@@ -151,13 +151,13 @@ class TrendStyle(TradingStyleStrategy):
             # Entry: Pullback to EMA20 is ideal for Trend Trading
             entry = self._adjust_decimals(ema20, is_entry=True)
             
-            # SL = EMA20 - 1×ATR + noise buffer
+            # SL = EMA20 - 1×ATR - 10% ATR (noise)
             sl_base = ema20 - atr
-            noise_buffer = atr * 0.2
-            stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
+            noise_buffer = atr * 0.1
+            stop_loss = self._adjust_decimals(sl_base - noise_buffer, is_entry=False)
             analysis.atr_used = atr
             analysis.atr_type = "Daily"
-            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). Entry suggested at EMA20 (${entry:.2f}). SL below ATR buffer.")
+            notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). Entry suggested at EMA20 (${entry:.2f}). SL below ATR & noise.")
         else:
             analysis.market_trend = "Sideways/Downtrend"
             # No clear entry for Trend Trading in Downtrend
