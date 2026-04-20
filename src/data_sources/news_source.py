@@ -8,36 +8,46 @@ import streamlit as st
 import requests
 from typing import List, Dict, Any
 
-class NewsSentimentSource:
+from .base import DataSource
+
+class NewsSentimentSource(DataSource):
     """Fetches recent news articles and scores them using Natural Language Processing"""
     
     def get_source_name(self) -> str:
         return "NewsSentimentNLP"
         
-    async def fetch(self, ticker: str) -> Dict[str, Any]:
+    async def fetch(self, ticker: str, **kwargs) -> Dict[str, Any]:
         """Async wrapper for the DataSource interface"""
         # Run the synchronous fetch in a thread pool to not block the event loop
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.fetch_and_analyze_news, ticker)
         
-    @st.cache_data(ttl=600) # Reduced from 3600 to 10 minutes for freshness
+    @st.cache_data(ttl=600)
     def fetch_and_analyze_news(_self, ticker: str, max_articles: int = 20) -> Dict[str, Any]:
         """
         Fetches recent news from Yahoo Finance and scores the headline sentiment.
-        Uses a fallback RSS source if yfinance returns empty.
+        Uses a fallback RSS source if yfinance returns empty or fails SSL.
         """
+        if _self.is_broken():
+            return {"average_sentiment": 0.0, "articles": [], "sentiment_label": "Neutral", "status": "Cooling"}
+
         try:
             # Source 1: Yahoo Finance API
-            stock = yf.Ticker(ticker)
-            news_items = stock.news
+            news_items = []
+            try:
+                stock = yf.Ticker(ticker)
+                news_items = stock.news
+            except Exception: pass
             
-            # Source 2 Fallback: RSS Feed if yfinance is empty
+            # Source 2 Fallback: RSS Feed if yfinance is empty or fails
             if not news_items:
                 try:
                     import xml.etree.ElementTree as ET
                     rss_url = f"https://news.google.com/rss/search?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en"
-                    resp = requests.get(rss_url, timeout=5)
-                    if resp.status_code == 200:
+                    
+                    # Use hardened _get_response_sync for SSL resilience
+                    resp = _self._get_response_sync(rss_url)
+                    if resp and resp.status_code == 200:
                         root = ET.fromstring(resp.content)
                         news_items = []
                         for item in root.findall('.//item')[:max_articles]:

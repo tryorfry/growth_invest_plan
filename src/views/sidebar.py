@@ -170,5 +170,27 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                     st.cache_resource.clear()
                     st.cache_data.clear()
                     st.rerun()
+
+                st.divider()
+                st.subheader("🔌 Backend Health")
+                # We can initialize a temporary analyzer to check static circuit states
+                from src.analyzer import StockAnalyzer
+                analyzer = StockAnalyzer()
+                
+                sources = {
+                    "Technical": analyzer.technical_source,
+                    "Fundamental": analyzer.fundamental_source,
+                    "Sentiment": analyzer.news_source,
+                    "Macro": analyzer.macrotrends_source,
+                    "Earnings": analyzer.earnings_source
+                }
+                
+                for name, src in sources.items():
+                    col1, col2 = st.columns([2, 1])
+                    col1.caption(name)
+                    if src.is_broken():
+                        col2.error("Cooling")
+                    else:
+                        col2.success("Active")
                     
         return page, ticker, analyze_button, selected_style

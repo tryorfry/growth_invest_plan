@@ -108,6 +108,9 @@ class StockAnalysis:
     
     # Insider trading
     insider_ownership_pct: Optional[float] = None
+    
+    # Diagnostics
+    datasource_health: Dict[str, str] = field(default_factory=dict)
     net_insider_activity: Optional[float] = None
     
     # Short interest
@@ -342,7 +345,15 @@ class StockAnalyzer:
             print(f"Fetching data for {ticker}...")
             
         # 1. Fetch Technical, Fundamental, and News data in parallel
-        # We need technical data first for earnings date, but Finviz/News are independent
+        # Populate health status
+        analysis.datasource_health = {
+            self.technical_source.get_source_name(): "Broken" if self.technical_source.is_broken() else "Active",
+            self.fundamental_source.get_source_name(): "Broken" if self.fundamental_source.is_broken() else "Active",
+            self.news_source.get_source_name(): "Broken" if self.news_source.is_broken() else "Active",
+            self.macrotrends_source.get_source_name(): "Broken" if self.macrotrends_source.is_broken() else "Active",
+            self.earnings_source.get_source_name(): "Broken" if self.earnings_source.is_broken() else "Active"
+        }
+
         technical_task = asyncio.create_task(self.technical_source.fetch(ticker, interval=interval, period=period))
         fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
         news_task = asyncio.create_task(self.news_source.fetch(ticker))
@@ -351,6 +362,20 @@ class StockAnalyzer:
         # Allow individual tasks to fail without cancelling others
         results = await asyncio.gather(technical_task, fundamental_task, news_task, macrotrends_task, return_exceptions=True)
         technical_data, fundamental_data, news_data, macrotrends_data = results
+        
+        # Update health based on results
+        def update_health(source, data):
+            if isinstance(data, Exception): 
+                analysis.datasource_health[source.get_source_name()] = "Error"
+            elif not data and not source.is_broken():
+                analysis.datasource_health[source.get_source_name()] = "Empty"
+            elif source.is_broken():
+                analysis.datasource_health[source.get_source_name()] = "Cooling"
+
+        update_health(self.technical_source, technical_data)
+        update_health(self.fundamental_source, fundamental_data)
+        update_health(self.news_source, news_data)
+        update_health(self.macrotrends_source, macrotrends_data)
         
         # Check for critical technical data failure
         if isinstance(technical_data, Exception):
@@ -467,6 +492,16 @@ class StockAnalyzer:
                 print(f"Starting Multi-Style Analysis for {ticker}...")
                 
             # Data fetching tasks
+            # Populate health status
+            main_analysis = StockAnalysis(ticker=ticker, analysis_timestamp=datetime.now())
+            main_analysis.datasource_health = {
+                self.technical_source.get_source_name(): "Broken" if self.technical_source.is_broken() else "Active",
+                self.fundamental_source.get_source_name(): "Broken" if self.fundamental_source.is_broken() else "Active",
+                self.news_source.get_source_name(): "Broken" if self.news_source.is_broken() else "Active",
+                self.macrotrends_source.get_source_name(): "Broken" if self.macrotrends_source.is_broken() else "Active",
+                self.earnings_source.get_source_name(): "Broken" if self.earnings_source.is_broken() else "Active"
+            }
+
             weekly_task = asyncio.create_task(self.technical_source.fetch(ticker, interval="1wk", period="5y"))
             daily_task = asyncio.create_task(self.technical_source.fetch(ticker, interval="1d", period="2y"))
             fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
@@ -482,6 +517,22 @@ class StockAnalyzer:
                 return_exceptions=True
             )
             tech_w, tech_d, fundamental_data, news_data, macrotrends_data, drift_data, analyst_data = results
+            
+            # Update health based on results
+            def update_health(source, data):
+                if isinstance(data, Exception): 
+                    main_analysis.datasource_health[source.get_source_name()] = "Error"
+                elif not data and not source.is_broken():
+                    main_analysis.datasource_health[source.get_source_name()] = "Empty"
+                elif source.is_broken():
+                    main_analysis.datasource_health[source.get_source_name()] = "Cooling"
+
+            update_health(self.technical_source, tech_d)
+            update_health(self.fundamental_source, fundamental_data)
+            update_health(self.news_source, news_data)
+            update_health(self.macrotrends_source, macrotrends_data)
+            update_health(self.earnings_source, drift_data)
+            update_health(self.analyst_source, analyst_data)
             
             if isinstance(tech_d, Exception) or not tech_d:
                 print(f"Error: Could not fetch basic technical data for {ticker}")

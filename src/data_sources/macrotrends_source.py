@@ -11,7 +11,7 @@ class MacrotrendsSource(FundamentalDataSource):
     """Scrapes financial data from Macrotrends with curl_cffi for bot bypass"""
     
     BASE_URL = "https://www.macrotrends.net/stocks/charts"
-    TIMEOUT = 15
+    TIMEOUT = 8
     
     def get_source_name(self) -> str:
         return "Macrotrends"
@@ -33,7 +33,12 @@ class MacrotrendsSource(FundamentalDataSource):
         # 1. Get the base URL (resolves the company name slug)
         base_search_url = f"{self.BASE_URL}/{ticker}"
         try:
-            response = self._get_response_sync(base_search_url, allow_redirects=True)
+            # Inject Referer to look more like a browser search
+            headers = {
+                "Referer": "https://www.google.com/",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+            }
+            response = self._get_response_sync(base_search_url, allow_redirects=True, headers=headers)
             if not response:
                 return None
             
