@@ -214,7 +214,24 @@ class StockAnalyzer:
         db = Database("stock_analysis.db")
         session = db.SessionLocal()
         try:
-            stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            try:
+                stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+            except Exception as e:
+                # AUTO-HEALING: If we hit a schema error (missing column), try one migration run
+                schema_error_keywords = ["no such column", "does not exist", "UndefinedColumn"]
+                if any(k in str(e) for k in schema_error_keywords):
+                    print(f"🛠️ Schema mismatch detected: {e}. Triggering auto-migration...")
+                    try:
+                        db.init_db()
+                        # Clear session and retry once
+                        session.rollback()
+                        stock = session.query(Stock).filter(Stock.ticker == ticker).first()
+                    except Exception as migration_error:
+                        print(f"❌ Auto-migration failed: {migration_error}")
+                        raise e
+                else:
+                    raise e
+
             if not stock:
                 return None
             

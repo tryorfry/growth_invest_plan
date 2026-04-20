@@ -69,22 +69,21 @@ class Database:
         from sqlalchemy import text, inspect
         inspector = inspect(self.engine)
         
-        new_cols = [
-            # Portfolio setup
-            ("portfolios", "initial_balance", "FLOAT"),
+        # Determine schema for Postgres (usually 'public')
+        target_schema = None
+        if "postgresql" in self.db_url:
+            target_schema = 'public'
             
-            # Stock updates
+        new_cols = [
+            # ... (Rest of new_cols remains same)
+            ("portfolios", "initial_balance", "FLOAT"),
             ("stocks", "sector", "VARCHAR(100)"),
             ("stocks", "industry", "VARCHAR(100)"),
-            
-            # Analysis technicals
             ("analyses", "rsi", "FLOAT"),
             ("analyses", "macd", "FLOAT"),
             ("analyses", "macd_signal", "FLOAT"),
             ("analyses", "bollinger_upper", "FLOAT"),
             ("analyses", "bollinger_lower", "FLOAT"),
-            
-            # Analysis fundamentals
             ("analyses", "market_cap", "VARCHAR(50)"),
             ("analyses", "pe_ratio", "FLOAT"),
             ("analyses", "peg_ratio", "FLOAT"),
@@ -94,16 +93,12 @@ class Database:
             ("analyses", "roa", "FLOAT"),
             ("analyses", "eps_growth_this_year", "FLOAT"),
             ("analyses", "eps_growth_next_year", "FLOAT"),
-            
-            # Analysis earnings & core financials
             ("analyses", "last_earnings_date", "DATETIME"),
             ("analyses", "next_earnings_date", "DATETIME"),
             ("analyses", "days_until_earnings", "INTEGER"),
             ("analyses", "revenue", "FLOAT"),
             ("analyses", "operating_income", "FLOAT"),
             ("analyses", "basic_eps", "FLOAT"),
-            
-            # Analysis extended metrics
             ("analyses", "analyst_source", "VARCHAR(50)"),
             ("analyses", "analysis_timestamp", "DATETIME"),
             ("analyses", "book_value", "FLOAT"),
@@ -112,54 +107,35 @@ class Database:
             ("analyses", "total_cash", "FLOAT"),
             ("analyses", "shares_outstanding", "INTEGER"),
             ("analyses", "earnings_growth", "FLOAT"),
-            
-            # Sentiment and targets
             ("analyses", "news_sentiment", "FLOAT"),
             ("analyses", "news_summary", "TEXT"),
             ("analyses", "median_price_target", "FLOAT"),
-            
-            # User profile updates
             ("users", "tier", "VARCHAR(20) DEFAULT 'free'"),
             ("users", "theme_preference", "VARCHAR(20) DEFAULT 'dark'"),
-            ("users", "show_hvn", "INTEGER DEFAULT 1"), # 1 for True, 0 for False
-            ("users", "can_use_swing_trading", "INTEGER DEFAULT 0"), # Admin Swing Trading feature flag
-            
-            # Trading Style Extensions
+            ("users", "show_hvn", "INTEGER DEFAULT 1"), 
+            ("users", "can_use_swing_trading", "INTEGER DEFAULT 0"),
             ("analyses", "trading_style", "VARCHAR(50) DEFAULT 'Growth Investing'"),
             ("analyses", "atr_daily", "FLOAT DEFAULT 0.0"),
-            
-            # Trading Journal extensions
             ("transactions", "strategy_used", "VARCHAR(50)"),
             ("transactions", "initial_risk_per_share", "FLOAT"),
             ("transactions", "ai_conviction_score", "FLOAT"),
-            
-            # Historical Earnings Gap Analysis
             ("analyses", "earnings_history_json", "TEXT"),
             ("analyses", "projected_gap_risk", "FLOAT")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
-        # We need to check columns for both 'stocks' and 'analyses'
-        existing_cols_analyses = {col['name'] for col in inspector.get_columns('analyses')}
-        existing_cols_stocks = {col['name'] for col in inspector.get_columns('stocks')}
-        existing_cols_portfolios = {col['name'] for col in inspector.get_columns('portfolios')}
-        existing_cols_users = {col['name'] for col in inspector.get_columns('users')}
-        existing_cols_transactions = {col['name'] for col in inspector.get_columns('transactions')}
+        try:
+            existing_cols = {}
+            tables_to_check = ['analyses', 'stocks', 'portfolios', 'users', 'transactions']
+            for t in tables_to_check:
+                existing_cols[t] = {col['name'] for col in inspector.get_columns(t, schema=target_schema)}
+        except Exception as e:
+            print(f"Error inspecting schema: {e}")
+            existing_cols = {t: set() for t in tables_to_check}
         
         with self.engine.connect() as conn:
             for table, col, col_type in new_cols:
-                if table == 'stocks':
-                    existing = existing_cols_stocks
-                elif table == 'analyses':
-                    existing = existing_cols_analyses
-                elif table == 'portfolios':
-                    existing = existing_cols_portfolios
-                elif table == 'users':
-                    existing = existing_cols_users
-                elif table == 'transactions':
-                    existing = existing_cols_transactions
-                else:
-                    existing = set()
+                existing = existing_cols.get(table, set())
                     
                 if col not in existing:
                     try:
@@ -170,11 +146,12 @@ class Database:
                             
                         # Use a dedicated connection for the DDL statement
                         with self.engine.begin() as ddl_conn:
+                            # Quoting table and column names for safety with reserved keywords or mixed case
                             ddl_conn.execute(text(f'ALTER TABLE "{table}" ADD COLUMN "{col}" {sql_type}'))
                         print(f"✅ Migrated: Added column {col} to {table}")
                     except Exception as e:
                         # Silently ignore "already exists" errors (PG code 42701)
-                        if "already exists" not in str(e).lower():
+                        if "already exists" not in str(e).lower() and "duplicate column" not in str(e).lower():
                             print(f"❌ Error adding column {col} to {table}: {e}")
                     
         print(f"Database initialized at: {self.db_url.split('@')[-1] if '@' in self.db_url else self.db_url}")
