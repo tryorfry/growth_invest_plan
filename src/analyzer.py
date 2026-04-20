@@ -444,23 +444,32 @@ class StockAnalyzer:
         if analysis.last_earnings_date:
             if verbose:
                 print(f"Fetching analyst ratings from {self.analyst_source.get_source_name()}...")
-                
-            analyst_data = await self.analyst_source.fetch(
-                ticker, 
-                last_earnings_date=analysis.last_earnings_date
+            
+            # Record it in the health map for UI display
+            analysis.datasource_health[self.analyst_source.get_source_name()] = "Active"
+
+            analyst_data = await wrap_fetch(
+                self.analyst_source, 
+                self.analyst_source.fetch(ticker, last_earnings_date=analysis.last_earnings_date)
             )
             
-            if analyst_data:
+            if analyst_data and not isinstance(analyst_data, Exception):
                 analysis.median_price_target = analyst_data.get("median_price_target")
                 analysis.marketbeat_action_recent = analyst_data.get("recent_action")
                 analysis.analyst_source = self.analyst_source.get_source_name()
             else:
-                if not isinstance(self.analyst_source, YFinanceAnalystSource):
-                    yf_source = YFinanceAnalystSource()
-                    analyst_data = await yf_source.fetch(ticker, last_earnings_date=analysis.last_earnings_date)
-                    if analyst_data:
-                        analysis.median_price_target = analyst_data.get("median_price_target")
-                        analysis.analyst_source = "YFinance (Fallback)"
+                # Fallback to YFinance if MarketBeat fails or times out
+                from src.data_sources.yfinance_analyst_source import YFinanceAnalystSource
+                yf_source = YFinanceAnalystSource()
+                if verbose: print(f"Analyst fallback triggered for {ticker}...")
+                
+                analyst_data = await wrap_fetch(
+                    yf_source,
+                    yf_source.fetch(ticker, last_earnings_date=analysis.last_earnings_date)
+                )
+                if analyst_data and not isinstance(analyst_data, Exception):
+                    analysis.median_price_target = analyst_data.get("median_price_target")
+                    analysis.analyst_source = "YFinance (Fallback)"
                         
         if analysis.median_price_target:
             analysis.max_buy_price = analysis.median_price_target / 1.15

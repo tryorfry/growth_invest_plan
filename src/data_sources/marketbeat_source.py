@@ -23,43 +23,42 @@ class MarketBeatSource(AnalystDataSource):
     async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
         Fetch analyst price targets from MarketBeat asynchronously.
+        DE-SEQUENTIALIZED: Probes all possible exchanges in parallel.
         """
         import asyncio
         from functools import partial
         
-        loop = asyncio.get_running_loop()
         last_earnings_date = kwargs.get('last_earnings_date')
-        
-        return await loop.run_in_executor(
-            None, 
-            partial(self._fetch_sync, ticker=ticker, last_earnings_date=last_earnings_date)
-        )
-
-    def _fetch_sync(self, ticker: str, last_earnings_date: Any) -> Optional[Dict[str, Any]]:
-        """Synchronous fetch logic with multi-exchange fallback"""
         if not last_earnings_date:
             return None
-        
-        # 1. Try direct ticker first (MarketBeat often redirects)
-        direct_url = f"https://www.marketbeat.com/stocks/{ticker}/price-target/"
-        try:
-            resp = self._get_response_sync(direct_url)
-            if resp:
-                result = self._parse_analyst_data(resp.content, last_earnings_date)
-                if result: return result
-        except: pass
-
-        # 2. Try with exchanges
+            
+        # Build candidate URLs
+        urls = [f"https://www.marketbeat.com/stocks/{ticker}/price-target/"]
         for exchange in self.EXCHANGES:
-            url = f"{self.BASE_URL}/{exchange}/{ticker}/price-target/"
-            try:
-                resp = self._get_response_sync(url)
-                if resp:
-                    result = self._parse_analyst_data(resp.content, last_earnings_date)
-                    if result: return result
-            except Exception as e:
-                print(f"Error fetching MarketBeat ({exchange}/{ticker}): {e}")
+            urls.append(f"{self.BASE_URL}/{exchange}/{ticker}/price-target/")
+            
+        # Probe all in parallel
+        loop = asyncio.get_running_loop()
+        tasks = [
+            loop.run_in_executor(None, self._probe_url, url, last_earnings_date)
+            for url in urls
+        ]
         
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Return the first valid result
+        for res in results:
+            if isinstance(res, dict) and res:
+                return res
+        return None
+
+    def _probe_url(self, url: str, last_earnings_date: Any) -> Optional[Dict[str, Any]]:
+        """Single internal probe for parallel execution"""
+        try:
+            resp = self._get_response_sync(url)
+            if resp and resp.status_code == 200:
+                return self._parse_analyst_data(resp.content, last_earnings_date)
+        except: pass
         return None
     
     def _parse_analyst_data(

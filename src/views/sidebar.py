@@ -188,7 +188,8 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                     "Fundamental": analyzer.fundamental_source.get_source_name(),
                     "Sentiment": analyzer.news_source.get_source_name(),
                     "Macro": analyzer.macrotrends_source.get_source_name(),
-                    "Earnings": analyzer.earnings_source.get_source_name()
+                    "Earnings": analyzer.earnings_source.get_source_name(),
+                    "Analyst": analyzer.analyst_source.get_source_name()
                 }
                 
                 for label, src_name in source_map.items():

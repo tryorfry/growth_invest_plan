@@ -32,14 +32,19 @@ async def profile_analysis(ticker):
     print("📍 Phase 1: Parallel Fetch (Technical, Fundamental, News, Macro, Earnings)")
     p1_start = time.time()
     
+    # Get last_earnings_date from technical (simplification for profiler)
+    tech_data = await analyzer.technical_source.fetch(ticker)
+    last_earnings = tech_data.get('last_earnings_date') if tech_data else None
+    
     # These match src/analyzer.py:357
     tech_task = timed_task("Technical (yf)", analyzer.technical_source.fetch(ticker))
     fund_task = timed_task("Fundamental (finviz)", analyzer.fundamental_source.fetch(ticker))
     news_task = timed_task("News (sentiment)", analyzer.news_source.fetch(ticker))
     macro_task = timed_task("Macrotrends", analyzer.macrotrends_source.fetch(ticker))
     earnings_task = timed_task("Earnings (drift)", analyzer.earnings_source.fetch(ticker))
+    analyst_task = timed_task("Analyst (MarketBeat)", analyzer.analyst_source.fetch(ticker, last_earnings_date=last_earnings))
     
-    results = await asyncio.gather(tech_task, fund_task, news_task, macro_task, earnings_task)
+    results = await asyncio.gather(tech_task, fund_task, news_task, macro_task, earnings_task, analyst_task)
     p1_end = time.time()
     print(f"📍 Phase 1 Complete in {p1_end - p1_start:.2f}s")
     
