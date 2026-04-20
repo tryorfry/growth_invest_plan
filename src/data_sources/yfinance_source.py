@@ -124,26 +124,59 @@ class YFinanceSource(TechnicalDataSource):
         return self._calculate_technical_indicators(hist)
 
     def _get_company_info_and_insider(self, stock: yf.Ticker) -> Dict[str, Any]:
-        """Fetch sector info and insider transactions in one block"""
-        result = self._get_company_info(stock)
-        
-        insider_dates = {"insider_buy_dates": [], "insider_sell_dates": []}
+        """Consolidated method to fetch all company info, fundamentals, and insider transactions"""
+        result = {}
+        try:
+            info = stock.info
+            if info:
+                # Basic Info
+                result["sector"] = info.get("sector")
+                result["industry"] = info.get("industry")
+                result["company_name"] = info.get("longName")
+                result["country"] = info.get("country")
+                result["exchange"] = info.get("exchange")
+                
+                # Fundamental Metrics for Checklist
+                result["marketCap"] = info.get("marketCap")
+                result["averageVolume"] = info.get("averageVolume")
+                result["recommendationKey"] = info.get("recommendationKey")
+                result["returnOnEquity"] = info.get("returnOnEquity")
+                result["returnOnAssets"] = info.get("returnOnAssets")
+                result["trailingPE"] = info.get("trailingPE")
+                result["forwardPE"] = info.get("forwardPE")
+                result["pegRatio"] = info.get("pegRatio")
+                result["earningsGrowth"] = info.get("earningsGrowth")
+                result["revenueGrowth"] = info.get("revenueGrowth")
+                result["earningsNextQuarter"] = info.get("earningsNextQuarter")
+                
+                # Other valuation data
+                result["book_value"] = info.get("bookValue")
+                result["free_cash_flow"] = info.get("freeCashflow")
+                result["total_debt"] = info.get("totalDebt")
+                result["total_cash"] = info.get("totalCash")
+                result["shares_outstanding"] = info.get("sharesOutstanding")
+
+        except Exception as e:
+            print(f"Error fetching company info from yfinance: {e}")
+
+        # Insider Transactions
         try:
             txns = stock.insider_transactions
             if txns is not None and not txns.empty:
+                result["insider_buy_dates"] = []
+                result["insider_sell_dates"] = []
                 for _, row in txns.head(50).iterrows():
                     start_date = row.get('Start Date')
                     if pd.notna(start_date):
                         date_str = start_date.strftime('%Y-%m-%d')
                         txn_raw = str(row.get('Transaction', '')).lower()
                         if 'purchase' in txn_raw or 'buy' in txn_raw:
-                            insider_dates["insider_buy_dates"].append(date_str)
+                            result["insider_buy_dates"].append(date_str)
                         elif 'sale' in txn_raw or 'sell' in txn_raw:
-                            insider_dates["insider_sell_dates"].append(date_str)
+                            result["insider_sell_dates"].append(date_str)
         except Exception as e:
             print(f"Error fetching insider dates: {e}")
             
-        result.update(insider_dates)
         return result
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
@@ -417,50 +450,3 @@ class YFinanceSource(TechnicalDataSource):
         
         return result
     
-    def _get_company_info_and_insider(self, stock: yf.Ticker) -> Dict[str, Any]:
-        """Extract company sector, industry, and insider information"""
-        result = {}
-        
-        try:
-            info = stock.info
-            if info:
-                result["sector"] = info.get("sector", None)
-                result["industry"] = info.get("industry", None)
-                result["quoteType"] = info.get("quoteType", None)
-                result["company_name"] = info.get("longName", None)
-                
-                # Checklist fields
-                result["country"] = info.get("country", None)
-                result["exchange"] = info.get("exchange", None)  # e.g. NMS, NYQ, NGM, PCX
-                result["average_volume"] = info.get("averageVolume", None)
-                result["analyst_recommendation"] = info.get("recommendationKey", None)
-                
-                # Valuation fields
-                result["book_value"] = info.get("bookValue")
-                result["free_cash_flow"] = info.get("freeCashflow")
-                result["total_debt"] = info.get("totalDebt")
-                result["total_cash"] = info.get("totalCash")
-                result["shares_outstanding"] = info.get("sharesOutstanding")
-                result["earnings_growth"] = info.get("earningsGrowth")
-        except Exception as e:
-            print(f"Error fetching company info: {e}")
-
-        # --- Insider Transactions ---
-        try:
-            insiders = stock.insider_transactions
-            if insiders is not None and not insiders.empty:
-                # Filter for buys and sells from the last 12 months
-                now = datetime.now()
-                insiders['Date'] = pd.to_datetime(insiders.index)
-                
-                # Simple logic for now: just record the dates of significant transactions
-                buys = insiders[insiders['Text'].str.contains('Buy', case=False, na=False)]
-                sells = insiders[insiders['Text'].str.contains('Sale', case=False, na=False)]
-                
-                result["insider_buy_dates"] = buys.index.strftime('%Y-%m-%d').tolist() if not buys.empty else []
-                result["insider_sell_dates"] = sells.index.strftime('%Y-%m-%d').tolist() if not sells.empty else []
-        except Exception as e:
-            # yfinance insider_transactions is notoriously flaky, fail silently
-            pass
-        
-        return result

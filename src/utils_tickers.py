@@ -30,6 +30,10 @@ def render_hybrid_ticker_input(key_prefix=""):
     """
     us_tickers = get_all_us_tickers()
     
+    # Pre-fetch from session state if available (for Deep-Dive buttons)
+    state_key = f"{key_prefix}_text"
+    default_text = st.session_state.get(state_key, "")
+    
     col1, col2 = st.columns([1, 1])
     with col1:
         dropdown_val = st.selectbox(
@@ -42,9 +46,9 @@ def render_hybrid_ticker_input(key_prefix=""):
     with col2:
         text_val = st.text_input(
             "Or Type Custom Ticker",
-            value="",
+            value=default_text,
             max_chars=1000,
-            key=f"{key_prefix}_text",
+            key=state_key,
             help="Type ANY stock ticker (e.g., TSLA, PLTR) or comma-separated list"
         ).upper()
         
