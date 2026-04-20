@@ -75,6 +75,7 @@ class Database:
             
             # Stock updates
             ("stocks", "sector", "VARCHAR(100)"),
+            ("stocks", "industry", "VARCHAR(100)"),
             
             # Analysis technicals
             ("analyses", "rsi", "FLOAT"),
@@ -215,7 +216,7 @@ class Database:
         
         stock = session.query(Stock).filter(Stock.ticker == ticker).first()
         if not stock:
-            stock = Stock(ticker=ticker, name=name, sector=sector)
+            stock = Stock(ticker=ticker, name=name, sector=sector, industry=industry)
             session.add(stock)
             session.flush()  # Get the ID without committing
         else:
@@ -224,6 +225,8 @@ class Database:
                 stock.name = name
             if sector and not stock.sector:
                 stock.sector = sector
+            if industry and not stock.industry:
+                stock.industry = industry
         return stock
 
     def get_all_tickers(self) -> list[str]:

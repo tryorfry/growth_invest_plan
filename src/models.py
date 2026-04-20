@@ -34,6 +34,7 @@ class Stock(Base):
     ticker = Column(String(10), unique=True, nullable=False, index=True)
     name = Column(String(255))
     sector = Column(String(100))
+    industry = Column(String(100))
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships

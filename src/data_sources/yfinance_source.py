@@ -417,8 +417,8 @@ class YFinanceSource(TechnicalDataSource):
         
         return result
     
-    def _get_company_info(self, stock: yf.Ticker) -> Dict[str, Any]:
-        """Extract company sector and industry information"""
+    def _get_company_info_and_insider(self, stock: yf.Ticker) -> Dict[str, Any]:
+        """Extract company sector, industry, and insider information"""
         result = {}
         
         try:
@@ -444,5 +444,23 @@ class YFinanceSource(TechnicalDataSource):
                 result["earnings_growth"] = info.get("earningsGrowth")
         except Exception as e:
             print(f"Error fetching company info: {e}")
+
+        # --- Insider Transactions ---
+        try:
+            insiders = stock.insider_transactions
+            if insiders is not None and not insiders.empty:
+                # Filter for buys and sells from the last 12 months
+                now = datetime.now()
+                insiders['Date'] = pd.to_datetime(insiders.index)
+                
+                # Simple logic for now: just record the dates of significant transactions
+                buys = insiders[insiders['Text'].str.contains('Buy', case=False, na=False)]
+                sells = insiders[insiders['Text'].str.contains('Sale', case=False, na=False)]
+                
+                result["insider_buy_dates"] = buys.index.strftime('%Y-%m-%d').tolist() if not buys.empty else []
+                result["insider_sell_dates"] = sells.index.strftime('%Y-%m-%d').tolist() if not sells.empty else []
+        except Exception as e:
+            # yfinance insider_transactions is notoriously flaky, fail silently
+            pass
         
         return result

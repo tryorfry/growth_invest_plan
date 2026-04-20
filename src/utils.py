@@ -11,7 +11,13 @@ def save_analysis(db: Database, analysis: StockAnalysis):
     session = db.SessionLocal()
     try:
         # Get or create stock
-        stock = db.get_or_create_stock(session, analysis.ticker)
+        stock = db.get_or_create_stock(
+            session, 
+            analysis.ticker, 
+            name=analysis.company_name, 
+            sector=analysis.sector,
+            industry=analysis.industry
+        )
         
         # Create analysis record with safe float/int/datetime casting for numpy/pandas compat
         analysis_record = Analysis(
