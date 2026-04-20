@@ -1,104 +1,35 @@
-# Implementation Plan: [FEATURE]
+# Implementation Plan: Historical Earnings Gap Analysis
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
-
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
+**Branch**: `002-earnings-gap-analysis` | **Date**: 2026-04-17 | **Spec**: [spec.md](./spec.md)
 
 ## Summary
-
-[Extract from feature spec: primary requirement + technical approach from research]
+Add a historical analysis layer to the dashboard that quantifies overnight earnings risk. This involves fetching past earnings dates from Yahoo Finance, calculating the day-of-reaction price gap, and presenting an aggregated "Gap Risk %" to the user.
 
 ## Technical Context
-
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
-
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
-
-## Constitution Check
-
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-
-[Gates determined based on constitution file]
+- **Primary Dependencies**: `yfinance`, `curl_cffi`, `pandas`
+- **Storage**: `sqlite` (SQLAlchemy)
+- **Model Fields**: `earnings_history_json` (Text), `projected_gap_risk` (Float)
 
 ## Project Structure
 
-### Documentation (this feature)
-
+### Documentation
 ```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
+system-spec/specs/002-earnings-gap-analysis/
+├── spec.md
+├── research.md
+├── plan.md              # This file
+└── tasks.md
 ```
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+### Source Code
+- `src/models.py`: Added `earnings_history_json` and `projected_gap_risk` to `Analysis`.
+- `src/data_sources/earnings_source.py`: New source class for post-earnings analysis.
+- `src/analyzer.py`: Integration into the main `analyze` flow with cache-aside support.
+- `src/components/earnings.py`: UI component for rendering the gap table and risk metrics.
 
-```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
-```
-
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
-
-## Complexity Tracking
-
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+## Tasks
+1. [x] Update database schema (`Analysis` model).
+2. [x] Create `EarningsSource` with multi-attempt fallback (JSON -> API -> Scraping).
+3. [x] Implement gap calculation logic in `StockAnalyzer`.
+4. [x] Create Streamlit component for earnings visualization.
+5. [x] Harden SSL handling for Yahoo Finance requests.

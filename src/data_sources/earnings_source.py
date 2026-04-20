@@ -21,14 +21,14 @@ class EarningsSource(DataSource):
         import time
         loop = asyncio.get_running_loop()
         limit = kwargs.get('limit', 12)
+        verbose = kwargs.get('verbose', True)
         force_refresh = kwargs.get('force_refresh', False)
-        
         # If force refresh, pass current time as a buster to bypass @st.cache_data
         cache_buster = time.time() if force_refresh else 0
-        return await loop.run_in_executor(None, self.fetch_earnings_drift, ticker, limit, cache_buster)
+        return await loop.run_in_executor(None, self.fetch_earnings_drift, ticker, limit, cache_buster, verbose, force_refresh)
     
     @st.cache_data(ttl=3600)
-    def fetch_earnings_drift(_self, ticker: str, limit: int = 12, _cache_buster: float = 0) -> Dict[str, Any]:
+    def fetch_earnings_drift(_self, ticker: str, limit: int = 12, _cache_buster: float = 0, verbose: bool = True, force_refresh: bool = False) -> Dict[str, Any]:
         """
         Fetches historical earnings dates and calculates the T+1 and T+14 day returns.
         
@@ -79,7 +79,7 @@ class EarningsSource(DataSource):
             
             # --- Attempt C: HTML Fallback Scraper (Legacy) ---
             if calendar is None or calendar.empty:
-                calendar = _self._scrape_fallback_calendar(ticker, limit)
+                calendar = _self._scrape_fallback_calendar(ticker, limit, verbose, force_refresh)
             
             if calendar is None or calendar.empty:
                 return {"analyzed_events": 0, "events": [], "avg_t1_return": 0.0, "avg_t14_return": 0.0}
@@ -220,10 +220,11 @@ class EarningsSource(DataSource):
             }
 
         except Exception as e:
-            print(f"Error fetching earnings drift data for {ticker}: {e}")
+            if verbose:
+                print(f"Error fetching earnings drift data for {ticker}: {e}")
             return {"analyzed_events": 0, "events": [], "avg_t1_return": 0.0, "avg_t14_return": 0.0, "error": str(e)}
 
-    def _scrape_fallback_calendar(self, ticker: str, limit: int = 12) -> Optional[pd.DataFrame]:
+    def _scrape_fallback_calendar(self, ticker: str, limit: int = 12, verbose: bool = True, force_refresh: bool = False) -> Optional[pd.DataFrame]:
         """Manual fallback scraper for Yahoo Finance earnings calendar"""
         url = f"https://finance.yahoo.com/calendar/earnings?symbol={ticker}"
         try:
@@ -290,5 +291,6 @@ class EarningsSource(DataSource):
             return df.head(limit)
             
         except Exception as e:
-            print(f"Manual earnings fallback failed for {ticker}: {e}")
+            if verbose:
+                print(f"Manual earnings fallback failed for {ticker}: {e}")
             return None

@@ -4,6 +4,8 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 import pandas as pd
+import copy
+import json
 
 from .data_sources.base import DataSource
 from .data_sources.yfinance_source import YFinanceSource
@@ -203,7 +205,6 @@ class StockAnalyzer:
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
         """Fetch analysis from DB if within TTL"""
         from datetime import timedelta
-        import json
         
         db = Database("stock_analysis.db")
         session = db.SessionLocal()
