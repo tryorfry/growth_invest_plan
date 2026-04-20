@@ -81,7 +81,9 @@ class SwingStyle(TradingStyleStrategy):
         price = analysis.current_price
         ema20 = getattr(analysis, 'ema20', 0)
         ema50 = getattr(analysis, 'ema50', 0)
-        atr_daily = getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0)) # Fallback to standard ATR if missing
+        atr_daily = getattr(analysis, 'atr_daily', 0.0)
+        if atr_daily <= 0:
+            atr_daily = getattr(analysis, 'atr', 0.0) # Fallback only as last resort
         notes = []
         
         # 1. Determine Trend (Short-term EMA cross)
@@ -130,6 +132,9 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = support_floor - atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=False)
+            analysis.atr_used = atr_daily
+            analysis.atr_type = "Daily"
+            
             risk_raw = entry - stop_loss
             risk = max(risk_raw, entry * 0.001) if risk_raw > 0 else 0.0
             
@@ -162,6 +167,8 @@ class SwingStyle(TradingStyleStrategy):
             
             raw_stop = nearest_resistance + atr_daily
             stop_loss = self._adjust_decimals(raw_stop, is_entry=True) # Buy to cover stop
+            analysis.atr_used = atr_daily
+            analysis.atr_type = "Daily"
             risk_raw = stop_loss - entry
             risk = max(risk_raw, entry * 0.001) if risk_raw > 0 else 0.0
             

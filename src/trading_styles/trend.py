@@ -59,7 +59,9 @@ class TrendStyle(TradingStyleStrategy):
         ema20 = getattr(analysis, 'ema20', 0)
         ema50 = getattr(analysis, 'ema50', 0)
         ema200 = getattr(analysis, 'ema200', 0)
-        atr = getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0))
+        atr = getattr(analysis, 'atr_daily', 0.0)
+        if atr <= 0:
+            atr = getattr(analysis, 'atr', 0.0) # Fallback only as last resort
         notes = []
 
         target = self.get_primary_target(analysis)
@@ -134,7 +136,9 @@ class TrendStyle(TradingStyleStrategy):
             # SL = support_level - 1xATR + noise buffer
             sl_base = target_entry - atr
             noise_buffer = atr * 0.2
-            stop_loss = sl_base + noise_buffer
+            stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
+            analysis.atr_used = atr
+            analysis.atr_type = "Daily"
             
             strategy_reason = "Relative High/Low Reversal"
             if ema_setup:
@@ -149,7 +153,9 @@ class TrendStyle(TradingStyleStrategy):
             # SL = EMA20 - 1×ATR + noise buffer
             sl_base = ema20 - atr
             noise_buffer = atr * 0.2
-            stop_loss = sl_base + noise_buffer
+            stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
+            analysis.atr_used = atr
+            analysis.atr_type = "Daily"
             notes.append(f"✅ Strategy: EMA Trend Following (EMA20 > EMA50 > EMA200). Entry suggested at EMA20 (${entry:.2f}). SL below ATR buffer.")
         else:
             analysis.market_trend = "Sideways/Downtrend"

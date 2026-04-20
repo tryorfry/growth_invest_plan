@@ -250,9 +250,16 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 # 2. Risk Metrics (ATR, R/R)
                 col_atr, col_rr = st.columns(2)
                 with col_atr:
-                    atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
-                    atr_label = "ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "ATR (14w)"
-                    st.metric(atr_label, f"{atr_val:.2f}")
+                    is_short_term = analysis.trading_style in ["Swing Trading", "Trend Trading"]
+                    atr_val = getattr(analysis, 'atr_daily', 0.0) if is_short_term else getattr(analysis, 'atr', 0.0)
+                    atr_label = "ATR (14d)" if is_short_term else "ATR (14w)"
+                    
+                    # If the expected ATR is 0, fallback to standard ATR but show warning
+                    if atr_val <= 0:
+                        atr_val = getattr(analysis, 'atr', 0.0)
+                        st.metric(atr_label, f"{atr_val:.2f}", delta="Fallback (Weekly ATR)", delta_color="inverse")
+                    else:
+                        st.metric(atr_label, f"{atr_val:.2f}")
                 with col_rr:
                     rr_val = getattr(analysis, 'reward_to_risk', 0.0)
                     st.metric("Reward/Risk", f"{rr_val:.2f}x" if rr_val else "N/A")

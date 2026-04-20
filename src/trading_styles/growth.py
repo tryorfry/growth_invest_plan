@@ -115,6 +115,8 @@ class GrowthStyle(TradingStyleStrategy):
         
         analysis.suggested_entry = entry
         analysis.suggested_stop_loss = stop_loss
+        analysis.atr_used = atr
+        analysis.atr_type = "Weekly"
         
         # Calculate target and R/R ratio
         target = self.get_primary_target(analysis)
