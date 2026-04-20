@@ -110,6 +110,7 @@ class Analysis(Base):
     # Sentiment
     news_sentiment = Column(Float)
     news_summary = Column(Text)
+    news_data_json = Column(Text)
     
     # Historical Earnings Gap Analysis
     earnings_history_json = Column(Text) # JSON string of last 12 events

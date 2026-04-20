@@ -56,6 +56,7 @@ def save_analysis(db: Database, analysis: StockAnalysis):
             earnings_growth=_safe_float(analysis.earnings_growth),
             news_sentiment=_safe_float(analysis.news_sentiment),
             news_summary=analysis.news_summary,
+            news_data_json=_serialize_news_data(analysis.news_data),
             # Persist Earnings Gap Analysis
             earnings_history_json=_serialize_earnings_history(analysis.earnings_history),
             projected_gap_risk=_safe_float(analysis.projected_gap_risk)
@@ -168,3 +169,13 @@ def render_ticker_header(analysis: StockAnalysis):
         st.markdown(f"[![YFinance](https://img.shields.io/badge/Yahoo-Finance-blue)]({yfin_url}) [![Finviz](https://img.shields.io/badge/Finviz-Data-orange)]({finviz_url})")
     
     st.divider()
+
+def _serialize_news_data(news_data):
+    """Safely convert news articles to JSON string"""
+    import json
+    if not news_data or 'articles' not in news_data or not news_data['articles']:
+        return None
+    try:
+        return json.dumps(news_data)
+    except:
+        return None

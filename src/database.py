@@ -109,6 +109,7 @@ class Database:
             ("analyses", "earnings_growth", "FLOAT"),
             ("analyses", "news_sentiment", "FLOAT"),
             ("analyses", "news_summary", "TEXT"),
+            ("analyses", "news_data_json", "TEXT"),
             ("analyses", "median_price_target", "FLOAT"),
             ("users", "tier", "VARCHAR(20) DEFAULT 'free'"),
             ("users", "theme_preference", "VARCHAR(20) DEFAULT 'dark'"),

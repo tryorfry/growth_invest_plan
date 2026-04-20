@@ -254,6 +254,10 @@ class StockAnalyzer:
             if not analysis_record.earnings_history_json:
                 return None
             
+            if not analysis_record.news_data_json:
+                # Force fresh pull to populate articles if missing in old schema
+                return None
+
             if analysis_record.news_sentiment is None:
                 return None
                 
@@ -293,6 +297,8 @@ class StockAnalyzer:
                 analyst_source=analysis_record.analyst_source,
                 news_sentiment=analysis_record.news_sentiment,
                 news_summary=analysis_record.news_summary,
+                news_data=self._deserialize_news_data(analysis_record.news_data_json),
+                total_debt=analysis_record.total_debt,
                 projected_gap_risk=analysis_record.projected_gap_risk
             )
             
