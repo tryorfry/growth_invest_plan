@@ -15,7 +15,10 @@ def _safe_float_parse(val):
         if not clean_val: return None
         
         multiplier = 1
-        if clean_val.endswith('B'):
+        if clean_val.endswith('T'):
+            multiplier = 1_000_000_000_000
+            clean_val = clean_val[:-1]
+        elif clean_val.endswith('B'):
             multiplier = 1_000_000_000
             clean_val = clean_val[:-1]
         elif clean_val.endswith('M'):

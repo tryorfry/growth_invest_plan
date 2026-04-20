@@ -19,8 +19,7 @@ from .data_sources.macrotrends_source import MacrotrendsSource
 from .data_sources.earnings_source import EarningsSource
 from .trading_styles.factory import get_trading_style
 from .database import Database
-from .models import Stock, Analysis
-from .logic.scorer import ChecklistScorer
+from .logic.scorer import ChecklistScorer, _safe_float_parse
 
 
 @dataclass
@@ -977,7 +976,7 @@ class StockAnalyzer:
                     'exchange': finviz_data.get('Exchange'), # Finviz usually doesn't have this, but we'll try
                     'country': finviz_data.get('Country'),
                     'analyst_recommendation': finviz_data.get('Recom'),
-                    'average_volume': self.finviz_source._parse_volume(finviz_data.get('Avg Volume', '0')),
+                    'average_volume': _safe_float_parse(finviz_data.get('Avg Volume', '0')),
                     'revenue_growth_yoy': None,
                     'eps_growth_yoy': None
                 })
@@ -992,7 +991,7 @@ class StockAnalyzer:
                 
                 # Parse market cap for sorting
                 mc_str = finviz_data.get('Market Cap', '0')
-                mc_val = self.finviz_source._parse_market_cap(mc_str)
+                mc_val = _safe_float_parse(mc_str) or 0
 
                 return {
                     "ticker": ticker,
