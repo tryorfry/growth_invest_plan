@@ -33,39 +33,49 @@ class FinvizSource(FundamentalDataSource):
     @st.cache_data(ttl=3600)
     def _fetch_sync(_self, ticker: str) -> Optional[Dict[str, Any]]:
         """Synchronous fetch logic for thread execution"""
-        url = f"{_self.BASE_URL}?t={ticker}&p=d"
-        html = _self._make_request_sync(url)
-        if html:
-            return _self._parse_snapshot_table(html.encode('utf-8'))
+        url = f"{_self.BASE_URL}?t={ticker.upper()}"
+        
+        # Enhanced headers to bypass bot blocks
+        headers = {
+            "Referer": "https://finviz.com/",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Upgrade-Insecure-Requests": "1"
+        }
+        
+        resp = _self._get_response_sync(url, headers=headers)
+        if resp and resp.status_code == 200:
+            return _self._parse_snapshot_table(resp.text)
         return None
     
-    def _parse_snapshot_table(_self, html_content: bytes) -> Dict[str, str]:
+    def _parse_snapshot_table(_self, html_content: Any) -> Dict[str, str]:
         """
-        Parse the Finviz snapshot table.
-        
-        Args:
-            html_content: Raw HTML content
-            
-        Returns:
-            Dictionary mapping metric names to values
+        Parse the Finviz snapshot table and header info (Country/Exchange).
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        snapshot = soup.find("table", class_="snapshot-table2")
-        
-        if not snapshot:
-            print("Finviz snapshot table not found")
-            return {}
         
         data = {}
-        rows = snapshot.find_all("tr")
         
-        for row in rows:
-            cols = row.find_all("td")
-            # Table structure: Label | Value | Label | Value ...
-            for i in range(0, len(cols), 2):
-                if i + 1 < len(cols):
-                    key = cols[i].get_text(strip=True)
-                    value = cols[i + 1].get_text(strip=True)
-                    data[key] = value
+        # 1. Extract Header Info (Sector | Industry | Country | Exchange)
+        # Usually found in a list above the main table
+        links = soup.find_all("a", class_="tab-link")
+        if len(links) >= 4:
+            # Structure: [Sector, Industry, Country, Exchange]
+            data['Sector'] = links[0].get_text(strip=True)
+            data['Industry'] = links[1].get_text(strip=True)
+            data['Country'] = links[2].get_text(strip=True)
+            data['Exchange'] = links[3].get_text(strip=True)
+
+        # 2. Extract Main Table
+        snapshot = soup.find("table", class_="snapshot-table2")
+        if snapshot:
+            rows = snapshot.find_all("tr")
+            for row in rows:
+                cols = row.find_all("td")
+                for i in range(0, len(cols), 2):
+                    if i + 1 < len(cols):
+                        key = cols[i].get_text(strip=True)
+                        value = cols[i + 1].get_text(strip=True)
+                        data[key] = value
         
         return data

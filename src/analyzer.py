@@ -954,44 +954,64 @@ class StockAnalyzer:
                     }
 
                 # 2. Parallel Fetch (Lightweight: skip technicals/news for speed)
-                # Fetch Finviz and Macrotrends in parallel
+                # Fetch Finviz, Macrotrends, and YFinance Info in parallel
                 finviz_task = self.finviz_source.fetch(ticker)
                 macro_task = self.macrotrends_source.fetch(ticker)
+                yfin_task = self.fundamental_source.fetch(ticker) # yfinance info
                 
-                finviz_data, macro_data = await asyncio.gather(finviz_task, macro_task)
+                finviz_data, macro_data, yfin_info = await asyncio.gather(finviz_task, macro_task, yfin_task)
                 
-                if not finviz_data:
-                    return {
-                        "ticker": ticker, 
-                        "score": 0, 
-                        "market_cap": 0, 
-                        "error": "No data found on Finviz",
-                        "is_cached": False
-                    }
-
                 # Create a mini analysis object for the scorer
-                # Map macro_data into expected format
+                # 3. Data Integration with Fallbacks
+                # Start with Finviz if available, else map YFinance
+                
                 mock_analysis = type('obj', (object,), {
-                    'finviz_data': finviz_data,
-                    'exchange': finviz_data.get('Exchange'), # Finviz usually doesn't have this, but we'll try
-                    'country': finviz_data.get('Country'),
-                    'analyst_recommendation': finviz_data.get('Recom'),
-                    'average_volume': _safe_float_parse(finviz_data.get('Avg Volume', '0')),
+                    'finviz_data': finviz_data if finviz_data else {},
+                    'exchange': None,
+                    'country': None,
+                    'analyst_recommendation': None,
+                    'average_volume': 0,
                     'revenue_growth_yoy': None,
                     'eps_growth_yoy': None
                 })
-                
+
+                if finviz_data:
+                    mock_analysis.exchange = finviz_data.get('Exchange')
+                    mock_analysis.country = finviz_data.get('Country')
+                    mock_analysis.analyst_recommendation = finviz_data.get('Recom')
+                    mock_analysis.average_volume = _safe_float_parse(finviz_data.get('Avg Volume', '0'))
+                elif yfin_info:
+                    # Fallback to YFinance
+                    mock_analysis.exchange = yfin_info.get('exchange')
+                    mock_analysis.country = yfin_info.get('country')
+                    mock_analysis.analyst_recommendation = yfin_info.get('recommendationKey')
+                    mock_analysis.average_volume = yfin_info.get('averageVolume', 0)
+                    
+                    # Map other keys into finviz_data format for the scorer helpers
+                    mock_analysis.finviz_data.update({
+                        'Market Cap': str(yfin_info.get('marketCap', '0')),
+                        'P/E': str(yfin_info.get('trailingPE', 'N/A')),
+                        'PEG': str(yfin_info.get('pegRatio', 'N/A')),
+                        'ROE': f"{yfin_info.get('returnOnEquity', 0)*100}%" if yfin_info.get('returnOnEquity') else 'N/A',
+                        'ROA': f"{yfin_info.get('returnOnAssets', 0)*100}%" if yfin_info.get('returnOnAssets') else 'N/A',
+                        'EPS next Y': str(yfin_info.get('earningsNextQuarter', '0')),
+                        'EPS next 5Y': str(yfin_info.get('earningsGrowth', '0'))
+                    })
+
                 # Map macrotrends growth if available
                 if macro_data:
-                    # Logic to calculate YoY growth from latest quarterly macrotrends
                     mock_analysis.revenue_growth_yoy = macro_data.get('revenue_growth')
                     mock_analysis.eps_growth_yoy = macro_data.get('eps_diluted_growth')
 
+                # Calculate Score
                 score, total, details = ChecklistScorer.calculate_score(mock_analysis)
                 
-                # Parse market cap for sorting
-                mc_str = finviz_data.get('Market Cap', '0')
-                mc_val = _safe_float_parse(mc_str) or 0
+                # Parse final market cap for sorting (prefers yfinance for accuracy)
+                mc_val = 0
+                if yfin_info and yfin_info.get('marketCap'):
+                    mc_val = yfin_info.get('marketCap', 0)
+                elif finviz_data:
+                    mc_val = _safe_float_parse(finviz_data.get('Market Cap', '0')) or 0
 
                 return {
                     "ticker": ticker,
