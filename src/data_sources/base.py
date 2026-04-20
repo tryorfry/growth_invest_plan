@@ -11,23 +11,54 @@ class DataSource(ABC):
     TIMEOUT = 15
     RETRY_COUNT = 2
     
-    # Circuit Breaker state
-    # (Per instance fails; since analyzers are long-lived in session this works)
-    _broken_until = 0
-    _failure_count = 0
+    # Shared Circuit Breaker state across all instances & restarts
+    _STATE_FILE = ".circuit_state.json"
+    _CIRCUIT_STATE = {} 
+
+    def _load_persistent_state(self):
+        """Load state from disk to ensure persistence across restarts"""
+        import json
+        import os
+        if not DataSource._CIRCUIT_STATE:
+            if os.path.exists(DataSource._STATE_FILE):
+                try:
+                    with open(DataSource._STATE_FILE, "r") as f:
+                        DataSource._CIRCUIT_STATE = json.load(f)
+                except:
+                    DataSource._CIRCUIT_STATE = {}
+
+    def _save_persistent_state(self):
+        """Save state to disk"""
+        import json
+        try:
+            with open(DataSource._STATE_FILE, "w") as f:
+                json.dump(DataSource._CIRCUIT_STATE, f)
+        except: pass
+
+    def _get_state(self) -> Dict[str, Any]:
+        """Helper to get state for current source"""
+        self._load_persistent_state()
+        name = self.get_source_name()
+        if name not in DataSource._CIRCUIT_STATE:
+            DataSource._CIRCUIT_STATE[name] = {"broken_until": 0, "failure_count": 0}
+        return DataSource._CIRCUIT_STATE[name]
 
     def is_broken(self) -> bool:
-        """Check if the circuit is currently open (broken)"""
+        """Check if the circuit is currently open (broken) for this source"""
         import time
-        if self._broken_until > time.time():
+        state = self._get_state()
+        if state["broken_until"] > time.time():
             return True
         return False
 
     def _mark_broken(self, minutes: int = 10):
         """Break the circuit for a specific duration"""
         import time
-        print(f"🚨 Circuit Breaker: Marking {self.get_source_name()} as BROKEN for {minutes}m")
-        self._broken_until = time.time() + (minutes * 60)
+        name = self.get_source_name()
+        state = self._get_state()
+        print(f"🚨 Circuit Breaker: Marking {name} as BROKEN for {minutes}m")
+        state["broken_until"] = time.time() + (minutes * 60)
+        self._save_persistent_state()
 
     @abstractmethod
     async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
@@ -58,12 +89,15 @@ class DataSource(ABC):
         }
         request_kwargs.update(kwargs)
         
+        state = self._get_state()
+        
         for attempt in range(self.RETRY_COUNT):
             try:
                 response = requests.get(url, **request_kwargs)
                 
                 if response.status_code == 200:
-                    self._failure_count = 0 # Reset on success
+                    state["failure_count"] = 0 # Reset on success
+                    self._save_persistent_state()
                     return response
                 
                 if response.status_code == 403:
@@ -85,7 +119,7 @@ class DataSource(ABC):
                         fallback_kwargs["verify"] = False
                         response = requests.get(url, **fallback_kwargs)
                         if response.status_code == 200:
-                            self._failure_count = 0
+                            state["failure_count"] = 0
                             return response
                         
                         if response.status_code == 403:
@@ -97,8 +131,8 @@ class DataSource(ABC):
                         print(f"❌ SSL Fallback critical failure for {url}: {fe}")
                 
                 if attempt == self.RETRY_COUNT - 1:
-                    self._failure_count += 1
-                    if self._failure_count >= 3:
+                    state["failure_count"] += 1
+                    if state["failure_count"] >= 3:
                         self._mark_broken(10) # Break for 10m on repeated timeouts
                     print(f"Error: {self.get_source_name()} failed for {url}: {e}")
         

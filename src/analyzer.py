@@ -358,10 +358,14 @@ class StockAnalyzer:
         fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
         news_task = asyncio.create_task(self.news_source.fetch(ticker))
         macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
+        earnings_task = asyncio.create_task(self.earnings_source.fetch(ticker, limit=12, force_refresh=force_refresh))
         
         # Allow individual tasks to fail without cancelling others
-        results = await asyncio.gather(technical_task, fundamental_task, news_task, macrotrends_task, return_exceptions=True)
-        technical_data, fundamental_data, news_data, macrotrends_data = results
+        results = await asyncio.gather(
+            technical_task, fundamental_task, news_task, macrotrends_task, earnings_task, 
+            return_exceptions=True
+        )
+        technical_data, fundamental_data, news_data, macrotrends_data, drift_data = results
         
         # Update health based on results
         def update_health(source, data):
@@ -376,6 +380,7 @@ class StockAnalyzer:
         update_health(self.fundamental_source, fundamental_data)
         update_health(self.news_source, news_data)
         update_health(self.macrotrends_source, macrotrends_data)
+        update_health(self.earnings_source, drift_data)
         
         # Check for critical technical data failure
         if isinstance(technical_data, Exception):
@@ -455,11 +460,9 @@ class StockAnalyzer:
         if analysis.median_price_target:
             analysis.max_buy_price = analysis.median_price_target / 1.15
         
-        # 4. Fetch Historical Earnings Gap Analysis
-        try:
-            earnings_src = EarningsSource()
-            drift_data = await earnings_src.fetch(ticker, limit=12, force_refresh=force_refresh)
-            if drift_data and drift_data.get("analyzed_events", 0) > 0:
+        # 4. Process Historical Earnings Gap Analysis (From parallel fetch)
+        if not isinstance(drift_data, Exception) and drift_data:
+            if drift_data.get("analyzed_events", 0) > 0:
                 analysis.earnings_history = drift_data.get("events", [])
                 
                 t0_returns = [abs(e.get("t0_return", 0)) for e in analysis.earnings_history if "t0_return" in e]
@@ -470,9 +473,6 @@ class StockAnalyzer:
                     latest_event = analysis.earnings_history[0]
                     analysis.last_earnings_date = latest_event.get("date")
                     if verbose: print(f"Recovered Last Earnings Date from history: {analysis.last_earnings_date}")
-                    
-        except Exception as e:
-            if verbose: print(f"Warning: Failed to fetch earnings gap history for {ticker}: {e}")
         
         return analysis
 
