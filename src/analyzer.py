@@ -962,7 +962,13 @@ class StockAnalyzer:
                 finviz_data, macro_data = await asyncio.gather(finviz_task, macro_task)
                 
                 if not finviz_data:
-                    return {"ticker": ticker, "error": "No data"}
+                    return {
+                        "ticker": ticker, 
+                        "score": 0, 
+                        "market_cap": 0, 
+                        "error": "No data found on Finviz",
+                        "is_cached": False
+                    }
 
                 # Create a mini analysis object for the scorer
                 # Map macro_data into expected format
@@ -998,7 +1004,13 @@ class StockAnalyzer:
                 }
             except Exception as e:
                 print(f"Error scanning {ticker}: {e}")
-                return {"ticker": ticker, "error": str(e)}
+                return {
+                    "ticker": ticker, 
+                    "score": 0, 
+                    "market_cap": 0, 
+                    "error": str(e), 
+                    "is_cached": False
+                }
 
         tasks = [scan_one(t) for t in tickers]
         results = await asyncio.gather(*tasks)

@@ -217,18 +217,25 @@ def render_market_pulse_page():
             audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
             if audit_data:
                 audit_df = pd.DataFrame(audit_data)
-                df_display = df_display.merge(audit_df[['ticker', 'score', 'market_cap']], on='ticker', suffixes=('', '_val'))
-                df_display['quality_score'] = df_display['score'].apply(lambda x: f"🌟 {x}/9" if x >= 8 else (f"✅ {x}/9" if x >= 6 else f"⚠️ {x}/9"))
                 
-                # Sorting by score then market_cap
-                df_display = df_display.sort_values(by=['score', 'market_cap_val'], ascending=[False, False])
-                
-                # Show Recommendation Card
-                top_q = df_display[df_display['score'] >= 8]
-                if not top_q.empty:
-                    st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {top_q['score'].max()}/9 points!")
+                # Verify required columns exist to prevent KeyError
+                required_cols = {'ticker', 'score', 'market_cap'}
+                if required_cols.issubset(audit_df.columns):
+                    df_display = df_display.merge(audit_df[['ticker', 'score', 'market_cap']], on='ticker', suffixes=('', '_val'))
+                    df_display['quality_score'] = df_display['score'].apply(lambda x: f"🌟 {x}/9" if x >= 8 else (f"✅ {x}/9" if x >= 6 else f"⚠️ {x}/9"))
+                    
+                    # Sorting by score then market_cap
+                    df_display = df_display.sort_values(by=['score', 'market_cap_val'], ascending=[False, False])
+                    
+                    # Show Recommendation Card
+                    top_q = df_display[df_display['score'] >= 8]
+                    if not top_q.empty:
+                        st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {top_q['score'].max()}/9 points!")
 
-                display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score']
+                    display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score']
+                else:
+                    st.warning("⚠️ Partial scan data received. Please try reloading the audit.")
+                    display_cols = ['ticker', 'company', 'market_cap_str']
             else:
                 # Standard view
                 display_cols = ['ticker', 'company', 'market_cap_str']
