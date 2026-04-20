@@ -118,6 +118,8 @@ class NewsSentimentSource(DataSource):
                 
                 # Extract link
                 link = content.get('canonicalUrl') or content.get('clickThroughUrl', {}).get('url') or item.get('link', '')
+                if isinstance(link, dict):
+                    link = link.get('url', '')
                 
                 # Extract publisher
                 provider = content.get('provider', {})
@@ -126,7 +128,7 @@ class NewsSentimentSource(DataSource):
                 scored_articles.append({
                     "title": title,
                     "publisher": publisher,
-                    "link": link,
+                    "link": str(link),
                     "date": dt.strftime('%Y-%m-%d %H:%M'),
                     "sentiment_score": polarity,
                     "sentiment_label": label

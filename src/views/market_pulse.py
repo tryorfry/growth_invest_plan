@@ -2,8 +2,10 @@
 
 import streamlit as st
 import pandas as pd
+import asyncio
 from src.data_sources.macro_source import MacroSource
 from src.data_sources.sector_source import SectorSource
+from src.analyzer import StockAnalyzer
 import plotly.graph_objects as go
 
 def render_market_pulse_page():
@@ -161,11 +163,13 @@ def render_market_pulse_page():
             # Action Buttons
             with col_btn:
                 st.write("") # Padding
-                c_batch, c_reload = st.columns([0.7, 0.3])
+                c_batch, c_audit, c_reload = st.columns([0.4, 0.4, 0.2])
                 with c_batch:
-                    batch_btn = st.button(f"🚀 Run Multi-Style Analysis on {len(top_tickers)} Leaders", type="primary", use_container_width=True)
+                    batch_btn = st.button(f"🚀 Analyze {len(top_tickers)} Leaders", type="secondary", use_container_width=True, help="Run Multi-Style analysis on all")
+                with c_audit:
+                    audit_btn = st.button(f"🔍 Run 9-Point Quality Audit", type="primary", use_container_width=True, help="Screen fundamentals from Macrotrends/Finviz")
                 with c_reload:
-                    if st.button("🔄 Reload", key="mp_reload_btn"):
+                    if st.button("🔄", key="mp_reload_btn", use_container_width=True):
                         import time
                         st.session_state[f'buster_{selected_sector}'] = time.time()
                         st.rerun()
@@ -173,6 +177,22 @@ def render_market_pulse_page():
             if is_fallback:
                 st.info("🏛️ **S&P 500 Benchmark View**: Showing verified index giants.")
             
+            # --- Audit Logic ---
+            if audit_btn:
+                with st.status(f"Scanning Fundamental Health for {len(top_tickers)} tickers...", expanded=True) as status:
+                    st.write("📡 Connecting to Macrotrends & Finviz...")
+                    analyzer = StockAnalyzer()
+                    tickers_to_scan = [t['ticker'] for t in top_tickers]
+                    
+                    # Run async scan
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    audit_results = loop.run_until_complete(analyzer.scan_tickers_quality(tickers_to_scan))
+                    
+                    st.session_state[f'quality_audit_{selected_sector}'] = audit_results
+                    status.update(label="✅ Quality Audit Complete!", state="complete", expanded=False)
+                    st.rerun()
+
             if batch_btn:
                 ticker_string = ",".join([t['ticker'] for t in top_tickers])
                 st.session_state['ms_report_text'] = ticker_string
@@ -180,22 +200,42 @@ def render_market_pulse_page():
                 st.toast("Redirecting to Multi-Style engine...", icon="🚀")
                 st.rerun()
 
-            # --- NEW INTERACTIVE TABLE VIEW ---
-            df_display = pd.DataFrame(top_tickers)
-            
-            # Formatting Display Columns
-            display_cols = ['ticker', 'company', 'market_cap']
-            if not is_fallback:
-                display_cols.extend(['price', 'change'])
-            
             # Map columns for cleaner display
             col_map = {
                 'ticker': 'Ticker',
                 'company': 'Company Name',
-                'market_cap': 'Valuation',
+                'market_cap_str': 'Valuation',
                 'price': 'Last Price',
-                'change': '1D Change'
+                'change': '1D Change',
+                'quality_score': 'Score (9/9)'
             }
+
+            # Merge Audit results if available
+            df_display = pd.DataFrame(top_tickers)
+            df_display['market_cap_str'] = df_display['market_cap']
+            
+            audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
+            if audit_data:
+                audit_df = pd.DataFrame(audit_data)
+                df_display = df_display.merge(audit_df[['ticker', 'score', 'market_cap']], on='ticker', suffixes=('', '_val'))
+                df_display['quality_score'] = df_display['score'].apply(lambda x: f"🌟 {x}/9" if x >= 8 else (f"✅ {x}/9" if x >= 6 else f"⚠️ {x}/9"))
+                
+                # Sorting by score then market_cap
+                df_display = df_display.sort_values(by=['score', 'market_cap_val'], ascending=[False, False])
+                
+                # Show Recommendation Card
+                top_q = df_display[df_display['score'] >= 8]
+                if not top_q.empty:
+                    st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {top_q['score'].max()}/9 points!")
+
+                display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score']
+            else:
+                # Standard view
+                display_cols = ['ticker', 'company', 'market_cap_str']
+                
+            if not is_fallback:
+                display_cols.append('price')
+                display_cols.append('change')
             
             # Configure the table
             st.data_editor(
@@ -205,12 +245,13 @@ def render_market_pulse_page():
                     "Company Name": st.column_config.TextColumn("Company", width="large"),
                     "Valuation": st.column_config.TextColumn("Market Cap", help="Total Valuation"),
                     "Last Price": st.column_config.TextColumn("Price"),
-                    "1D Change": st.column_config.TextColumn("Change %", help="Daily performance", width="small")
+                    "1D Change": st.column_config.TextColumn("Change %", help="Daily performance", width="small"),
+                    "Score (9/9)": st.column_config.TextColumn("Quality Score", help="Fundamental Health Score out of 9")
                 },
                 use_container_width=True,
                 hide_index=True,
                 disabled=True, # Read-only but selectable
-                key=f"mp_table_{selected_sector}"
+                key=f"mp_table_{selected_sector}_v2" # Changed key to avoid conflict after col change
             )
             
             # Quick Action for individual ticker

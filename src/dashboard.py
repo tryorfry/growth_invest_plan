@@ -32,7 +32,6 @@ from src.views.login import render_login_page
 
 # --- Resource Initialization ---
 
-@st.cache_resource
 def init_database():
     db = Database("stock_analysis.db")
     db.init_db()

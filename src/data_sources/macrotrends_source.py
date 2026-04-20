@@ -52,7 +52,6 @@ class MacrotrendsSource(FundamentalDataSource):
             company_path = match.group(1) # e.g. "AAPL/apple"
             
             # 2. Fetch specific metrics
-            # Note: Macrotrends often has all data in the 'financial-statements' or specifically named pages
             metrics_to_fetch = {
                 'revenue': 'revenue',
                 'operating_income': 'operating-income',
@@ -61,9 +60,15 @@ class MacrotrendsSource(FundamentalDataSource):
             
             for key, metric_slug in metrics_to_fetch.items():
                 url = f"{self.BASE_URL}/{company_path}/{metric_slug}"
-                metric_data = self._scrape_metric(url)
-                if metric_data:
-                    results[key] = metric_data
+                metric_history = self._scrape_metric_history(url)
+                if metric_history and len(metric_history) >= 5:
+                    latest = metric_history[0]
+                    prev_year = metric_history[4] # 4 quarters ago
+                    if latest and prev_year and prev_year != 0:
+                        results[f"{key}_growth"] = (latest - prev_year) / abs(prev_year)
+                    results[key] = latest
+                elif metric_history:
+                    results[key] = metric_history[0]
             
             return results if results else None
             
@@ -73,45 +78,48 @@ class MacrotrendsSource(FundamentalDataSource):
 
     def _scrape_metric(self, url: str) -> Optional[float]:
         """Scrape the latest quarterly value for a specific metric page"""
+        vals = self._scrape_metric_history(url)
+        return vals[0] if vals else None
+
+    def _scrape_metric_history(self, url: str) -> List[float]:
+        """Scrape all historical quarterly values for a specific metric page"""
         try:
             html = self._make_request_sync(url)
             if not html:
-                return None
+                return []
             
             # Method 1: Look for 'original_data' in script tags (reliable)
             data_match = re.search(r'var original_data = (\[.*?\]);', html, re.DOTALL)
             if data_match:
                 try:
                     data = json.loads(data_match.group(1))
-                    if data and len(data) > 0:
-                        # Macrotrends JSON usually has "v1" as the value and "field_name" as the date/label
-                        # We want the most recent quarterly value. Data is usually sorted by date.
-                        # We tipically want the last object in the list if it's chronological, 
-                        # or first if reverse chronological.
-                        # Let's inspect the first element.
-                        latest = data[0]
-                        val = latest.get('v1') or latest.get('v2') # Macrotrends uses v1, v2...
-                        if val:
-                            return float(val)
+                    results = []
+                    for item in data:
+                        val = item.get('v1') or item.get('v2') or item.get('v3')
+                        if val is not None:
+                            results.append(float(val))
+                    return results
                 except:
                     pass
 
             # Method 2: Fallback to HTML table parsing
             soup = BeautifulSoup(html, 'html.parser')
-            # Look for the second table (Quarterly)
             tables = soup.find_all("table", class_="historical_data_table")
             if len(tables) >= 2:
                 quarterly_table = tables[1]
                 rows = quarterly_table.find_all("tr")
-                if len(rows) > 1:
-                    first_row_cols = rows[1].find_all("td")
-                    if len(first_row_cols) >= 2:
-                        val_str = first_row_cols[1].get_text(strip=True)
-                        return self._parse_currency(val_str)
+                results = []
+                for row in rows[1:]:
+                    cols = row.find_all("td")
+                    if len(cols) >= 2:
+                        val = self._parse_currency(cols[1].get_text(strip=True))
+                        if val is not None:
+                            results.append(val)
+                return results
             
-            return None
+            return []
         except:
-            return None
+            return []
 
     def _parse_currency(self, val_str: str) -> Optional[float]:
         """Convert string like '$123,456.00' to float"""

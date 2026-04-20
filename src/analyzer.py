@@ -2,7 +2,8 @@
 
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
-from datetime import datetime
+import asyncio
+from datetime import datetime, timedelta
 import pandas as pd
 import copy
 import json
@@ -19,6 +20,7 @@ from .data_sources.earnings_source import EarningsSource
 from .trading_styles.factory import get_trading_style
 from .database import Database
 from .models import Stock, Analysis
+from .logic.scorer import ChecklistScorer
 
 
 @dataclass
@@ -929,3 +931,75 @@ class StockAnalyzer:
         
         analysis.support_levels = supports[-3:] if supports else []
         analysis.resistance_levels = resistances[:3] if resistances else []
+
+    async def scan_tickers_quality(self, tickers: List[str]) -> List[Dict[str, Any]]:
+        """
+        Scan a list of tickers for their 9-point fundamental score in parallel.
+        Optimized for Market Pulse dashboard.
+        """
+        results = []
+        
+        async def scan_one(ticker: str):
+            try:
+                # 1. Check Cache first (12h TTL for fundamentals)
+                cached = self._get_cached_analysis(ticker, ttl_hours=12)
+                if cached:
+                    score, total, details = ChecklistScorer.calculate_score(cached)
+                    return {
+                        "ticker": ticker,
+                        "score": score,
+                        "total": total,
+                        "details": details,
+                        "market_cap": getattr(cached, 'market_cap_val', 0), # We'll need to parse this or get from cached.finviz_data
+                        "is_cached": True
+                    }
+
+                # 2. Parallel Fetch (Lightweight: skip technicals/news for speed)
+                # Fetch Finviz and Macrotrends in parallel
+                finviz_task = self.finviz_source.fetch(ticker)
+                macro_task = self.macrotrends_source.fetch(ticker)
+                
+                finviz_data, macro_data = await asyncio.gather(finviz_task, macro_task)
+                
+                if not finviz_data:
+                    return {"ticker": ticker, "error": "No data"}
+
+                # Create a mini analysis object for the scorer
+                # Map macro_data into expected format
+                mock_analysis = type('obj', (object,), {
+                    'finviz_data': finviz_data,
+                    'exchange': finviz_data.get('Exchange'), # Finviz usually doesn't have this, but we'll try
+                    'country': finviz_data.get('Country'),
+                    'analyst_recommendation': finviz_data.get('Recom'),
+                    'average_volume': self.finviz_source._parse_volume(finviz_data.get('Avg Volume', '0')),
+                    'revenue_growth_yoy': None,
+                    'eps_growth_yoy': None
+                })
+                
+                # Map macrotrends growth if available
+                if macro_data:
+                    # Logic to calculate YoY growth from latest quarterly macrotrends
+                    mock_analysis.revenue_growth_yoy = macro_data.get('revenue_growth')
+                    mock_analysis.eps_growth_yoy = macro_data.get('eps_diluted_growth')
+
+                score, total, details = ChecklistScorer.calculate_score(mock_analysis)
+                
+                # Parse market cap for sorting
+                mc_str = finviz_data.get('Market Cap', '0')
+                mc_val = self.finviz_source._parse_market_cap(mc_str)
+
+                return {
+                    "ticker": ticker,
+                    "score": score,
+                    "total": total,
+                    "details": details,
+                    "market_cap": mc_val,
+                    "is_cached": False
+                }
+            except Exception as e:
+                print(f"Error scanning {ticker}: {e}")
+                return {"ticker": ticker, "error": str(e)}
+
+        tasks = [scan_one(t) for t in tickers]
+        results = await asyncio.gather(*tasks)
+        return results

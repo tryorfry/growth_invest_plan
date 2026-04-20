@@ -69,13 +69,9 @@ class Database:
         from sqlalchemy import text, inspect
         inspector = inspect(self.engine)
         
-        # Determine schema for Postgres (usually 'public')
-        target_schema = None
-        if "postgresql" in self.db_url:
-            target_schema = 'public'
+        # target_schema = None # By default, let it use search_path
             
         new_cols = [
-            # ... (Rest of new_cols remains same)
             ("portfolios", "initial_balance", "FLOAT"),
             ("stocks", "sector", "VARCHAR(100)"),
             ("stocks", "industry", "VARCHAR(100)"),
@@ -105,7 +101,7 @@ class Database:
             ("analyses", "free_cash_flow", "FLOAT"),
             ("analyses", "total_debt", "FLOAT"),
             ("analyses", "total_cash", "FLOAT"),
-            ("analyses", "shares_outstanding", "INTEGER"),
+            ("analyses", "shares_outstanding", "BIGINT"), # Changed to BIGINT for consistency
             ("analyses", "earnings_growth", "FLOAT"),
             ("analyses", "news_sentiment", "FLOAT"),
             ("analyses", "news_summary", "TEXT"),
@@ -129,7 +125,8 @@ class Database:
             existing_cols = {}
             tables_to_check = ['analyses', 'stocks', 'portfolios', 'users', 'transactions']
             for t in tables_to_check:
-                existing_cols[t] = {col['name'] for col in inspector.get_columns(t, schema=target_schema)}
+                # Omit schema to use default search path (crucial for Postgres variations)
+                existing_cols[t] = {col['name'] for col in inspector.get_columns(t)}
         except Exception as e:
             print(f"Error inspecting schema: {e}")
             existing_cols = {t: set() for t in tables_to_check}
@@ -142,8 +139,11 @@ class Database:
                     try:
                         # Normalize type for Postgres if needed (e.g., DATETIME -> TIMESTAMP)
                         sql_type = col_type
-                        if "postgresql" in self.db_url and col_type == "DATETIME":
-                            sql_type = "TIMESTAMP"
+                        if "postgresql" in self.db_url:
+                            if col_type == "DATETIME":
+                                sql_type = "TIMESTAMP"
+                            elif col_type == "INTEGER" and col == "shares_outstanding":
+                                sql_type = "BIGINT"
                             
                         # Use a dedicated connection for the DDL statement
                         with self.engine.begin() as ddl_conn:
