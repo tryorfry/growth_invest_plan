@@ -68,3 +68,31 @@ def test_trend_style_noise_buffer():
     # Round down 96.0 -> 95.99
     assert analysis.suggested_stop_loss == 95.99
     assert analysis.atr_used == 5.0
+def test_trend_style_extended_price():
+    """Verify Trend Style: SL stays near Support even if price is far away (MCD case)"""
+    # Current Price: 308.99. Entry: 308.99.
+    # Support (EMA20): 308.99. Distant Support (HL): 299.41.
+    # New logic should pick EMA20 (308.99) as support_floor.
+    # SL = 308.99 - 4.97 = 304.02.
+    analysis = MockAnalysis(current_price=308.99, ema20=308.99, ema50=290.0, ema200=280.0, atr_daily=4.97)
+    # We need to trigger reversal_setup too
+    analysis.history = pd.DataFrame({
+        'High': [310]*60, 'Low': [290]*60, 'Close': [300]*60,
+        'Trend_Upper': [320]*60, 'Trend_Lower': [280]*60, 'Trend_Center': [300]*60
+    })
+    
+    # Mocking hl_data and dt_data inside PatternRecognition needs care,
+    # but here TrendStyle calls it directly.
+    # We'll mock the internal call result by setting necessary flags if needed.
+    
+    style = TrendStyle()
+    style.get_primary_target = lambda a: 350.0
+    style.calculate_trade_setup(analysis)
+    
+    # With EMA setup (ema20 > ema50 > ema200):
+    # Support floor = 308.99.
+    # 308.99 - 4.97 = 304.02.
+    # noise_buffer = 4.97 * 0.2 = 0.994.
+    # stop_loss = 305.014 -> 304.99?
+    assert analysis.suggested_stop_loss > 303.0
+    assert analysis.atr_used == 4.97

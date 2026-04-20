@@ -134,7 +134,8 @@ class TrendStyle(TradingStyleStrategy):
             entry = self._adjust_decimals(target_entry, is_entry=True)
             
             # SL = support_level - 1xATR + noise buffer
-            sl_base = target_entry - atr
+            support_floor = max(last_hl, ema20) if ema20 > 0 else last_hl
+            sl_base = support_floor - atr
             noise_buffer = atr * 0.2
             stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
             analysis.atr_used = atr
@@ -162,14 +163,16 @@ class TrendStyle(TradingStyleStrategy):
             # No clear entry for Trend Trading in Downtrend
             entry = self._adjust_decimals(price, is_entry=True) # Fallback
             
-            sl_base = min(ema20 - atr, price * 0.95) if ema20 > 0 else price * 0.90
+            # Fallback: Use nearest major EMA or Horizontal Support
+            support_floor = ema20 if ema20 > 0 else ema50 if ema50 > 0 else price * 0.95
+            sl_base = support_floor - atr
             noise_buffer = atr * 0.2
-            stop_loss = sl_base + noise_buffer
+            stop_loss = self._adjust_decimals(sl_base + noise_buffer, is_entry=False)
             
             if stop_loss >= entry:
-                stop_loss = entry * 0.94
+                stop_loss = self._adjust_decimals(entry * 0.96, is_entry=False) # 4% emergency buffer
                 
-            notes.append("⚠️ No clear Trend setup detected (Wait for HL/HH or EMA cross).")
+            notes.append("⚠️ No clear Trend setup detected (using nearest EMA or 5% floor for SL).")
         if methods_found:
             notes.append(f"ℹ️ Detection Method(s): {', '.join(methods_found)}")
             if reversal_setup and not ema_setup:
