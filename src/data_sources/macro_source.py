@@ -65,7 +65,7 @@ class MacroSource(DataSource):
             # Fallback if yfinance failed (SSL or other)
             if hist is None or hist.empty:
                 url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=5d&interval=1d"
-                resp = self._get_response_sync(url)
+                resp = _self._get_response_sync(url)
                 if resp and resp.status_code == 200:
                     data = resp.json()
                     result = data.get('chart', {}).get('result', [{}])[0]

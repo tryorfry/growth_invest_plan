@@ -131,9 +131,13 @@ class DataSource(ABC):
                         print(f"❌ SSL Fallback critical failure for {url}: {fe}")
                 
                 if attempt == self.RETRY_COUNT - 1:
-                    state["failure_count"] += 1
-                    if state["failure_count"] >= 3:
-                        self._mark_broken(10) # Break for 10m on repeated timeouts
+                    # Multi-ticker sources like MarketPulse (Global Snapshot) shouldn't 
+                    # trigger a full blackout just because one or two tickers time out.
+                    if self.get_source_name() != "MarketPulse":
+                        state["failure_count"] += 1
+                        if state["failure_count"] >= 3:
+                            self._mark_broken(10) # Break for 10m on repeated timeouts
+                    
                     print(f"Error: {self.get_source_name()} failed for {url}: {e}")
         
         return None
