@@ -1,3 +1,4 @@
+import streamlit as st
 from src.analyzer import StockAnalysis
 from src.logic.scorer import ChecklistScorer
 
@@ -19,7 +20,6 @@ def render_checklist(analysis: StockAnalysis):
         st.markdown(f"{icon} **{result['label']}**")
     
     # 10. Extras (Items not part of the 9-point fundamental score but useful for timing)
- 10. Extras
     action = getattr(analysis, 'marketbeat_action_recent', None)
     next_earn = getattr(analysis, 'next_earnings_date', None)
     days_until = getattr(analysis, 'days_until_earnings', None)
