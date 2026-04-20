@@ -427,9 +427,11 @@ class StockAnalyzer:
         if news_data:
             analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
             analysis.news_summary = news_data.get("sentiment_label", "Neutral")
+            analysis.news_data = news_data  # Store full dict for component rendering
         else:
             analysis.news_sentiment = 0.0
             analysis.news_summary = "Neutral"
+            analysis.news_data = {"articles": []}
             
         # 2. Process Macrotrends data (Primary for core financials)
         if isinstance(macrotrends_data, Exception):

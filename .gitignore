@@ -27,3 +27,4 @@ Thumbs.db
 stock_analysis.db
 *.db
 test_venv/
+.circuit_state.json
