@@ -187,7 +187,7 @@ class StockAnalyzer:
         self.macrotrends_source = macrotrends_source or MacrotrendsSource()
         self.earnings_source = EarningsSource()
     
-    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
         """
         Entry point for analysis with Cache-Aside logic.
         """
@@ -202,7 +202,7 @@ class StockAnalyzer:
                 return cached
         
         # 2. If no cache or force refresh, perform fresh analysis
-        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh)
+        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, nlv, risk_pct)
         return analysis
 
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
@@ -314,7 +314,7 @@ class StockAnalyzer:
         finally:
             session.close()
 
-    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False) -> Optional[StockAnalysis]:
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         
@@ -435,10 +435,11 @@ class StockAnalyzer:
             style_strategy.calculate_trade_setup(analysis)
             
             if analysis.suggested_entry and analysis.suggested_stop_loss:
-                risk = float(analysis.suggested_entry) - float(analysis.suggested_stop_loss)
+                risk = abs(float(analysis.suggested_entry) - float(analysis.suggested_stop_loss))
                 if risk > 0:
                     analysis.risk_per_unit = risk
-                    analysis.position_size_units = int(100.0 // risk)
+                    risk_cash = nlv * (risk_pct / 100.0)
+                    analysis.position_size_units = int(risk_cash // risk)
             
         # 3. Fetch Analyst Targets
         if analysis.last_earnings_date:
@@ -490,7 +491,7 @@ class StockAnalyzer:
         
         return analysis
 
-    async def multi_analyze(self, ticker: str, verbose: bool = True) -> Optional[StockAnalysis]:
+    async def multi_analyze(self, ticker: str, verbose: bool = True, nlv: float = 10000.0, risk_pct: float = 1.0) -> Optional[StockAnalysis]:
         """
         Runs all available trading styles for a ticker and finds the best one.
         Optimized by fetching data in parallel and reusing sources.
@@ -630,10 +631,11 @@ class StockAnalyzer:
                 style_strategy.calculate_trade_setup(style_analysis)
                 
                 if style_analysis.suggested_entry and style_analysis.suggested_stop_loss:
-                    risk = float(style_analysis.suggested_entry) - float(style_analysis.suggested_stop_loss)
+                    risk = abs(float(style_analysis.suggested_entry) - float(style_analysis.suggested_stop_loss))
                     if risk > 0:
                         style_analysis.risk_per_unit = risk
-                        style_analysis.position_size_units = int(100.0 // risk)
+                        risk_cash = nlv * (risk_pct / 100.0)
+                        style_analysis.position_size_units = int(risk_cash // risk)
                 
                 # Score it
                 score = style_strategy.score_setup(style_analysis)

@@ -16,9 +16,9 @@ from src.components.earnings import render_earnings_analysis_section
 from src.components.news_catalyst import render_news_catalysts
 from src.components.market_map import render_global_market_map
 
-async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing", force_refresh: bool = False):
+async def analyze_stock(ticker: str, analyzer: StockAnalyzer, trading_style: str = "Growth Investing", force_refresh: bool = False, nlv: float = 10000.0, risk_pct: float = 1.0):
     """Analyze a stock ticker"""
-    return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False, force_refresh=force_refresh)
+    return await analyzer.analyze(ticker, trading_style_name=trading_style, verbose=False, force_refresh=force_refresh, nlv=nlv, risk_pct=risk_pct)
 
 def load_historical_analyses(db: Database, ticker: str, limit: int = 30):
     """Load historical analyses for a ticker"""
@@ -61,8 +61,8 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     
     # 🏎️ PERFORMANCE FIX: Cache ticker analysis (60 sec TTL)
     @st.cache_resource(ttl=60)
-    def cached_analyze_stock(ticker, _analyzer, style_name):
-        return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True))
+    def cached_analyze_stock(ticker, _analyzer, style_name, nlv, risk_pct):
+        return asyncio.run(analyze_stock(ticker, _analyzer, style_name, force_refresh=True, nlv=nlv, risk_pct=risk_pct))
 
     has_analysis = st.session_state.get('current_analysis') is not None
     is_working = st.session_state.get('analysis_started', False)
@@ -108,7 +108,9 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
         # Note: on_click handles the instant collapse, here we do the heavy lifting
         with st.spinner(f"Analyzing {ticker}..."):
             try:
-                fetched_analysis = cached_analyze_stock(ticker, analyzer, selected_style)
+                acc_size = st.session_state.get('acc_size', 10000)
+                risk_pct = st.session_state.get('risk_pct', 1.0)
+                fetched_analysis = cached_analyze_stock(ticker, analyzer, selected_style, acc_size, risk_pct)
                 
                 if fetched_analysis:
                     save_analysis(db, fetched_analysis)
@@ -235,19 +237,47 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 else:
                     st.warning("⚠️ AI Analysis unavailable.")
 
-            # Trade Setup
-            st.divider()
             st.subheader("🎯 Trade Execution Setup")
             with st.container(border=True):
-                col_e, col_sl = st.columns(2)
+                # 1. Price Levels (Entry, SL, PT)
+                col_e, col_sl, col_pt = st.columns(3)
                 with col_e: st.metric("Suggested Entry", f"${float(analysis.suggested_entry):.2f}" if getattr(analysis, 'suggested_entry', None) is not None else "WAIT")
                 with col_sl: st.metric("Stop Loss", f"${float(analysis.suggested_stop_loss):.2f}" if getattr(analysis, 'suggested_stop_loss', None) is not None else "N/A")
+                with col_pt: st.metric("Target Price", f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A")
                 
-                if getattr(analysis, 'reward_to_risk', None):
-                    st.divider()
-                    col_rr, col_pt = st.columns(2)
-                    with col_rr: st.metric("Reward/Risk", f"{analysis.reward_to_risk:.2f}x")
-                    with col_pt: st.metric("Target Price", f"${float(analysis.target_price):.2f}" if getattr(analysis, 'target_price', None) else "N/A")
+                st.divider()
+                
+                # 2. Risk Metrics (ATR, R/R)
+                col_atr, col_rr = st.columns(2)
+                with col_atr:
+                    atr_val = analysis.atr_daily if analysis.trading_style in ["Swing Trading", "Trend Trading"] else analysis.atr
+                    atr_label = "ATR (14d)" if analysis.trading_style in ["Swing Trading", "Trend Trading"] else "ATR (14w)"
+                    st.metric(atr_label, f"{atr_val:.2f}")
+                with col_rr:
+                    rr_val = getattr(analysis, 'reward_to_risk', 0.0)
+                    st.metric("Reward/Risk", f"{rr_val:.2f}x" if rr_val else "N/A")
+                
+                st.divider()
+                
+                # 3. Position Sizing (Risk/Unit, Quantity)
+                col_rpu, col_qty = st.columns(2)
+                
+                # Dynamically calculate quantity based on current UI settings if possible, 
+                # or use the ones from the analysis object
+                acc_size = st.session_state.get('acc_size', 10000)
+                risk_pct = st.session_state.get('risk_pct', 1.0)
+                risk_cash = acc_size * (risk_pct / 100.0)
+                
+                risk_per_unit = getattr(analysis, 'risk_per_unit', None)
+                if risk_per_unit is None and analysis.suggested_entry and analysis.suggested_stop_loss:
+                    risk_per_unit = abs(float(analysis.suggested_entry) - float(analysis.suggested_stop_loss))
+                
+                with col_rpu:
+                    st.metric("Risk per Unit", f"${risk_per_unit:.2f}" if risk_per_unit else "N/A")
+                
+                with col_qty:
+                    qty = int(risk_cash // risk_per_unit) if risk_per_unit and risk_per_unit > 0 else 0
+                    st.metric("Suggested Quantity", f"{qty} units", f"Targeting ${risk_cash:,.0f} risk")
 
             # Chart Heading
             st.subheader("📈 Technical Chart")

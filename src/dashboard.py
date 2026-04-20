@@ -143,7 +143,9 @@ def main():
                 tickers = [t.strip().upper() for t in ms_ticker.split(",") if t.strip()]
                 async def run_parallel_analysis(ticker_list, analyzer_inst):
                     # We create the coroutines INSIDE the async function so they are bound to the loop created by asyncio.run
-                    tasks = [run_multi_style_analysis(t, analyzer_inst) for t in ticker_list]
+                    acc_size = st.session_state.get('acc_size', 10000)
+                    risk_pct = st.session_state.get('risk_pct', 1.0)
+                    tasks = [run_multi_style_analysis(t, analyzer_inst, nlv=acc_size, risk_pct=risk_pct) for t in ticker_list]
                     return await asyncio.gather(*tasks)
 
                 results = asyncio.run(run_parallel_analysis(tickers, analyzer))

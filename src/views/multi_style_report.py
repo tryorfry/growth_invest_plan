@@ -279,7 +279,14 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                     st.markdown(f"**Calculated MATP:** ${result['target']:.2f}")
                 
                 if result.get('risk_pu') and result.get('units'):
-                    st.caption(f"⚖️ **Risk/Unit:** ${result['risk_pu']:.2f} | **Max Units (1%):** {result['units']}")
+                    # Recalculate units based on current UI settings if they've changed
+                    acc_size = st.session_state.get('acc_size', 10000)
+                    risk_pct = st.session_state.get('risk_pct', 1.0)
+                    risk_cash = acc_size * (risk_pct / 100.0)
+                    risk_pu = float(result['risk_pu'])
+                    display_units = int(risk_cash // risk_pu) if risk_pu > 0 else result['units']
+                    
+                    st.caption(f"⚖️ **Risk/Unit:** ${risk_pu:.2f} | **Max Units ({risk_pct}%):** {display_units}")
                 
                 # Notes
                 with st.expander("Setup Notes"):
@@ -352,6 +359,6 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
     df = pd.DataFrame(data)
     st.table(df)
 
-async def run_multi_style_analysis(ticker: str, analyzer):
+async def run_multi_style_analysis(ticker: str, analyzer, nlv: float = 10000.0, risk_pct: float = 1.0):
     """Bridge to the analyzer's multi_analyze method"""
-    return await analyzer.multi_analyze(ticker)
+    return await analyzer.multi_analyze(ticker, nlv=nlv, risk_pct=risk_pct)
