@@ -173,24 +173,37 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
 
                 st.divider()
                 st.subheader("🔌 Backend Health")
+                
+                # Try to get live telemetry from the last analysis
+                live_health = {}
+                if st.session_state.get('current_analysis'):
+                    live_health = st.session_state['current_analysis'].datasource_health
+                
                 # We can initialize a temporary analyzer to check static circuit states
                 from src.analyzer import StockAnalyzer
                 analyzer = StockAnalyzer()
                 
-                sources = {
-                    "Technical": analyzer.technical_source,
-                    "Fundamental": analyzer.fundamental_source,
-                    "Sentiment": analyzer.news_source,
-                    "Macro": analyzer.macrotrends_source,
-                    "Earnings": analyzer.earnings_source
+                source_map = {
+                    "Technical": analyzer.technical_source.get_source_name(),
+                    "Fundamental": analyzer.fundamental_source.get_source_name(),
+                    "Sentiment": analyzer.news_source.get_source_name(),
+                    "Macro": analyzer.macrotrends_source.get_source_name(),
+                    "Earnings": analyzer.earnings_source.get_source_name()
                 }
                 
-                for name, src in sources.items():
+                for label, src_name in source_map.items():
                     col1, col2 = st.columns([2, 1])
-                    col1.caption(name)
-                    if src.is_broken():
-                        col2.error("Cooling")
+                    col1.caption(label)
+                    
+                    status_str = live_health.get(src_name, "Active")
+                    
+                    if "Broken" in status_str or "Cooling" in status_str:
+                        col2.error(status_str)
+                    elif "Error" in status_str:
+                        col2.warning(status_str)
+                    elif "Empty" in status_str:
+                        col2.info(status_str)
                     else:
-                        col2.success("Active")
+                        col2.success(status_str)
                     
         return page, ticker, analyze_button, selected_style

@@ -26,24 +26,34 @@ class YFinanceSource(TechnicalDataSource):
     async def fetch(self, ticker: str, **kwargs) -> Optional[Dict[str, Any]]:
         """
         Fetch technical and financial data from Yahoo Finance asynchronously.
-        
-        Args:
-            ticker: Stock ticker symbol
-            
-        Returns:
-            Dictionary with technical indicators, financials, and earnings data
+        DE-SEQUENTIALIZED: Fetches history, financials, and info in parallel.
         """
         import asyncio
         loop = asyncio.get_running_loop()
-        
-        # Run blocking yfinance calls in a thread pool
-        return await loop.run_in_executor(None, self._fetch_sync, ticker)
-
-    def _fetch_sync(self, ticker: str) -> Optional[Dict[str, Any]]:
-        # Synchronous fetch logic for thread execution
-        # Let exceptions bubble up to be handled by the caller or UI
         stock = yf.Ticker(ticker)
         
+        # Launch parallel threads for background blocking calls
+        tasks = [
+            loop.run_in_executor(None, self._fetch_history_and_tech, stock, ticker),
+            loop.run_in_executor(None, self._get_earnings_dates, stock),
+            loop.run_in_executor(None, self._get_financial_data, stock),
+            loop.run_in_executor(None, self._get_company_info_and_insider, stock)
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Combine results
+        combined = {}
+        for res in results:
+            if isinstance(res, dict):
+                combined.update(res)
+            elif isinstance(res, Exception):
+                print(f"YFinance sub-task failed: {res}")
+                
+        return combined if combined else None
+
+    def _fetch_history_and_tech(self, stock: yf.Ticker, ticker: str) -> Dict[str, Any]:
+        """Fetch price history and calculate technical indicators"""
         try:
             hist = stock.history(period=self.period)
             if hist.empty:
@@ -82,61 +92,41 @@ class YFinanceSource(TechnicalDataSource):
                 hist = pd.DataFrame()
         
         if hist.empty:
-            raise ValueError(f"No price data found for {ticker}")
+            return {}
             
-        # LIVE PRICE INJECTION:
-        # yfinance daily history often lacks the *current* intraday price during market hours
-        # or caches heavily. We fetch the live quote and update the last row if it's today.
+        # LIVE PRICE INJECTION
         try:
-            # fast_info is much faster than info dict
             fast = stock.fast_info
             live_price = fast.get("lastPrice")
-            
             if live_price is not None:
                 now_tz = pd.Timestamp.now(tz=hist.index.tz) if hist.index.tz else pd.Timestamp.now()
-                # Check if the last row in history is from today
                 last_date = hist.index[-1]
-                
-                # Fetch intraday session data if available to avoid identical OHLC
                 day_open = fast.get("open", live_price)
                 day_high = fast.get("dayHigh", live_price)
                 day_low = fast.get("dayLow", live_price)
                 
                 if last_date.date() == now_tz.date():
-                    # Update today's existing row
                     hist.loc[last_date, 'Close'] = live_price
                     hist.loc[last_date, 'High'] = max(hist.loc[last_date, 'High'], day_high, live_price)
                     hist.loc[last_date, 'Low'] = min(hist.loc[last_date, 'Low'], day_low, live_price)
                 else:
-                    # Append a new row for today
                     new_row = pd.DataFrame({
                         'Open': [day_open],
                         'High': [max(day_high, live_price)],
                         'Low': [min(day_low, live_price)],
                         'Close': [live_price],
-                        'Volume': [0]  # We don't have accurate live daily volume here easily, but price is key
+                        'Volume': [0]
                     }, index=[now_tz])
                     hist = pd.concat([hist, new_row])
         except Exception as e:
             print(f"Warning: Failed to fetch/inject live price for {ticker}: {e}")
             
-        # Calculate technical indicators
-        technical = self._calculate_technical_indicators(hist)
+        return self._calculate_technical_indicators(hist)
+
+    def _get_company_info_and_insider(self, stock: yf.Ticker) -> Dict[str, Any]:
+        """Fetch sector info and insider transactions in one block"""
+        result = self._get_company_info(stock)
         
-        # Get earnings dates
-        try:
-            earnings = self._get_earnings_dates(stock)
-        except Exception as e:
-            print(f"Error fetching earnings dates: {e}")
-            earnings = {}
-        
-        # Get financial data
-        financials = self._get_financial_data(stock)
-        
-        # Get company info
-        company_info = self._get_company_info(stock)
-        
-        # Get Insider Transaction dates
         insider_dates = {"insider_buy_dates": [], "insider_sell_dates": []}
         try:
             txns = stock.insider_transactions
@@ -153,13 +143,8 @@ class YFinanceSource(TechnicalDataSource):
         except Exception as e:
             print(f"Error fetching insider dates: {e}")
             
-        return {
-            **technical,
-            **earnings,
-            **financials,
-            **company_info,
-            **insider_dates
-        }
+        result.update(insider_dates)
+        return result
     
     def _calculate_technical_indicators(self, hist: pd.DataFrame) -> Dict[str, Any]:
         """Calculate ATR, EMAs, RSI, MACD, and Bollinger Bands from historical data"""

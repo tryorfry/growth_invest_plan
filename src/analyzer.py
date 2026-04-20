@@ -344,7 +344,9 @@ class StockAnalyzer:
         if verbose:
             print(f"Fetching data for {ticker}...")
             
-        # 1. Fetch Technical, Fundamental, and News data in parallel
+        import time
+        t0 = time.perf_counter()
+        
         # Populate health status
         analysis.datasource_health = {
             self.technical_source.get_source_name(): "Broken" if self.technical_source.is_broken() else "Active",
@@ -354,11 +356,29 @@ class StockAnalyzer:
             self.earnings_source.get_source_name(): "Broken" if self.earnings_source.is_broken() else "Active"
         }
 
-        technical_task = asyncio.create_task(self.technical_source.fetch(ticker, interval=interval, period=period))
-        fundamental_task = asyncio.create_task(self.fundamental_source.fetch(ticker))
-        news_task = asyncio.create_task(self.news_source.fetch(ticker))
-        macrotrends_task = asyncio.create_task(self.macrotrends_source.fetch(ticker))
-        earnings_task = asyncio.create_task(self.earnings_source.fetch(ticker, limit=12, force_refresh=force_refresh))
+        # Time-wrapped tasks
+        async def wrap_fetch(source, coro):
+            start = time.perf_counter()
+            try:
+                res = await coro
+                duration = time.perf_counter() - start
+                status = "Active"
+                if not res and not source.is_broken():
+                    status = "Empty"
+                elif source.is_broken():
+                    status = "Cooling"
+                analysis.datasource_health[source.get_source_name()] = f"{status} ({duration:.1f}s)"
+                return res
+            except Exception as e:
+                duration = time.perf_counter() - start
+                analysis.datasource_health[source.get_source_name()] = f"Error ({duration:.1f}s)"
+                return e
+
+        technical_task = wrap_fetch(self.technical_source, self.technical_source.fetch(ticker, interval=interval, period=period))
+        fundamental_task = wrap_fetch(self.fundamental_source, self.fundamental_source.fetch(ticker))
+        news_task = wrap_fetch(self.news_source, self.news_source.fetch(ticker))
+        macrotrends_task = wrap_fetch(self.macrotrends_source, self.macrotrends_source.fetch(ticker))
+        earnings_task = wrap_fetch(self.earnings_source, self.earnings_source.fetch(ticker, limit=12, force_refresh=force_refresh))
         
         # Allow individual tasks to fail without cancelling others
         results = await asyncio.gather(
@@ -366,21 +386,6 @@ class StockAnalyzer:
             return_exceptions=True
         )
         technical_data, fundamental_data, news_data, macrotrends_data, drift_data = results
-        
-        # Update health based on results
-        def update_health(source, data):
-            if isinstance(data, Exception): 
-                analysis.datasource_health[source.get_source_name()] = "Error"
-            elif not data and not source.is_broken():
-                analysis.datasource_health[source.get_source_name()] = "Empty"
-            elif source.is_broken():
-                analysis.datasource_health[source.get_source_name()] = "Cooling"
-
-        update_health(self.technical_source, technical_data)
-        update_health(self.fundamental_source, fundamental_data)
-        update_health(self.news_source, news_data)
-        update_health(self.macrotrends_source, macrotrends_data)
-        update_health(self.earnings_source, drift_data)
         
         # Check for critical technical data failure
         if isinstance(technical_data, Exception):
