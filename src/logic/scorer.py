@@ -2,7 +2,32 @@
 
 from typing import Dict, Any, Tuple
 import pandas as pd
-from src.utils import _safe_float_parse
+
+def _safe_float_parse(val):
+    """Local helper to prevent circular imports with src.utils"""
+    if val is None or val == '' or val == 'N/A' or val == '-':
+        return None
+    try:
+        if isinstance(val, (int, float)):
+            return float(val)
+        # Handle percentages and unit suffixes
+        clean_val = str(val).replace('%', '').replace(',', '').strip()
+        if not clean_val: return None
+        
+        multiplier = 1
+        if clean_val.endswith('B'):
+            multiplier = 1_000_000_000
+            clean_val = clean_val[:-1]
+        elif clean_val.endswith('M'):
+            multiplier = 1_000_000
+            clean_val = clean_val[:-1]
+        elif clean_val.endswith('K'):
+            multiplier = 1_000
+            clean_val = clean_val[:-1]
+            
+        return float(clean_val) * multiplier
+    except (ValueError, TypeError):
+        return None
 
 class ChecklistScorer:
     """Calculates the 9-point investment quality score for a ticker"""

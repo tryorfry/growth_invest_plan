@@ -4,10 +4,10 @@ import pandas as pd
 from datetime import datetime
 from src.database import Database
 from src.models import Stock, Analysis
-from src.analyzer import StockAnalysis
 
-def save_analysis(db: Database, analysis: StockAnalysis):
+def save_analysis(db: Database, analysis: 'StockAnalysis'):
     """Shared logic to save analysis results to the database"""
+    from src.analyzer import StockAnalysis
     session = db.SessionLocal()
     try:
         # Get or create stock
@@ -140,8 +140,9 @@ def _safe_float_parse(val_str: str):
     except ValueError:
         return None
 
-def render_ticker_header(analysis: StockAnalysis):
+def render_ticker_header(analysis: 'StockAnalysis'):
     """Render a consistent header for detailed analysis views"""
+    from src.analyzer import StockAnalysis
     st.markdown(f"## {analysis.company_name or analysis.ticker} ({analysis.ticker})")
     
     col1, col2 = st.columns([2, 1])
