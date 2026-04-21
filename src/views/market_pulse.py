@@ -219,7 +219,8 @@ def render_market_pulse_page():
                 'market_cap_str': 'Valuation',
                 'price': 'Last Price',
                 'change': '1D Change',
-                'quality_score': 'Score (9/9)'
+                'quality_score': 'Score (9/9)',
+                'audit_breakdown': 'Audit Breakdown'
             }
 
             # Merge Audit results if available
@@ -239,7 +240,7 @@ def render_market_pulse_page():
                             df_display = df_display.drop(columns=[shadowed])
                             
                     df_display = df_display.merge(
-                        audit_df[['ticker', 'score', 'market_cap']], 
+                        audit_df[['ticker', 'score', 'market_cap', 'details']], 
                         on='ticker', 
                         how='left',
                         suffixes=('', '_val')
@@ -252,6 +253,18 @@ def render_market_pulse_page():
                         lambda x: f"🌟 {int(x)}/9" if x >= 8 else (f"✅ {int(x)}/9" if x >= 6 else f"⚠️ {int(x)}/9")
                     )
                     
+                    # 📊 AUDIT BREAKDOWN: Create visual icon sequence
+                    def format_details(d):
+                        if not d or not isinstance(d, dict): return ""
+                        # Expected keys in order of importance
+                        keys = ['Market Cap >= 2B', 'Revenue > 0', 'Oper. Income > 0', 'Basic EPS > 0', 'ROE >= 15%', 'P/E < 30', 'PEG < 2', 'Analyst Price Target', 'News Sentiment']
+                        icons = []
+                        for k in keys:
+                            icons.append("✅" if d.get(k) else "❌")
+                        return "".join(icons)
+                    
+                    df_display['audit_breakdown'] = df_display['details'].apply(format_details)
+                    
                     # Sorting by score then market_cap (using fallback if val missing)
                     mc_col = 'market_cap_val' if 'market_cap_val' in df_display.columns else 'market_cap'
                     df_display = df_display.sort_values(by=['score', mc_col], ascending=[False, False])
@@ -261,7 +274,7 @@ def render_market_pulse_page():
                     if not top_q.empty:
                         st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {int(top_q['score'].max())}/9 points!")
 
-                    display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score']
+                    display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score', 'audit_breakdown']
                 else:
                     st.warning("⚠️ Partial scan data received. Please try reloading the audit.")
                     display_cols = ['ticker', 'company', 'market_cap_str']
@@ -303,8 +316,23 @@ def render_market_pulse_page():
                     st.session_state['main_dash_text'] = target_ticker
                     st.session_state['current_page'] = '🏠 Home'
                     st.session_state['mp_deep_dive_trigger'] = True
-                    st.session_state['analysis_started'] = True  # 🔥 AUTO-TRIGGER: starts analysis on arrival
+                    st.session_state['analysis_started'] = True
+                    st.session_state['trigger_analysis'] = True # 🔥 BULLETPROOF TRIGGER
                     st.rerun()
+
+            # 📋 Detailed Summary Expander
+            audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
+            if audit_data:
+                selected_audit = next((a for a in audit_data if a['ticker'] == target_ticker), None)
+                if selected_audit and 'details' in selected_audit:
+                    with st.expander(f"📊 Detailed Audit Breakdown: {target_ticker}", expanded=False):
+                        st.markdown(f"### Quality Score: {int(selected_audit['score'])}/9")
+                        cols = st.columns(3)
+                        items = list(selected_audit['details'].items())
+                        for i, (criterion, passed) in enumerate(items):
+                            with cols[i % 3]:
+                                icon = "✅" if passed else "❌"
+                                st.markdown(f"{icon} **{criterion}**")
 
         else:
             st.warning(f"No results found for {selected_sector}. Try a manual reload.")

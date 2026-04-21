@@ -104,6 +104,11 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                             """, unsafe_allow_html=True)
 
     # 1. Handle User Input
+    # 🎯 BULLETPROOF TRIGGER: Auto-trigger if redirected from Market Pulse
+    if st.session_state.get('trigger_analysis'):
+        analyze_button = True
+        del st.session_state['trigger_analysis']
+
     if analyze_button and ticker:
         # Note: on_click handles the instant collapse, here we do the heavy lifting
         with st.spinner(f"Analyzing {ticker}..."):
