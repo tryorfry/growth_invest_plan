@@ -151,13 +151,19 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                 st.session_state['analysis_started'] = True
                 st.session_state['current_analysis'] = None
 
-            analyze_button = st.button(
-                "🔍 Analyze", 
-                type="primary", 
-                use_container_width=True, 
-                disabled=analyze_disabled,
-                on_click=on_analyze_click
-            )
+            # NAVIGATION TRIGGER: Auto-fire if we came from Deep-Dive
+            if st.session_state.get('mp_deep_dive_trigger'):
+                analyze_button = True
+                st.session_state['analysis_started'] = True
+                del st.session_state['mp_deep_dive_trigger']
+            else:
+                analyze_button = st.button(
+                    "🔍 Analyze", 
+                    type="primary", 
+                    use_container_width=True, 
+                    disabled=analyze_disabled,
+                    on_click=on_analyze_click
+                )
             
             st.divider()
             st.subheader("⚖️ Position Sizing")

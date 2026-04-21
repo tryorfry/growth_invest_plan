@@ -944,14 +944,22 @@ class StockAnalyzer:
                 cached = self._get_cached_analysis(ticker, ttl_hours=12)
                 if cached:
                     score, total, details = ChecklistScorer.calculate_score(cached)
-                    return {
-                        "ticker": ticker,
-                        "score": score,
-                        "total": total,
-                        "details": details,
-                        "market_cap": getattr(cached, 'market_cap_val', 0), # We'll need to parse this or get from cached.finviz_data
-                        "is_cached": True
-                    }
+                    # RECOVERY: If the cached score is suspiciously low (0 or 1), 
+                    # it likely means it was cached during a data-source block.
+                    # In this case, we bypass the cache and force a fresh fetch.
+                    if score > 1:
+                        # Salvage MC
+                        mc_str = cached.finviz_data.get('Market Cap', '0') if hasattr(cached, 'finviz_data') and cached.finviz_data else '0'
+                        return {
+                            "ticker": ticker,
+                            "score": score,
+                            "total": total,
+                            "details": details,
+                            "market_cap": _safe_float_parse(mc_str) or 0,
+                            "is_cached": True
+                        }
+                    else:
+                        print(f"Bypassing low-score cache (score:{score}) for {ticker} to attempt recovery.")
 
                 # 2. Parallel Fetch (Lightweight: skip technicals/news for speed)
                 # Fetch Finviz, Macrotrends, and YFinance Info in parallel
