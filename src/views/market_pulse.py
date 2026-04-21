@@ -196,7 +196,7 @@ def render_market_pulse_page():
             if batch_btn:
                 ticker_string = ",".join([t['ticker'] for t in top_tickers])
                 st.session_state['ms_report_text'] = ticker_string
-                st.session_state['go_to_page'] = '🏁 Multi-Style'
+                st.session_state['current_page'] = '🏁 Multi-Style'
                 st.toast("Redirecting to Multi-Style engine...", icon="🚀")
                 st.rerun()
 
@@ -221,16 +221,33 @@ def render_market_pulse_page():
                 # Verify required columns exist to prevent KeyError
                 required_cols = {'ticker', 'score', 'market_cap'}
                 if required_cols.issubset(audit_df.columns):
-                    df_display = df_display.merge(audit_df[['ticker', 'score', 'market_cap']], on='ticker', suffixes=('', '_val'))
-                    df_display['quality_score'] = df_display['score'].apply(lambda x: f"🌟 {x}/9" if x >= 8 else (f"✅ {x}/9" if x >= 6 else f"⚠️ {x}/9"))
+                    # 🎯 FIX: Drop existing shadow columns before merge to ensure Audit score wins
+                    for shadowed in ['score', 'quality_score', 'market_cap_val']:
+                        if shadowed in df_display.columns:
+                            df_display = df_display.drop(columns=[shadowed])
+                            
+                    df_display = df_display.merge(
+                        audit_df[['ticker', 'score', 'market_cap']], 
+                        on='ticker', 
+                        how='left',
+                        suffixes=('', '_val')
+                    )
                     
-                    # Sorting by score then market_cap
-                    df_display = df_display.sort_values(by=['score', 'market_cap_val'], ascending=[False, False])
+                    # Ensure score is numeric for the comparison
+                    df_display['score'] = pd.to_numeric(df_display['score'], errors='coerce').fillna(0)
+                    
+                    df_display['quality_score'] = df_display['score'].apply(
+                        lambda x: f"🌟 {int(x)}/9" if x >= 8 else (f"✅ {int(x)}/9" if x >= 6 else f"⚠️ {int(x)}/9")
+                    )
+                    
+                    # Sorting by score then market_cap (using fallback if val missing)
+                    mc_col = 'market_cap_val' if 'market_cap_val' in df_display.columns else 'market_cap'
+                    df_display = df_display.sort_values(by=['score', mc_col], ascending=[False, False])
                     
                     # Show Recommendation Card
                     top_q = df_display[df_display['score'] >= 8]
                     if not top_q.empty:
-                        st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {top_q['score'].max()}/9 points!")
+                        st.success(f"🏆 **Quality Recommendations**: {', '.join(top_q['ticker'].tolist())} passed {int(top_q['score'].max())}/9 points!")
 
                     display_cols = ['ticker', 'company', 'market_cap_str', 'quality_score']
                 else:
@@ -272,8 +289,9 @@ def render_market_pulse_page():
                 if st.button(f"🔬 Deep-Dive {target_ticker}", type="secondary", use_container_width=True):
                     # Set navigation triggers
                     st.session_state['main_dash_text'] = target_ticker
-                    st.session_state['go_to_page'] = '🏠 Home'
+                    st.session_state['current_page'] = '🏠 Home'
                     st.session_state['mp_deep_dive_trigger'] = True
+                    st.session_state['analysis_started'] = True  # 🔥 AUTO-TRIGGER: starts analysis on arrival
                     st.rerun()
 
         else:

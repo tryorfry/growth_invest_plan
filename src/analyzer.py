@@ -215,6 +215,8 @@ class StockAnalyzer:
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
         """Fetch analysis from DB if within TTL"""
         from datetime import timedelta
+        # FIX: Correct model imports from .models
+        from .models import Stock, Analysis
         
         db = Database("stock_analysis.db")
         session = db.SessionLocal()
@@ -599,16 +601,27 @@ class StockAnalyzer:
             elif not isinstance(technical_data, Exception) and technical_data:
                 # 📡 FALLBACK: Map YFinance data into finviz_data format for the Scorer
                 if verbose: print(f"📡 Fundamental Fallback: Using YFinance for {ticker} checklist.")
+                
+                # Robust P/E selection
+                pe_val = technical_data.get('trailingPE') or technical_data.get('forwardPE') or 'N/A'
+                
                 main_analysis.finviz_data = {
                     'Market Cap': str(technical_data.get('marketCap', '0')),
-                    'P/E': str(technical_data.get('trailingPE', 'N/A')),
+                    'P/E': str(pe_val),
                     'PEG': str(technical_data.get('pegRatio', 'N/A')),
                     'ROE': f"{technical_data.get('returnOnEquity', 0)*100:.2f}%" if technical_data.get('returnOnEquity') else 'N/A',
                     'ROA': f"{technical_data.get('returnOnAssets', 0)*100:.2f}%" if technical_data.get('returnOnAssets') else 'N/A',
-                    'EPS next 5Y': str(technical_data.get('earningsGrowth', 'N/A')),
-                    'EPS next Y': str(technical_data.get('earningsQuarterlyGrowth', 'N/A')),
-                    'Recom': str(technical_data.get('recommendationMean', 'N/A'))
+                    'EPS next 5Y': f"{technical_data.get('earningsGrowth', 0)*100:.2f}%" if technical_data.get('earningsGrowth') else 'N/A',
+                    'EPS next Y': f"{technical_data.get('earningsQuarterlyGrowth', 0)*100:.2f}%" if technical_data.get('earningsQuarterlyGrowth') else 'N/A',
+                    'Recom': str(technical_data.get('recommendationMean', 'N/A')),
+                    'Avg Volume': str(technical_data.get('averageVolume', '0'))
                 }
+                
+                # Map first-class attributes used by Scorer
+                main_analysis.average_volume = technical_data.get('averageVolume')
+                main_analysis.analyst_recommendation = technical_data.get('recommendationMean')
+                main_analysis.country = technical_data.get('country')
+                main_analysis.exchange = technical_data.get('exchange')
 
             if not isinstance(news_data, Exception) and news_data:
                 # Align keys from NewsSentimentSource with StockAnalysis properties
@@ -983,9 +996,12 @@ class StockAnalyzer:
                 return {"ticker": ticker, "score": 0, "total": 9, "market_cap": 0}
 
         # Run in batches to avoid rate limits
-        batch_size = 5
+        # Reduced batch_size for higher reliability on brittle Yahoo info calls
+        batch_size = 2 
         results = []
         for i in range(0, len(tickers), batch_size):
+            import time
+            time.sleep(0.5) # 🛡️ Rate limit buffer
             batch = tickers[i:i+batch_size]
             batch_results = await asyncio.gather(*[scan_one(t) for t in batch])
             results.extend(batch_results)
