@@ -209,7 +209,11 @@ class StockAnalyzer:
                     return cached
         
         # 2. If no cache or force refresh, perform fresh analysis
-        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, lite=lite, nlv=nlv, risk_pct=risk_pct)
+        prefetched_mc = kwargs.get('prefetched_mc')
+        analysis = await self._fetch_fresh_analysis(
+            ticker, trading_style_name, verbose, force_refresh, 
+            lite=lite, nlv=nlv, risk_pct=risk_pct, prefetched_mc=prefetched_mc
+        )
         return analysis
 
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
@@ -346,7 +350,9 @@ class StockAnalyzer:
         finally:
             session.close()
 
-    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, lite: bool = False, **kwargs) -> Optional[StockAnalysis]:
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", 
+                                 verbose: bool = True, force_refresh: bool = False, 
+                                 lite: bool = False, prefetched_mc: Optional[float] = None, **kwargs) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         """
@@ -605,8 +611,11 @@ class StockAnalyzer:
                 # Robust P/E selection
                 pe_val = technical_data.get('trailingPE') or technical_data.get('forwardPE') or 'N/A'
                 
+                # Use prefetched MC as highest priority override for Cloud resilience
+                final_mc = str(prefetched_mc) if prefetched_mc is not None else str(technical_data.get('marketCap', '0'))
+                
                 main_analysis.finviz_data = {
-                    'Market Cap': str(technical_data.get('marketCap', '0')),
+                    'Market Cap': final_mc,
                     'P/E': str(pe_val),
                     'PEG': str(technical_data.get('pegRatio', 'N/A')),
                     'ROE': f"{technical_data.get('returnOnEquity', 0)*100:.2f}%" if technical_data.get('returnOnEquity') else 'N/A',
@@ -964,15 +973,18 @@ class StockAnalyzer:
         analysis.support_levels = supports[-3:] if supports else []
         analysis.resistance_levels = resistances[:3] if resistances else []
 
-    async def scan_tickers_quality(self, tickers: List[str]) -> List[Dict[str, Any]]:
+    async def scan_tickers_quality(self, tickers: List[str], prefetched_data: Optional[Dict[str, float]] = None) -> List[Dict[str, Any]]:
         """
         Batch quality scanner. 
         UNIFIED: Uses the direct analyze() engine to ensure 100% score consistency.
         """
         async def scan_one(ticker: str):
             try:
+                # 🎯 Resilience: Inject pre-fetched MC to guarantee point #1 pass on Cloud
+                mc_override = prefetched_data.get(ticker) if prefetched_data else None
+                
                 # Use the REAL engine in lite mode (fast, skip news/technicals)
-                analysis = await self.analyze(ticker, lite=True, verbose=False)
+                analysis = await self.analyze(ticker, lite=True, verbose=False, prefetched_mc=mc_override)
                 if not analysis:
                     return {"ticker": ticker, "score": 0, "total": 9, "market_cap": 0}
 

@@ -128,6 +128,22 @@ class YFinanceSource(TechnicalDataSource):
         result = {}
         try:
             info = stock.info
+            # 🛡️ CLOUD RESILIENCE: Fallback to fast_info if main info is blocked
+            if not info or not isinstance(info, dict) or len(info) < 5:
+                print(f"Warning: yfinance info blocked/empty for {stock.ticker}. Attempting fast_info fallback...")
+                try:
+                    fast = stock.fast_info
+                    info = {
+                        "marketCap": fast.get("marketCap"),
+                        "averageVolume": fast.get("averageVolume"),
+                        "currency": fast.get("currency"),
+                        "exchange": fast.get("exchange"),
+                        "quoteType": fast.get("quoteType")
+                    }
+                except Exception as ef:
+                    print(f"Fast-info also failed: {ef}")
+                    info = {}
+            
             if info:
                 # Basic Info
                 result["sector"] = info.get("sector")

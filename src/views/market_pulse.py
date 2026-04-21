@@ -181,13 +181,25 @@ def render_market_pulse_page():
             if audit_btn:
                 with st.status(f"Scanning Fundamental Health for {len(top_tickers)} tickers...", expanded=True) as status:
                     st.write("📡 Connecting to Macrotrends & Finviz...")
+                    st.write("🛡️ **Cloud Resilience**: Injecting pre-verified metrics to bypass API blocks...")
                     analyzer = StockAnalyzer()
                     tickers_to_scan = [t['ticker'] for t in top_tickers]
                     
-                    # Run async scan
+                    # 🎯 CLOUD RESILIENCE: Collect prefetched Market Cap data from the scraper
+                    # Scraper already has this data, so we "inject" it into the analyzer to guarantee Point 1 pass
+                    prefetched_mc_data = {}
+                    for t in top_tickers:
+                        # Convert str (e.g. "80.05B") back to float for the analyzer
+                        from src.analyzer import _safe_float_parse
+                        raw_mc = str(t.get('market_cap', '0'))
+                        mc_val = _safe_float_parse(raw_mc)
+                        if mc_val:
+                            prefetched_mc_data[t['ticker']] = mc_val
+
+                    # Run async scan with prefetched context
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                    audit_results = loop.run_until_complete(analyzer.scan_tickers_quality(tickers_to_scan))
+                    audit_results = loop.run_until_complete(analyzer.scan_tickers_quality(tickers_to_scan, prefetched_data=prefetched_mc_data))
                     
                     st.session_state[f'quality_audit_{selected_sector}'] = audit_results
                     status.update(label="✅ Quality Audit Complete!", state="complete", expanded=False)
