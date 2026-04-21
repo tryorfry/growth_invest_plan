@@ -98,7 +98,11 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
             
             db_tickers = db.get_all_tickers()
             default_ticker = "AAPL"
-            if db_tickers:
+            
+            # DEEP-DIVE SYNC: If we just came from Market Pulse, force the ticker
+            if st.session_state.get('mp_deep_dive_trigger'):
+                default_ticker = st.session_state.get('main_dash_text', default_ticker)
+            elif db_tickers:
                 selected_history = st.selectbox(
                     "Search History",
                     options=["Enter New..."] + db_tickers,
@@ -109,7 +113,8 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
             
             from src.utils_tickers import render_hybrid_ticker_input
             ticker = render_hybrid_ticker_input(key_prefix="main_dash")
-            if not ticker: ticker = default_ticker
+            if not ticker or st.session_state.get('mp_deep_dive_trigger'): 
+                ticker = default_ticker
             
             st.divider()
             st.subheader("📈 Trading Strategy")

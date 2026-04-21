@@ -965,7 +965,8 @@ class StockAnalyzer:
                 # Fetch Finviz, Macrotrends, and YFinance Info in parallel
                 finviz_task = self.finviz_source.fetch(ticker)
                 macro_task = self.macrotrends_source.fetch(ticker)
-                yfin_task = self.fundamental_source.fetch(ticker) # yfinance info
+                # FIX: self.fundamental_source IS Finviz. We need to call self.technical_source for YFinance!
+                yfin_task = self.technical_source.fetch(ticker) 
                 
                 finviz_data, macro_data, yfin_info = await asyncio.gather(finviz_task, macro_task, yfin_task)
                 
