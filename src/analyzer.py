@@ -188,7 +188,7 @@ class StockAnalyzer:
         self.macrotrends_source = macrotrends_source or MacrotrendsSource()
         self.earnings_source = EarningsSource()
     
-    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, **kwargs) -> Optional[StockAnalysis]:
+    async def analyze(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, lite: bool = False, **kwargs) -> Optional[StockAnalysis]:
         """
         Entry point for analysis with Cache-Aside logic.
         """
@@ -200,12 +200,16 @@ class StockAnalyzer:
         if not force_refresh:
             cached = self._get_cached_analysis(ticker, trading_style_name)
             if cached:
-                if verbose:
-                    print(f"Using cached analysis for {ticker} (Last updated: {cached.analysis_timestamp})")
-                return cached
+                # If we need fresh data but the cache is 0/9, skip cache
+                if hasattr(cached, 'finviz_data') and (not cached.finviz_data or len(cached.finviz_data) < 2):
+                    if verbose: print(f"Bypassing low-quality cache for {ticker}...")
+                else:
+                    if verbose:
+                        print(f"Using cached analysis for {ticker} (Last updated: {cached.analysis_timestamp})")
+                    return cached
         
         # 2. If no cache or force refresh, perform fresh analysis
-        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, nlv=nlv, risk_pct=risk_pct)
+        analysis = await self._fetch_fresh_analysis(ticker, trading_style_name, verbose, force_refresh, lite=lite, nlv=nlv, risk_pct=risk_pct)
         return analysis
 
     def _get_cached_analysis(self, ticker: str, trading_style: str, ttl_hours: int = 24) -> Optional[StockAnalysis]:
@@ -340,7 +344,7 @@ class StockAnalyzer:
         finally:
             session.close()
 
-    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, **kwargs) -> Optional[StockAnalysis]:
+    async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", verbose: bool = True, force_refresh: bool = False, lite: bool = False, **kwargs) -> Optional[StockAnalysis]:
         """
         Perform complete stock analysis asynchronously.
         """
@@ -396,9 +400,11 @@ class StockAnalyzer:
 
         technical_task = wrap_fetch(self.technical_source, self.technical_source.fetch(ticker, interval=interval, period=period))
         fundamental_task = wrap_fetch(self.fundamental_source, self.fundamental_source.fetch(ticker))
-        news_task = wrap_fetch(self.news_source, self.news_source.fetch(ticker))
-        macrotrends_task = wrap_fetch(self.macrotrends_source, self.macrotrends_source.fetch(ticker))
-        earnings_task = wrap_fetch(self.earnings_source, self.earnings_source.fetch(ticker, limit=12, force_refresh=force_refresh))
+        
+        # SKIPPABLE IN LITE MODE
+        news_task = wrap_fetch(self.news_source, self.news_source.fetch(ticker)) if not lite else asyncio.sleep(0, result={})
+        macrotrends_task = wrap_fetch(self.macrotrends_source, self.macrotrends_source.fetch(ticker)) if not lite else asyncio.sleep(0, result={})
+        earnings_task = wrap_fetch(self.earnings_source, self.earnings_source.fetch(ticker, limit=12, force_refresh=force_refresh)) if not lite else asyncio.sleep(0, result={})
         
         # Allow individual tasks to fail without cancelling others
         results = await asyncio.gather(
@@ -590,6 +596,20 @@ class StockAnalyzer:
             # Add fundamental/news data once
             if not isinstance(fundamental_data, Exception) and fundamental_data:
                 main_analysis.finviz_data = fundamental_data
+            elif not isinstance(technical_data, Exception) and technical_data:
+                # 📡 FALLBACK: Map YFinance data into finviz_data format for the Scorer
+                if verbose: print(f"📡 Fundamental Fallback: Using YFinance for {ticker} checklist.")
+                main_analysis.finviz_data = {
+                    'Market Cap': str(technical_data.get('marketCap', '0')),
+                    'P/E': str(technical_data.get('trailingPE', 'N/A')),
+                    'PEG': str(technical_data.get('pegRatio', 'N/A')),
+                    'ROE': f"{technical_data.get('returnOnEquity', 0)*100:.2f}%" if technical_data.get('returnOnEquity') else 'N/A',
+                    'ROA': f"{technical_data.get('returnOnAssets', 0)*100:.2f}%" if technical_data.get('returnOnAssets') else 'N/A',
+                    'EPS next 5Y': str(technical_data.get('earningsGrowth', 'N/A')),
+                    'EPS next Y': str(technical_data.get('earningsQuarterlyGrowth', 'N/A')),
+                    'Recom': str(technical_data.get('recommendationMean', 'N/A'))
+                }
+
             if not isinstance(news_data, Exception) and news_data:
                 # Align keys from NewsSentimentSource with StockAnalysis properties
                 main_analysis.news_sentiment = news_data.get("average_sentiment", 0.0)
@@ -933,113 +953,42 @@ class StockAnalyzer:
 
     async def scan_tickers_quality(self, tickers: List[str]) -> List[Dict[str, Any]]:
         """
-        Scan a list of tickers for their 9-point fundamental score in parallel.
-        Optimized for Market Pulse dashboard.
+        Batch quality scanner. 
+        UNIFIED: Uses the direct analyze() engine to ensure 100% score consistency.
         """
-        results = []
-        
         async def scan_one(ticker: str):
             try:
-                # 1. Check Cache first (12h TTL for fundamentals)
-                cached = self._get_cached_analysis(ticker, ttl_hours=12)
-                if cached:
-                    score, total, details = ChecklistScorer.calculate_score(cached)
-                    # RECOVERY: If the cached score is suspiciously low (0 or 1), 
-                    # it likely means it was cached during a data-source block.
-                    # In this case, we bypass the cache and force a fresh fetch.
-                    if score > 1:
-                        # Salvage MC
-                        mc_str = cached.finviz_data.get('Market Cap', '0') if hasattr(cached, 'finviz_data') and cached.finviz_data else '0'
-                        return {
-                            "ticker": ticker,
-                            "score": score,
-                            "total": total,
-                            "details": details,
-                            "market_cap": _safe_float_parse(mc_str) or 0,
-                            "is_cached": True
-                        }
-                    else:
-                        print(f"Bypassing low-score cache (score:{score}) for {ticker} to attempt recovery.")
+                # Use the REAL engine in lite mode (fast, skip news/technicals)
+                analysis = await self.analyze(ticker, lite=True, verbose=False)
+                if not analysis:
+                    return {"ticker": ticker, "score": 0, "total": 9, "market_cap": 0}
 
-                # 2. Parallel Fetch (Lightweight: skip technicals/news for speed)
-                # Fetch Finviz, Macrotrends, and YFinance Info in parallel
-                finviz_task = self.finviz_source.fetch(ticker)
-                macro_task = self.macrotrends_source.fetch(ticker)
-                # FIX: self.fundamental_source IS Finviz. We need to call self.technical_source for YFinance!
-                yfin_task = self.technical_source.fetch(ticker) 
+                # Use the centralized scorer
+                score, total, details = ChecklistScorer.calculate_score(analysis)
                 
-                finviz_data, macro_data, yfin_info = await asyncio.gather(finviz_task, macro_task, yfin_task)
+                # Fetch MC for the UI table display
+                # Fallback path: finviz_data -> technical_source value
+                mc_str = analysis.finviz_data.get('Market Cap', '0')
+                mc_val = _safe_float_parse(mc_str) or 0
                 
-                # Create a mini analysis object for the scorer
-                # 3. Data Integration with Fallbacks
-                # Start with Finviz if available, else map YFinance
-                
-                mock_analysis = type('obj', (object,), {
-                    'finviz_data': finviz_data if finviz_data else {},
-                    'exchange': None,
-                    'country': None,
-                    'analyst_recommendation': None,
-                    'average_volume': 0,
-                    'revenue_growth_yoy': None,
-                    'eps_growth_yoy': None
-                })
-
-                if finviz_data:
-                    mock_analysis.exchange = finviz_data.get('Exchange')
-                    mock_analysis.country = finviz_data.get('Country')
-                    mock_analysis.analyst_recommendation = finviz_data.get('Recom')
-                    mock_analysis.average_volume = _safe_float_parse(finviz_data.get('Avg Volume', '0'))
-                elif yfin_info:
-                    # Fallback to YFinance
-                    mock_analysis.exchange = yfin_info.get('exchange')
-                    mock_analysis.country = yfin_info.get('country')
-                    mock_analysis.analyst_recommendation = yfin_info.get('recommendationKey')
-                    mock_analysis.average_volume = yfin_info.get('averageVolume', 0)
-                    
-                    # Map other keys into finviz_data format for the scorer helpers
-                    mock_analysis.finviz_data.update({
-                        'Market Cap': str(yfin_info.get('marketCap', '0')),
-                        'P/E': str(yfin_info.get('trailingPE', 'N/A')),
-                        'PEG': str(yfin_info.get('pegRatio', 'N/A')),
-                        'ROE': f"{yfin_info.get('returnOnEquity', 0)*100}%" if yfin_info.get('returnOnEquity') else 'N/A',
-                        'ROA': f"{yfin_info.get('returnOnAssets', 0)*100}%" if yfin_info.get('returnOnAssets') else 'N/A',
-                        'EPS next Y': str(yfin_info.get('earningsNextQuarter', '0')),
-                        'EPS next 5Y': str(yfin_info.get('earningsGrowth', '0'))
-                    })
-
-                # Map macrotrends growth if available
-                if macro_data:
-                    mock_analysis.revenue_growth_yoy = macro_data.get('revenue_growth')
-                    mock_analysis.eps_growth_yoy = macro_data.get('eps_diluted_growth')
-
-                # Calculate Score
-                score, total, details = ChecklistScorer.calculate_score(mock_analysis)
-                
-                # Parse final market cap for sorting (prefers yfinance for accuracy)
-                mc_val = 0
-                if yfin_info and yfin_info.get('marketCap'):
-                    mc_val = yfin_info.get('marketCap', 0)
-                elif finviz_data:
-                    mc_val = _safe_float_parse(finviz_data.get('Market Cap', '0')) or 0
-
                 return {
                     "ticker": ticker,
                     "score": score,
                     "total": total,
                     "details": details,
-                    "market_cap": mc_val,
-                    "is_cached": False
+                    "market_cap": mc_val
                 }
             except Exception as e:
                 print(f"Error scanning {ticker}: {e}")
-                return {
-                    "ticker": ticker, 
-                    "score": 0, 
-                    "market_cap": 0, 
-                    "error": str(e), 
-                    "is_cached": False
-                }
+                return {"ticker": ticker, "score": 0, "total": 9, "market_cap": 0}
 
-        tasks = [scan_one(t) for t in tickers]
-        results = await asyncio.gather(*tasks)
+        # Run in batches to avoid rate limits
+        batch_size = 5
+        results = []
+        for i in range(0, len(tickers), batch_size):
+            batch = tickers[i:i+batch_size]
+            batch_results = await asyncio.gather(*[scan_one(t) for t in batch])
+            results.extend(batch_results)
+        
+        return results
         return results
