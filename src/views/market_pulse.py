@@ -253,15 +253,26 @@ def render_market_pulse_page():
                         lambda x: f"🌟 {int(x)}/9" if x >= 8 else (f"✅ {int(x)}/9" if x >= 6 else f"⚠️ {int(x)}/9")
                     )
                     
-                    # 📊 AUDIT BREAKDOWN: Create visual icon sequence
+                    # 📊 AUDIT BREAKDOWN: Create labelled short-name summary
+                    CRITERIA_SHORT = {
+                        'Market Cap >= 2B':      'MktCap',
+                        'Revenue > 0':           'Revenue',
+                        'Oper. Income > 0':      'Op.Inc',
+                        'Basic EPS > 0':         'EPS',
+                        'ROE >= 15%':            'ROE',
+                        'P/E < 30':              'P/E',
+                        'PEG < 2':               'PEG',
+                        'Analyst Price Target':  'Target',
+                        'News Sentiment':        'Sentiment',
+                    }
+
                     def format_details(d):
                         if not d or not isinstance(d, dict): return ""
-                        # Expected keys in order of importance
-                        keys = ['Market Cap >= 2B', 'Revenue > 0', 'Oper. Income > 0', 'Basic EPS > 0', 'ROE >= 15%', 'P/E < 30', 'PEG < 2', 'Analyst Price Target', 'News Sentiment']
-                        icons = []
-                        for k in keys:
-                            icons.append("✅" if d.get(k) else "❌")
-                        return "".join(icons)
+                        parts = []
+                        for full_key, short in CRITERIA_SHORT.items():
+                            icon = "✅" if d.get(full_key) else "❌"
+                            parts.append(f"{icon}{short}")
+                        return "  ".join(parts)
                     
                     df_display['audit_breakdown'] = df_display['details'].apply(format_details)
                     
@@ -295,12 +306,17 @@ def render_market_pulse_page():
                     "Valuation": st.column_config.TextColumn("Market Cap", help="Total Valuation"),
                     "Last Price": st.column_config.TextColumn("Price"),
                     "1D Change": st.column_config.TextColumn("Change %", help="Daily performance", width="small"),
-                    "Score (9/9)": st.column_config.TextColumn("Quality Score", help="Fundamental Health Score out of 9")
+                    "Score (9/9)": st.column_config.TextColumn("Quality Score", help="Fundamental Health Score out of 9"),
+                    "Audit Breakdown": st.column_config.TextColumn(
+                        "Audit Breakdown",
+                        help="9-Point quality check: MktCap · Revenue · Op.Inc · EPS · ROE · P/E · PEG · Analyst Target · News Sentiment",
+                        width="large"
+                    ),
                 },
                 use_container_width=True,
                 hide_index=True,
-                disabled=True, # Read-only but selectable
-                key=f"mp_table_{selected_sector}_v2" # Changed key to avoid conflict after col change
+                disabled=True,
+                key=f"mp_table_{selected_sector}_v2"
             )
             
             # Quick Action for individual ticker
@@ -320,19 +336,67 @@ def render_market_pulse_page():
                     st.session_state['trigger_analysis'] = True # 🔥 BULLETPROOF TRIGGER
                     st.rerun()
 
-            # 📋 Detailed Summary Expander
+            # 📋 Inline Detailed Audit Scorecard (always visible after audit run)
             audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
             if audit_data:
                 selected_audit = next((a for a in audit_data if a['ticker'] == target_ticker), None)
                 if selected_audit and 'details' in selected_audit:
-                    with st.expander(f"📊 Detailed Audit Breakdown: {target_ticker}", expanded=False):
-                        st.markdown(f"### Quality Score: {int(selected_audit['score'])}/9")
-                        cols = st.columns(3)
-                        items = list(selected_audit['details'].items())
-                        for i, (criterion, passed) in enumerate(items):
-                            with cols[i % 3]:
-                                icon = "✅" if passed else "❌"
-                                st.markdown(f"{icon} **{criterion}**")
+                    score = int(selected_audit['score'])
+                    score_color = "#10b981" if score >= 8 else ("#f59e0b" if score >= 6 else "#ef4444")
+                    score_label = "Excellent" if score >= 8 else ("Good" if score >= 6 else "Weak")
+
+                    st.markdown(f"""
+                        <div style="
+                            background: rgba(255,255,255,0.04);
+                            border: 1px solid {score_color}44;
+                            border-radius: 12px;
+                            padding: 18px 22px;
+                            margin-top: 12px;
+                        ">
+                            <div style="display:flex; align-items:center; gap:16px; margin-bottom:14px;">
+                                <div style="font-size:2rem; font-weight:800; color:{score_color};">{score}/9</div>
+                                <div>
+                                    <div style="font-size:1rem; font-weight:700; color:{score_color};">{score_label} Fundamentals</div>
+                                    <div style="font-size:0.8rem; color:#94a3b8;">9-Point Quality Audit · {target_ticker}</div>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    criteria_order = [
+                        ('Market Cap >= 2B',     'Market Cap ≥ $2B',        'Must be large-cap to reduce delisting risk'),
+                        ('Revenue > 0',          'Revenue > 0',             'Company must be generating sales'),
+                        ('Oper. Income > 0',     'Operating Income > 0',    'Core business must be profitable'),
+                        ('Basic EPS > 0',        'EPS > 0',                 'Earnings Per Share must be positive'),
+                        ('ROE >= 15%',           'ROE ≥ 15%',               'Return on Equity — management efficiency'),
+                        ('P/E < 30',             'P/E Ratio < 30',          'Not excessively overvalued'),
+                        ('PEG < 2',              'PEG Ratio < 2',           'Growth-adjusted valuation check'),
+                        ('Analyst Price Target', 'Analyst Price Target',    'Has a published price target on record'),
+                        ('News Sentiment',       'Positive News Sentiment', 'Recent news is net positive'),
+                    ]
+
+                    details = selected_audit['details']
+                    cols3 = st.columns(3)
+                    for i, (key, label, hint) in enumerate(criteria_order):
+                        passed = details.get(key, False)
+                        bg = "rgba(16,185,129,0.10)" if passed else "rgba(239,68,68,0.10)"
+                        border = "#10b981" if passed else "#ef4444"
+                        icon = "✅" if passed else "❌"
+                        status_text = "<span style='color:#10b981;font-size:0.7rem;font-weight:600;'>PASS</span>" if passed else "<span style='color:#ef4444;font-size:0.7rem;font-weight:600;'>FAIL</span>"
+                        with cols3[i % 3]:
+                            st.markdown(f"""
+                                <div title="{hint}" style="
+                                    background:{bg};
+                                    border:1px solid {border}55;
+                                    border-radius:8px;
+                                    padding:10px 12px;
+                                    margin-bottom:8px;
+                                ">
+                                    <div style="font-size:1.1rem;">{icon} <strong style='font-size:0.85rem;'>{label}</strong></div>
+                                    <div style="margin-top:2px;">{status_text}</div>
+                                    <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">{hint}</div>
+                                </div>
+                            """, unsafe_allow_html=True)
 
         else:
             st.warning(f"No results found for {selected_sector}. Try a manual reload.")
