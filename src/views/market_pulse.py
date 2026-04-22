@@ -336,67 +336,37 @@ def render_market_pulse_page():
                     st.session_state['trigger_analysis'] = True # 🔥 BULLETPROOF TRIGGER
                     st.rerun()
 
-            # 📋 Inline Detailed Audit Scorecard (always visible after audit run)
             audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
             if audit_data:
                 selected_audit = next((a for a in audit_data if a['ticker'] == target_ticker), None)
                 if selected_audit and 'details' in selected_audit:
                     score = int(selected_audit['score'])
-                    score_color = "#10b981" if score >= 8 else ("#f59e0b" if score >= 6 else "#ef4444")
-                    score_label = "Excellent" if score >= 8 else ("Good" if score >= 6 else "Weak")
+                    score_color = "green" if score >= 8 else ("blue" if score >= 6 else "orange")
+                    score_label = "Excellent" if score >= 8 else ("Good" if score >= 6 else "Needs Work")
 
-                    st.markdown(f"""
-                        <div style="
-                            background: rgba(255,255,255,0.04);
-                            border: 1px solid {score_color}44;
-                            border-radius: 12px;
-                            padding: 18px 22px;
-                            margin-top: 12px;
-                        ">
-                            <div style="display:flex; align-items:center; gap:16px; margin-bottom:14px;">
-                                <div style="font-size:2rem; font-weight:800; color:{score_color};">{score}/9</div>
-                                <div>
-                                    <div style="font-size:1rem; font-weight:700; color:{score_color};">{score_label} Fundamentals</div>
-                                    <div style="font-size:0.8rem; color:#94a3b8;">9-Point Quality Audit · {target_ticker}</div>
-                                </div>
-                            </div>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.divider()
+                    st.subheader(f"📊 9-Point Quality Audit: {target_ticker}")
+                    st.markdown(f"#### Overall Score: :{score_color}[{score}/9] — {score_label}")
 
-                    criteria_order = [
-                        ('Market Cap >= 2B',     'Market Cap ≥ $2B',        'Must be large-cap to reduce delisting risk'),
-                        ('Revenue > 0',          'Revenue > 0',             'Company must be generating sales'),
-                        ('Oper. Income > 0',     'Operating Income > 0',    'Core business must be profitable'),
-                        ('Basic EPS > 0',        'EPS > 0',                 'Earnings Per Share must be positive'),
-                        ('ROE >= 15%',           'ROE ≥ 15%',               'Return on Equity — management efficiency'),
-                        ('P/E < 30',             'P/E Ratio < 30',          'Not excessively overvalued'),
-                        ('PEG < 2',              'PEG Ratio < 2',           'Growth-adjusted valuation check'),
-                        ('Analyst Price Target', 'Analyst Price Target',    'Has a published price target on record'),
-                        ('News Sentiment',       'Positive News Sentiment', 'Recent news is net positive'),
+                    # Criteria definitions: (audit key, display label, threshold description)
+                    CRITERIA_META = [
+                        ('Market Cap >= 2B',     'Market Cap ≥ $2B',            'Large-cap only — reduces delisting and liquidity risk'),
+                        ('Revenue > 0',          'Revenue > 0',                  'Company must be actively generating sales'),
+                        ('Oper. Income > 0',     'Operating Income > 0',         'Core operations must be profitable (excl. one-offs)'),
+                        ('Basic EPS > 0',        'EPS > 0',                      'Earnings Per Share must be positive (profitable)'),
+                        ('ROE >= 15%',           'ROE ≥ 15%',                   'Return on Equity — strong management efficiency'),
+                        ('P/E < 30',             'P/E Ratio < 30',               'Price-to-Earnings must not be excessively high'),
+                        ('PEG < 2',              'PEG Ratio < 2',                'Growth-adjusted valuation — PEG under 2 is fair'),
+                        ('Analyst Price Target', 'Analyst Price Target Exists',  'A published analyst consensus target is on record'),
+                        ('News Sentiment',       'Positive News Sentiment',      'Recent news flow is net positive for this ticker'),
                     ]
 
                     details = selected_audit['details']
-                    cols3 = st.columns(3)
-                    for i, (key, label, hint) in enumerate(criteria_order):
+                    for key, label, description in CRITERIA_META:
                         passed = details.get(key, False)
-                        bg = "rgba(16,185,129,0.10)" if passed else "rgba(239,68,68,0.10)"
-                        border = "#10b981" if passed else "#ef4444"
-                        icon = "✅" if passed else "❌"
-                        status_text = "<span style='color:#10b981;font-size:0.7rem;font-weight:600;'>PASS</span>" if passed else "<span style='color:#ef4444;font-size:0.7rem;font-weight:600;'>FAIL</span>"
-                        with cols3[i % 3]:
-                            st.markdown(f"""
-                                <div title="{hint}" style="
-                                    background:{bg};
-                                    border:1px solid {border}55;
-                                    border-radius:8px;
-                                    padding:10px 12px;
-                                    margin-bottom:8px;
-                                ">
-                                    <div style="font-size:1.1rem;">{icon} <strong style='font-size:0.85rem;'>{label}</strong></div>
-                                    <div style="margin-top:2px;">{status_text}</div>
-                                    <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">{hint}</div>
-                                </div>
-                            """, unsafe_allow_html=True)
+                        icon = "✅" if passed else "⚠️"
+                        st.markdown(f"{icon} **{label}**")
+                        st.caption(f"  {description}")
 
         else:
             st.warning(f"No results found for {selected_sector}. Try a manual reload.")

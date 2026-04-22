@@ -18,11 +18,18 @@ def save_analysis(db: Database, analysis: 'StockAnalysis'):
             sector=analysis.sector,
             industry=analysis.industry
         )
+
+        # Guard: skip saving if the analysis has no price data (failed fetch)
+        if not analysis.current_price or analysis.current_price == 0.0:
+            return
+
+        # 🛡️ timestamp is NOT NULL in DB — fall back to utcnow() if market data date is missing
+        ts = _safe_datetime(analysis.timestamp) or datetime.utcnow()
         
         # Create analysis record with safe float/int/datetime casting for numpy/pandas compat
         analysis_record = Analysis(
             stock_id=stock.id,
-            timestamp=_safe_datetime(analysis.timestamp),
+            timestamp=ts,
             analysis_timestamp=_safe_datetime(analysis.analysis_timestamp),
             current_price=_safe_float(analysis.current_price),
             open_price=_safe_float(analysis.open),
