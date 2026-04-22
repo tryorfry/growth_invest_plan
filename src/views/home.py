@@ -54,11 +54,9 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
     """
     Renders the primary Analysis (Home) page.
     """
-    # --- MARKET SNAPSHOT ROW (GLOBAL & CRYPTO) ---
-    from src.data_sources.macro_source import MacroSource
-    
+    from src.data_sources.macro_source import get_global_snapshot
     from src.config.market_config import MARKET_GROUPS
-    
+
     # 🏎️ PERFORMANCE FIX: Cache ticker analysis (60 sec TTL)
     @st.cache_resource(ttl=60)
     def cached_analyze_stock(ticker, _analyzer, style_name, nlv, risk_pct):
@@ -66,22 +64,34 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
 
     has_analysis = st.session_state.get('current_analysis') is not None
     is_working = st.session_state.get('analysis_started', False)
-    
-    # 🌍 Global Market Snapshot
-    # Force collapse if we just started an analysis or if a result exists
+
+    # 🌍 Global Market Snapshot — LAZY LOAD
+    # ⚡ PERFORMANCE: Only fetch once per session and store in session_state.
+    # Expander body code always executes in Streamlit regardless of open/closed
+    # state, so we must NOT call the network fetch unconditionally here.
+    # Use a Refresh button to allow manual re-fetch.
     with st.expander("🌍 Global Market Snapshot", expanded=not (has_analysis or is_working)):
-        snapshot = MacroSource().fetch_global_snapshot()
+        col_hdr, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("🔄", key="refresh_snapshot", help="Refresh market data"):
+                if 'global_snapshot' in st.session_state:
+                    del st.session_state['global_snapshot']
+
+        if 'global_snapshot' not in st.session_state:
+            with st.spinner("Loading global market data…"):
+                st.session_state['global_snapshot'] = get_global_snapshot()
+
+        snapshot = st.session_state.get('global_snapshot', [])
+
         if snapshot:
             render_global_market_map(snapshot)
             st.divider()
-            
-        if snapshot:
+
             # Render each configured market group
             for i, (group_name, members) in enumerate(MARKET_GROUPS.items()):
-                # Add a distinct divider between segments (Equities, Commodities, Forex)
                 if i > 0:
                     st.markdown("---")
-                
+
                 st.caption(group_name)
                 group_data = [item for item in snapshot if item['name'] in members]
                 if group_data:
@@ -89,10 +99,7 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                     for idx, item in enumerate(group_data):
                         with cols[idx]:
                             color = "#10b981" if item['pct_change'] >= 0 else "#ef4444"
-                            
-                            # Specialized formatting for Forex (more decimals)
                             val_fmt = f"{item['value']:,.4f}" if item['type'] == 'Forex' else f"{item['value']:,.2f}"
-                            
                             st.markdown(f"""
                                 <div class="macro-card">
                                     <div class="macro-label">{item['name']}</div>
@@ -102,6 +109,10 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                                     </div>
                                 </div>
                             """, unsafe_allow_html=True)
+        else:
+            st.caption("Market data unavailable. Click 🔄 to retry.")
+
+
 
     # 1. Handle User Input
     # 🎯 BULLETPROOF TRIGGER: Auto-trigger if redirected from Market Pulse

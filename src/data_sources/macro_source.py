@@ -6,9 +6,36 @@ from typing import Dict, Any, Optional, List
 from src.config.market_config import TICKER_CONFIG
 from .base import DataSource
 
+
+# ===========================================================================
+# MODULE-LEVEL CACHED FUNCTIONS
+# These are the ONLY entry points callers should use.
+# Using module-level functions (not instance methods) guarantees Streamlit's
+# cache key is stable across re-runs — fixing the "new instance = cache miss"
+# bug that caused 18 yfinance calls on every page interaction.
+# ===========================================================================
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_global_snapshot() -> List[Dict[str, Any]]:
+    """Fetch global market snapshot. Cached 5 min. Safe for any page to call."""
+    return MacroSource()._fetch_global_snapshot_sync()
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_macro_data() -> Dict[str, Any]:
+    """Fetch core macro indicators (yields, VIX, DXY). Cached 10 min."""
+    return MacroSource()._fetch_macro_data_sync()
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def get_sector_data() -> Dict[str, float]:
+    """Fetch daily sector ETF performance. Cached 10 min."""
+    return MacroSource()._fetch_sector_data_sync()
+
+
 class MacroSource(DataSource):
     """Source for global market indicators (Yields, VIX, Crypto, etc.)"""
-    
+
     MACRO_TICKER_MAP = {
         '10Y_Yield': '^TNX',
         '5Y_Yield': '^FVX',
@@ -39,23 +66,125 @@ class MacroSource(DataSource):
         """Default fetch returns the global snapshot"""
         return {"snapshot": await self.fetch_global_snapshot_async()}
 
-    @st.cache_data(ttl=300)
-    def fetch_global_snapshot(_self) -> List[Dict[str, Any]]:
-        """Sync wrapper for global snapshot fetching"""
+    # ------------------------------------------------------------------
+    # Sync wrappers used by module-level cache functions above
+    # ------------------------------------------------------------------
+
+    def _fetch_global_snapshot_sync(self) -> List[Dict[str, Any]]:
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(_self.fetch_global_snapshot_async())
+            return loop.run_until_complete(self.fetch_global_snapshot_async())
         except Exception as e:
             print(f"Async snapshot failed: {e}")
             return []
 
-    async def fetch_global_snapshot_async(_self) -> List[Dict[str, Any]]:
+    def _fetch_macro_data_sync(self) -> Dict[str, Any]:
+        async def fetch_all_macro():
+            async def fetch_one(key: str, ticker: str):
+                hist = None
+                try:
+                    t = yf.Ticker(ticker)
+                    loop = asyncio.get_event_loop()
+                    hist = await loop.run_in_executor(None, lambda: t.history(period='5d'))
+                except Exception:
+                    pass
+
+                if hist is None or hist.empty:
+                    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=5d&interval=1d"
+                    resp = self._get_response_sync(url)
+                    if resp and resp.status_code == 200:
+                        data = resp.json()
+                        result = data.get('chart', {}).get('result', [{}])[0]
+                        if result and 'timestamp' in result:
+                            close = result.get('indicators', {}).get('quote', [{}])[0].get('close', [])
+                            if close:
+                                hist = pd.DataFrame({'Close': close})
+
+                if hist is not None and not hist.empty:
+                    curr = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
+                    pct = ((curr - prev) / prev) * 100 if (prev and prev != 0) else 0
+                    return key, {"value": curr, "pct_change": pct}
+                return key, None
+
+            tasks = [fetch_one(key, ticker) for key, ticker in self.MACRO_TICKER_MAP.items()]
+            results = await asyncio.gather(*tasks)
+            data = {k: v for k, v in results if v}
+
+            if '10Y_Yield' in data and 'Short_Yield' in data:
+                data['Yield_Spread'] = {"value": data['10Y_Yield']['value'] - data['Short_Yield']['value']}
+            return data
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(fetch_all_macro())
+        except Exception:
+            return {}
+
+    def _fetch_sector_data_sync(self) -> Dict[str, float]:
+        async def fetch_all_sectors():
+            async def fetch_one(name: str, ticker: str):
+                hist = None
+                try:
+                    t = yf.Ticker(ticker)
+                    loop = asyncio.get_event_loop()
+                    hist = await loop.run_in_executor(None, lambda: t.history(period='2d'))
+                except Exception:
+                    pass
+
+                if (hist is None or hist.empty) or len(hist) < 2:
+                    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=2d&interval=1d"
+                    resp = self._get_response_sync(url)
+                    if resp and resp.status_code == 200:
+                        data = resp.json()
+                        result = data.get('chart', {}).get('result', [{}])[0]
+                        if result and 'timestamp' in result:
+                            close = result.get('indicators', {}).get('quote', [{}])[0].get('close', [])
+                            if len(close) >= 2:
+                                hist = pd.DataFrame({'Close': close})
+
+                if hist is not None and len(hist) >= 2:
+                    current = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2]
+                    return name, ((current - prev) / prev) * 100
+                return name, None
+
+            tasks = [fetch_one(name, ticker) for name, ticker in self.SECTOR_ETFS.items()]
+            results = await asyncio.gather(*tasks)
+            return {k: v for k, v in results if v is not None}
+
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(fetch_all_sectors())
+        except Exception:
+            return {}
+
+    # ------------------------------------------------------------------
+    # Legacy public methods — kept for backward compat but now delegate
+    # to the module-level cache functions so callers that use the old API
+    # still benefit from caching.
+    # ------------------------------------------------------------------
+
+    def fetch_global_snapshot(self) -> List[Dict[str, Any]]:
+        """Deprecated: prefer get_global_snapshot(). Kept for compat."""
+        return get_global_snapshot()
+
+    def fetch_macro_data(self) -> Dict[str, Any]:
+        """Deprecated: prefer get_macro_data(). Kept for compat."""
+        return get_macro_data()
+
+    def fetch_sector_data(self) -> Dict[str, float]:
+        """Deprecated: prefer get_sector_data(). Kept for compat."""
+        return get_sector_data()
+
+    async def fetch_global_snapshot_async(self) -> List[Dict[str, Any]]:
         """Fetches multiple global indices and crypto assets in parallel."""
         async def fetch_one(ticker: str, info: Dict[str, Any]):
             hist = None
             try:
-                import yfinance as yf
                 t = yf.Ticker(ticker)
                 loop = asyncio.get_event_loop()
                 hist = await loop.run_in_executor(None, lambda: t.history(period='5d'))
@@ -65,7 +194,7 @@ class MacroSource(DataSource):
             # Fallback if yfinance failed (SSL or other)
             if hist is None or hist.empty:
                 url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=5d&interval=1d"
-                resp = _self._get_response_sync(url)
+                resp = self._get_response_sync(url)
                 if resp and resp.status_code == 200:
                     data = resp.json()
                     result = data.get('chart', {}).get('result', [{}])[0]
@@ -79,7 +208,7 @@ class MacroSource(DataSource):
                 curr = hist['Close'].iloc[-1]
                 prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
                 pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
-                
+
                 return {
                     'name': info['name'],
                     'short': info.get('short', info['name']),
@@ -92,106 +221,20 @@ class MacroSource(DataSource):
                 }
             return None
 
-        # TICKER_CONFIG from market_config
-        from src.config.market_config import TICKER_CONFIG
         tasks = [fetch_one(t, info) for t, info in TICKER_CONFIG.items()]
         results = await asyncio.gather(*tasks)
         return [r for r in results if r]
 
-    @st.cache_data(ttl=600)
-    def fetch_macro_data(_self) -> Dict[str, Any]:
-        """Fetches core macro indicators (yields, vix, dxy) in parallel."""
-        async def fetch_all_macro():
-            async def fetch_one(key: str, ticker: str):
-                hist = None
-                try:
-                    import yfinance as yf
-                    t = yf.Ticker(ticker)
-                    loop = asyncio.get_event_loop()
-                    hist = await loop.run_in_executor(None, lambda: t.history(period='5d'))
-                except Exception: pass
-
-                if hist is None or hist.empty:
-                    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=5d&interval=1d"
-                    resp = _self._get_response_sync(url)
-                    if resp and resp.status_code == 200:
-                        data = resp.json()
-                        result = data.get('chart', {}).get('result', [{}])[0]
-                        if result and 'timestamp' in result:
-                            close = result.get('indicators', {}).get('quote', [{}])[0].get('close', [])
-                            if close: hist = pd.DataFrame({'Close': close})
-
-                if hist is not None and not hist.empty:
-                    curr = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
-                    pct = ((curr - prev) / prev) * 100 if (prev and prev != 0) else 0
-                    return key, {"value": curr, "pct_change": pct}
-                return key, None
-
-            tasks = [fetch_one(key, ticker) for key, ticker in _self.MACRO_TICKER_MAP.items()]
-            results = await asyncio.gather(*tasks)
-            data = {k: v for k, v in results if v}
-            
-            if '10Y_Yield' in data and 'Short_Yield' in data:
-                data['Yield_Spread'] = {"value": data['10Y_Yield']['value'] - data['Short_Yield']['value']}
-            return data
-
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(fetch_all_macro())
-        except Exception:
-            return {}
-
-    @st.cache_data(ttl=600)
-    def fetch_sector_data(_self) -> Dict[str, float]:
-        """Fetch daily performance for all major sectors in parallel"""
-        async def fetch_all_sectors():
-            async def fetch_one(name: str, ticker: str):
-                hist = None
-                try:
-                    import yfinance as yf
-                    t = yf.Ticker(ticker)
-                    loop = asyncio.get_event_loop()
-                    hist = await loop.run_in_executor(None, lambda: t.history(period='2d'))
-                except Exception: pass
-
-                if (hist is None or hist.empty) or len(hist) < 2:
-                    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range=2d&interval=1d"
-                    resp = _self._get_response_sync(url)
-                    if resp and resp.status_code == 200:
-                        data = resp.json()
-                        result = data.get('chart', {}).get('result', [{}])[0]
-                        if result and 'timestamp' in result:
-                            close = result.get('indicators', {}).get('quote', [{}])[0].get('close', [])
-                            if len(close) >= 2: hist = pd.DataFrame({'Close': close})
-
-                if hist is not None and len(hist) >= 2:
-                    current = hist['Close'].iloc[-1]
-                    prev = hist['Close'].iloc[-2]
-                    return name, ((current - prev) / prev) * 100
-                return name, None
-
-            tasks = [fetch_one(name, ticker) for name, ticker in _self.SECTOR_ETFS.items()]
-            results = await asyncio.gather(*tasks)
-            return {k: v for k, v in results if v is not None}
-
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(fetch_all_sectors())
-        except Exception:
-            return {}
-
     def fetch_historical_macro(self, ticker: str, period: str = '1y') -> Optional[pd.DataFrame]:
         symbol = self.MACRO_TICKER_MAP.get(ticker, ticker)
-        import yfinance as yf
         try:
             t = yf.Ticker(symbol)
             hist = t.history(period=period)
-            if not hist.empty: return hist
-        except Exception: pass
-        
+            if not hist.empty:
+                return hist
+        except Exception:
+            pass
+
         # Fallback
         url = f"https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range={period}&interval=1d"
         resp = self._get_response_sync(url)

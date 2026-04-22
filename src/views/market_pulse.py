@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import asyncio
-from src.data_sources.macro_source import MacroSource
+from src.data_sources.macro_source import MacroSource, get_macro_data, get_sector_data
 from src.data_sources.sector_source import SectorSource
 from src.analyzer import StockAnalyzer
 import plotly.graph_objects as go
@@ -34,9 +34,9 @@ def render_market_pulse_page():
 
     st.title("🌍 Market Pulse")
     
-    # Fetch Data
+    # Fetch Data — use module-level cached functions (stable cache keys, no cold-miss)
     with st.spinner("Fetching global market data..."):
-        macro_data = MacroSource().fetch_macro_data()
+        macro_data = get_macro_data()
     
     if not macro_data:
         st.error("Could not fetch market pulse data. Please check your internet connection.")
@@ -105,7 +105,7 @@ def render_market_pulse_page():
         st.divider()
         st.subheader("📊 Sector Heatmap (1D)")
         with st.spinner("Calculating sector trends..."):
-            sector_data = MacroSource().fetch_sector_data()
+            sector_data = get_sector_data()
             
         if sector_data:
             df_sector = pd.DataFrame(list(sector_data.items()), columns=['Sector', 'Performance'])

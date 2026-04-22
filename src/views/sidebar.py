@@ -184,31 +184,35 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
 
                 st.divider()
                 st.subheader("🔌 Backend Health")
-                
+
                 # Try to get live telemetry from the last analysis
                 live_health = {}
                 if st.session_state.get('current_analysis'):
                     live_health = st.session_state['current_analysis'].datasource_health
-                
-                # We can initialize a temporary analyzer to check static circuit states
+
+                # ⚡ PERFORMANCE: Reuse the already-cached analyzer from dashboard.py
+                # instead of creating a new StockAnalyzer() on every sidebar render.
                 from src.analyzer import StockAnalyzer
-                analyzer = StockAnalyzer()
-                
+                _analyzer = st.session_state.get('_cached_analyzer')
+                if _analyzer is None:
+                    _analyzer = StockAnalyzer()
+                    st.session_state['_cached_analyzer'] = _analyzer
+
                 source_map = {
-                    "Technical": analyzer.technical_source.get_source_name(),
-                    "Fundamental": analyzer.fundamental_source.get_source_name(),
-                    "Sentiment": analyzer.news_source.get_source_name(),
-                    "Macro": analyzer.macrotrends_source.get_source_name(),
-                    "Earnings": analyzer.earnings_source.get_source_name(),
-                    "Analyst": analyzer.analyst_source.get_source_name()
+                    "Technical": _analyzer.technical_source.get_source_name(),
+                    "Fundamental": _analyzer.fundamental_source.get_source_name(),
+                    "Sentiment": _analyzer.news_source.get_source_name(),
+                    "Macro": _analyzer.macrotrends_source.get_source_name(),
+                    "Earnings": _analyzer.earnings_source.get_source_name(),
+                    "Analyst": _analyzer.analyst_source.get_source_name()
                 }
-                
+
                 for label, src_name in source_map.items():
                     col1, col2 = st.columns([2, 1])
                     col1.caption(label)
-                    
+
                     status_str = live_health.get(src_name, "Active")
-                    
+
                     if "Broken" in status_str or "Cooling" in status_str:
                         col2.error(status_str)
                     elif "Error" in status_str:
@@ -217,5 +221,6 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                         col2.info(status_str)
                     else:
                         col2.success(status_str)
-                    
+
         return page, ticker, analyze_button, selected_style
+
