@@ -208,7 +208,8 @@ def render_market_pulse_page():
             if batch_btn:
                 ticker_string = ",".join([t['ticker'] for t in top_tickers])
                 st.session_state['ms_report_text'] = ticker_string
-                st.session_state['current_page'] = '🏁 Multi-Style'
+                st.session_state['go_to_page'] = '🏁 Multi-Style'
+                st.session_state['ms_trigger_analysis'] = True # 🔥 AUTO-TRIGGER
                 st.toast("Redirecting to Multi-Style engine...", icon="🚀")
                 st.rerun()
 
@@ -334,7 +335,7 @@ def render_market_pulse_page():
                 if st.button(f"🔬 Deep-Dive {target_ticker}", type="secondary", use_container_width=True):
                     # Set navigation triggers
                     st.session_state['main_dash_text'] = target_ticker
-                    st.session_state['current_page'] = '🏠 Home'
+                    st.session_state['go_to_page'] = '🏠 Home'
                     st.session_state['mp_deep_dive_trigger'] = True
                     st.session_state['analysis_started'] = True
                     st.session_state['trigger_analysis'] = True # 🔥 BULLETPROOF TRIGGER

@@ -139,7 +139,12 @@ def main():
             st.title("🏁 Multi-Style Comparison")
             from src.utils_tickers import render_hybrid_ticker_input
             ms_ticker = render_hybrid_ticker_input(key_prefix="ms_report") or "AAPL"
-            if st.button("🚀 Run Analysis", type="primary", use_container_width=True):
+            ms_run_btn = st.button("🚀 Run Analysis", type="primary", use_container_width=True)
+            
+            if ms_run_btn or st.session_state.get('ms_trigger_analysis'):
+                if st.session_state.get('ms_trigger_analysis'):
+                    del st.session_state['ms_trigger_analysis']
+                    
                 tickers = [t.strip().upper() for t in ms_ticker.split(",") if t.strip()]
                 async def run_parallel_analysis(ticker_list, analyzer_inst):
                     # We create the coroutines INSIDE the async function so they are bound to the loop created by asyncio.run
