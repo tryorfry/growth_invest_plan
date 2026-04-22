@@ -89,7 +89,12 @@ def main():
     # Schedule the job to run every hour
     schedule.every(1).hours.do(job)
     
-    # Run immediately on startup
+    # 🏁 Startup Optimization: 
+    # Wait 30 seconds before the first run to allow the main app 
+    # to finish rendering the home page for the newly logged-in user.
+    logger.info("Scheduler waiting 30s before initial analysis cycle...")
+    time.sleep(30)
+    
     logger.info("Running initial analysis...")
     try:
         job()

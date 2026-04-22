@@ -32,6 +32,7 @@ from src.views.login import render_login_page
 
 # --- Resource Initialization ---
 
+@st.cache_resource
 def init_database():
     db = Database("stock_analysis.db")
     db.init_db()
@@ -61,7 +62,6 @@ def main():
     db = init_database()
     analyzer = init_analyzer()
     chart_gen = init_chart_generator()
-    init_scheduler()
     
     # 2. Session & Auth
     AuthManager.init_session_state()
@@ -79,6 +79,9 @@ def main():
         
     ThemeManager.apply_theme()
     ThemeManager.inject_custom_css()
+    
+    # 3. Start background services only for authenticated users
+    init_scheduler()
     
     # 3. Render Sidebar & Get Navigation Context
     page, ticker, analyze_button, selected_style = render_sidebar(db)

@@ -3,15 +3,17 @@ import streamlit as st
 import pandas as pd
 from typing import List, Dict, Any
 
-def render_global_market_map(snapshot_data: List[Dict[str, Any]]):
+@st.cache_data(ttl=600, show_spinner=False)
+def create_market_map_fig(snapshot_data: List[Dict[str, Any]], is_dark: bool):
     """
-    Renders an interactive World Map showing global market performance Pulse.
+    Creates an interactive World Map figure showing global market performance Pulse.
+    Cached for 10 minutes to avoid redundant heavy Plotly figure generation.
     """
     # Filter for items with coordinate data
     geo_data = [d for d in snapshot_data if d.get('lat') is not None]
     
     if not geo_data:
-        return
+        return None
 
     df = pd.DataFrame(geo_data)
     
@@ -41,20 +43,16 @@ def render_global_market_map(snapshot_data: List[Dict[str, Any]]):
         ),
         text=df['label_text'],
         textposition="top center",
-        textfont=dict(
-            size=10,
-            color='#10b981' if df['pct_change'].mean() >= 0 else '#ef4444' # General bias for font
-        ),
+        textfont=dict(size=10),
         hovertext=df.apply(lambda r: f"<b>{r['name']}</b><br>Value: {r['value']:,.2f}<br>Change: {r['pct_change']:+.2f}%", axis=1),
         hoverinfo='text'
     ))
 
-    # Determine map theme based on app theme
-    is_dark = st.session_state.get('theme_preference', 'dark') == 'dark'
+    # Determine map colors
     land_color = 'rgb(30, 41, 59)' if is_dark else 'rgb(241, 245, 249)'
     ocean_color = 'rgb(15, 23, 42)' if is_dark else 'rgb(226, 232, 240)'
     
-    # Apply dynamic colors to text if missing
+    # Apply dynamic colors to text
     fig.update_traces(textfont_color='white' if is_dark else 'black')
 
     fig.update_layout(
@@ -75,5 +73,17 @@ def render_global_market_map(snapshot_data: List[Dict[str, Any]]):
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
+    
+    return fig
 
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+def render_global_market_map(snapshot_data: List[Dict[str, Any]]):
+    """
+    Renders the cached global market map.
+    """
+    is_dark = st.session_state.get('theme_preference', 'dark') == 'dark'
+    
+    # Cache the figure itself to avoid CPU spikes on script reruns
+    fig = create_market_map_fig(snapshot_data, is_dark)
+    
+    if fig:
+        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
