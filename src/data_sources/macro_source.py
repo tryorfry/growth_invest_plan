@@ -63,31 +63,55 @@ class MacroSource(DataSource):
         return {"snapshot": await self.fetch_global_snapshot_async()}
 
     # ------------------------------------------------------------------
-    # Sync wrappers for st.cache_data
+    # Sync-to-Async Bridge Logic
     # ------------------------------------------------------------------
 
-    def _fetch_global_snapshot_sync(self) -> List[Dict[str, Any]]:
+    def _run_async(self, coro):
+        """Helper to run async code in a sync context safely."""
         try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self.fetch_global_snapshot_async())
-        except Exception as e:
-            print(f"Async snapshot failed: {e}")
-            return []
+            
+        if loop.is_running():
+            # If we are already in an event loop (e.g. during tests), 
+            # we need to use a different approach or just run it.
+            # In Streamlit, this shouldn't typically happen in the main thread.
+            import nest_asyncio
+            nest_asyncio.apply()
+            return loop.run_until_complete(coro)
+        else:
+            return loop.run_until_complete(coro)
+
+    def _fetch_global_snapshot_sync(self) -> List[Dict[str, Any]]:
+        return self._run_async(self.fetch_global_snapshot_async())
 
     def _fetch_macro_data_sync(self) -> Dict[str, Any]:
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop.run_until_complete(self._fetch_batch_data_async(list(self.MACRO_TICKER_MAP.values()), period='5d'))
-        except Exception:
+            tickers = list(self.MACRO_TICKER_MAP.values())
+            raw_data = self._run_async(self._fetch_batch_data_async(tickers, period='5d'))
+            
+            # Map back to names (e.g. ^TNX -> 10Y_Yield)
+            results = {}
+            ticker_to_name = {v: k for k, v in self.MACRO_TICKER_MAP.items()}
+            for ticker, data in raw_data.items():
+                name = ticker_to_name.get(ticker)
+                if name:
+                    results[name] = data
+            
+            # Add calculated spread
+            if '10Y_Yield' in results and 'Short_Yield' in results:
+                results['Yield_Spread'] = {"value": results['10Y_Yield']['value'] - results['Short_Yield']['value']}
+            return results
+        except Exception as e:
+            print(f"Macro fetch failed: {e}")
             return {}
 
     def _fetch_sector_data_sync(self) -> Dict[str, float]:
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            raw_data = loop.run_until_complete(self._fetch_batch_data_async(list(self.SECTOR_ETFS.values()), period='2d'))
+            tickers = list(self.SECTOR_ETFS.values())
+            raw_data = self._run_async(self._fetch_batch_data_async(tickers, period='2d'))
             
             # Map back to names
             results = {}
@@ -97,7 +121,8 @@ class MacroSource(DataSource):
                 if name and 'pct_change' in data:
                     results[name] = data['pct_change']
             return results
-        except Exception:
+        except Exception as e:
+            print(f"Sector fetch failed: {e}")
             return {}
 
     # ------------------------------------------------------------------
@@ -106,65 +131,32 @@ class MacroSource(DataSource):
 
     async def _fetch_batch_data_async(self, tickers: List[str], period: str = '5d') -> Dict[str, Dict[str, Any]]:
         """
-        Fetches multiple tickers in a single batch using yf.download.
-        Falls back to individual async fetches if batch fails.
+        Fetches multiple tickers. Uses individual parallel fetches for maximum reliability
+        given yfinance's recent batch download issues with proxies/SSL.
+        Still extremely fast (parallelized in executor).
         """
-        loop = asyncio.get_event_loop()
-        results = {}
-
-        try:
-            # 🏎️ Batch Download (Single network request)
-            df = await loop.run_in_executor(None, lambda: yf.download(
-                tickers, period=period, interval='1d', group_by='ticker', progress=False, timeout=10
-            ))
-            
-            if not df.empty:
-                for ticker in tickers:
-                    try:
-                        # Handle both SingleIndex and MultiIndex dataframes from yf.download
-                        if len(tickers) > 1:
-                            ticker_df = df[ticker]
-                        else:
-                            ticker_df = df
-                            
-                        ticker_df = ticker_df.dropna(subset=['Close'])
-                        if not ticker_df.empty and len(ticker_df) >= 1:
-                            curr = ticker_df['Close'].iloc[-1]
-                            prev = ticker_df['Close'].iloc[-2] if len(ticker_df) > 1 else curr
-                            pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
-                            results[ticker] = {"value": curr, "pct_change": pct}
-                    except Exception:
-                        continue
-        except Exception as e:
-            print(f"Batch fetch failed: {e}. Falling back to individual fetches.")
-
-        # 🎯 Individual Fallback for missing tickers
-        missing = [t for t in tickers if t not in results]
-        if missing:
-            tasks = [self._fetch_single_ticker_async(t, period) for t in missing]
-            fallback_results = await asyncio.gather(*tasks)
-            for t, res in zip(missing, fallback_results):
-                if res:
-                    results[t] = res
-
-        return results
+        tasks = [self._fetch_single_ticker_async(t, period) for t in tickers]
+        results_list = await asyncio.gather(*tasks)
+        
+        return {t: res for t, res in zip(tickers, results_list) if res}
 
     async def _fetch_single_ticker_async(self, ticker: str, period: str) -> Optional[Dict[str, Any]]:
         """Fetches a single ticker with async-safe fallback."""
         loop = asyncio.get_event_loop()
         hist = None
         
-        # 1. yfinance
+        # 1. yfinance (in executor)
         try:
             t = yf.Ticker(ticker)
-            hist = await loop.run_in_executor(None, lambda: t.history(period=period))
+            # Use a short timeout to prevent hanging the whole batch
+            hist = await loop.run_in_executor(None, lambda: t.history(period=period, timeout=5))
         except Exception:
             pass
 
         # 2. HTTP Fallback (wrapped in executor to avoid blocking loop)
         if hist is None or hist.empty:
             url = f"https://query2.finance.yahoo.com/v8/finance/chart/{ticker}?range={period}&interval=1d"
-            resp = await loop.run_in_executor(None, lambda: self._get_response_sync(url))
+            resp = await loop.run_in_executor(None, lambda: self._get_response_sync(url, timeout=5))
             if resp and resp.status_code == 200:
                 try:
                     data = resp.json()
@@ -173,21 +165,25 @@ class MacroSource(DataSource):
                         ts = result['timestamp']
                         close = result.get('indicators', {}).get('quote', [{}])[0].get('close', [])
                         if ts and close:
-                            hist = pd.DataFrame({'Close': close}, index=pd.to_datetime(ts, unit='s'))
+                            # Filter out None/NaN values from JSON response
+                            clean_close = [c for c in close if c is not None]
+                            if clean_close:
+                                hist = pd.DataFrame({'Close': clean_close})
                 except Exception:
                     pass
 
         if hist is not None and not hist.empty:
+            # Final safety check on data
             hist = hist.dropna(subset=['Close'])
             if not hist.empty:
                 curr = hist['Close'].iloc[-1]
                 prev = hist['Close'].iloc[-2] if len(hist) > 1 else curr
                 pct = ((curr - prev) / prev) * 100 if prev != 0 else 0
-                return {"value": curr, "pct_change": pct}
+                return {"value": float(curr), "pct_change": float(pct)}
         return None
 
     async def fetch_global_snapshot_async(self) -> List[Dict[str, Any]]:
-        """Optimized global snapshot using batch fetching."""
+        """Optimized global snapshot using parallel fetching."""
         tickers = list(TICKER_CONFIG.keys())
         batch_results = await self._fetch_batch_data_async(tickers, period='5d')
         
@@ -208,7 +204,7 @@ class MacroSource(DataSource):
         return final_results
 
     # ------------------------------------------------------------------
-    # Backward Compatibility & Helpers
+    # Backward Compatibility
     # ------------------------------------------------------------------
 
     def fetch_global_snapshot(self) -> List[Dict[str, Any]]:
@@ -220,13 +216,8 @@ class MacroSource(DataSource):
     def fetch_sector_data(self) -> Dict[str, float]:
         return get_sector_data()
 
-    def _fetch_macro_data_sync_legacy(self) -> Dict[str, Any]:
-        # Implementation moved to _fetch_batch_data_async
-        return self._fetch_macro_data_sync()
-
     def fetch_historical_macro(self, ticker: str, period: str = '1y') -> Optional[pd.DataFrame]:
         symbol = self.MACRO_TICKER_MAP.get(ticker, ticker)
-        # Simple sync wrapper for historical charts
         try:
             t = yf.Ticker(symbol)
             hist = t.history(period=period)

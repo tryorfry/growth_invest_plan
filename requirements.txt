@@ -23,3 +23,4 @@ bcrypt
 google-genai
 streamlit-lightweight-charts
 specify-cli>=0.7.2
+nest_asyncio
