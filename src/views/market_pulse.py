@@ -253,28 +253,32 @@ def render_market_pulse_page():
                         lambda x: f"🌟 {int(x)}/9" if x >= 8 else (f"✅ {int(x)}/9" if x >= 6 else f"⚠️ {int(x)}/9")
                     )
                     
-                    # 📊 AUDIT BREAKDOWN: Create labelled short-name summary
+                    # 📊 AUDIT BREAKDOWN: short labels keyed to ChecklistScorer output
                     CRITERIA_SHORT = {
-                        'Market Cap >= 2B':      'MktCap',
-                        'Revenue > 0':           'Revenue',
-                        'Oper. Income > 0':      'Op.Inc',
-                        'Basic EPS > 0':         'EPS',
-                        'ROE >= 15%':            'ROE',
-                        'P/E < 30':              'P/E',
-                        'PEG < 2':               'PEG',
-                        'Analyst Price Target':  'Target',
-                        'News Sentiment':        'Sentiment',
+                        'Market Cap': 'MktCap',
+                        'US Listing': 'Listed',
+                        'Analyst Buy': 'Analyst',
+                        'Liquidity':  'Volume',
+                        'ROE':        'ROE',
+                        'ROA':        'ROA',
+                        'EPS Growth': 'EPS',
+                        'YoY Growth': 'YoY',
+                        'Valuation':  'Value',
                     }
 
                     def format_details(d):
                         if not d or not isinstance(d, dict): return ""
                         parts = []
-                        for full_key, short in CRITERIA_SHORT.items():
-                            icon = "✅" if d.get(full_key) else "❌"
+                        for key, short in CRITERIA_SHORT.items():
+                            result = d.get(key)
+                            # details values are dicts: {"pass": bool, "label": str}
+                            passed = result["pass"] if isinstance(result, dict) else bool(result)
+                            icon = "✅" if passed else "❌"
                             parts.append(f"{icon}{short}")
                         return "  ".join(parts)
                     
                     df_display['audit_breakdown'] = df_display['details'].apply(format_details)
+
                     
                     # Sorting by score then market_cap (using fallback if val missing)
                     mc_col = 'market_cap_val' if 'market_cap_val' in df_display.columns else 'market_cap'
@@ -348,25 +352,14 @@ def render_market_pulse_page():
                     st.subheader(f"📊 9-Point Quality Audit: {target_ticker}")
                     st.markdown(f"#### Overall Score: :{score_color}[{score}/9] — {score_label}")
 
-                    # Criteria definitions: (audit key, display label, threshold description)
-                    CRITERIA_META = [
-                        ('Market Cap >= 2B',     'Market Cap ≥ $2B',            'Large-cap only — reduces delisting and liquidity risk'),
-                        ('Revenue > 0',          'Revenue > 0',                  'Company must be actively generating sales'),
-                        ('Oper. Income > 0',     'Operating Income > 0',         'Core operations must be profitable (excl. one-offs)'),
-                        ('Basic EPS > 0',        'EPS > 0',                      'Earnings Per Share must be positive (profitable)'),
-                        ('ROE >= 15%',           'ROE ≥ 15%',                   'Return on Equity — strong management efficiency'),
-                        ('P/E < 30',             'P/E Ratio < 30',               'Price-to-Earnings must not be excessively high'),
-                        ('PEG < 2',              'PEG Ratio < 2',                'Growth-adjusted valuation — PEG under 2 is fair'),
-                        ('Analyst Price Target', 'Analyst Price Target Exists',  'A published analyst consensus target is on record'),
-                        ('News Sentiment',       'Positive News Sentiment',      'Recent news flow is net positive for this ticker'),
-                    ]
-
+                    # ✅ Use the label strings from ChecklistScorer — they already contain actual values
+                    # e.g. "ROE >= 15%? (30.24%)", "Market Cap >= 2B? (446.23B)"
+                    # This is identical to how render_checklist() works in home.py
                     details = selected_audit['details']
-                    for key, label, description in CRITERIA_META:
-                        passed = details.get(key, False)
-                        icon = "✅" if passed else "⚠️"
-                        st.markdown(f"{icon} **{label}**")
-                        st.caption(f"  {description}")
+                    for point_name, result in details.items():
+                        icon = "✅" if result["pass"] else "⚠️"
+                        st.markdown(f"{icon} **{result['label']}**")
+
 
         else:
             st.warning(f"No results found for {selected_sector}. Try a manual reload.")
