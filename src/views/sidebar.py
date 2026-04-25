@@ -54,10 +54,10 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
         ]
         
         if tier in ['premium', 'admin']:
-            nav_options.extend(["🔬 Advanced Analytics", "📊 Automated Reports"])
+            nav_options.extend(["🔬 Advanced Analytics"])
             
         if tier == 'admin':
-            nav_options.extend(["🌍 Market Pulse", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard"])
+            nav_options.extend(["🌍 Market Pulse", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard", "📊 Automated Reports"])
 
         # Determine the default index for navigation
         default_nav_index = 0

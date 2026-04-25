@@ -135,8 +135,8 @@ def main():
             show_admin_dashboard(db, session)
             
     elif page == "📊 Automated Reports":
-        if st.session_state.get('user_tier') not in ('admin', 'premium'):
-            st.error("🔒 Premium Feature")
+        if st.session_state.get('user_tier') != 'admin':
+            st.error("🔒 Admin Only")
         else:
             from src.views.automated_reports import render_automated_reports_page
             render_automated_reports_page()
