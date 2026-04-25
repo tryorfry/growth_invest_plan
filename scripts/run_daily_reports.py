@@ -60,5 +60,13 @@ async def run_report(to_email: str = None, tickers: list = None):
         session.close()
 
 if __name__ == "__main__":
-    email = os.getenv("REPORT_EMAIL", "test@example.com") # User should configure this
+    # Ensure it only goes to the Admin for now
+    from src.database import Database
+    from src.models import User
+    
+    db = Database()
+    with db.get_session() as session:
+        admin_user = session.query(User).filter(User.tier == 'admin').first()
+        email = admin_user.email if admin_user else "sachindangol@gmail.com"
+        
     asyncio.run(run_report(to_email=email))
