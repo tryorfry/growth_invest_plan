@@ -54,7 +54,7 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
         ]
         
         if tier in ['premium', 'admin']:
-            nav_options.extend(["🔬 Advanced Analytics"])
+            nav_options.extend(["🔬 Advanced Analytics", "📊 Automated Reports"])
             
         if tier == 'admin':
             nav_options.extend(["🌍 Market Pulse", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard"])

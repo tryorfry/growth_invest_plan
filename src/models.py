@@ -326,3 +326,19 @@ class ChartAnnotation(Base):
     
     def __repr__(self):
         return f"<ChartAnnotation(stock_id={self.stock_id}, price={self.price_level}, type='{self.annotation_type}')>"
+
+
+class AutomatedReport(Base):
+    """Historical records of automated generated reports"""
+    __tablename__ = 'automated_reports'
+    
+    id = Column(Integer, primary_key=True)
+    report_date = Column(DateTime, default=datetime.utcnow, index=True)
+    total_stocks_analyzed = Column(Integer, default=0)
+    file_path = Column(String(255), nullable=True)
+    report_data_json = Column(Text, nullable=True)
+    status = Column(String(50), default='completed') # completed, failed
+    error_log = Column(Text, nullable=True)
+    
+    def __repr__(self):
+        return f"<AutomatedReport(date='{self.report_date}', stocks={self.total_stocks_analyzed}, status='{self.status}')>"
