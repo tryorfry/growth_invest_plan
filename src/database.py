@@ -117,13 +117,15 @@ class Database:
             ("transactions", "initial_risk_per_share", "FLOAT"),
             ("transactions", "ai_conviction_score", "FLOAT"),
             ("analyses", "earnings_history_json", "TEXT"),
-            ("analyses", "projected_gap_risk", "FLOAT")
+            ("analyses", "projected_gap_risk", "FLOAT"),
+            ("automated_reports", "progress_pct", "INTEGER DEFAULT 0"),
+            ("automated_reports", "current_ticker", "VARCHAR(20)")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
         try:
             existing_cols = {}
-            tables_to_check = ['analyses', 'stocks', 'portfolios', 'users', 'transactions']
+            tables_to_check = ['analyses', 'stocks', 'portfolios', 'users', 'transactions', 'automated_reports']
             for t in tables_to_check:
                 # Omit schema to use default search path (crucial for Postgres variations)
                 existing_cols[t] = {col['name'] for col in inspector.get_columns(t)}

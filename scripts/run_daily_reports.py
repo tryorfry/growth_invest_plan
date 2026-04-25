@@ -14,7 +14,7 @@ from src.services.email_service import send_report_email
 from src.database import Database
 from src.models import AutomatedReport
 
-async def run_report(to_email: str = None):
+async def run_report(to_email: str = None, tickers: list = None):
     print(f"[{datetime.now()}] Starting Automated Report Generation...")
     db = Database()
     
@@ -25,7 +25,7 @@ async def run_report(to_email: str = None):
     session.commit()
     
     try:
-        reports = await generate_reports()
+        reports = await generate_reports(tickers=tickers, report_record_id=report_record.id, db_session=session)
         
         if not reports:
             print("No reports generated. Exiting.")

@@ -337,7 +337,9 @@ class AutomatedReport(Base):
     total_stocks_analyzed = Column(Integer, default=0)
     file_path = Column(String(255), nullable=True)
     report_data_json = Column(Text, nullable=True)
-    status = Column(String(50), default='completed') # completed, failed
+    status = Column(String(50), default='completed') # completed, failed, running
+    progress_pct = Column(Integer, default=0)
+    current_ticker = Column(String(20), nullable=True)
     error_log = Column(Text, nullable=True)
     
     def __repr__(self):

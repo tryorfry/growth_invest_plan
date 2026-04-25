@@ -6,7 +6,16 @@ from src.database import Database
 from src.analyzer import StockAnalyzer
 from src.logic.scorer import ChecklistScorer
 
-async def generate_reports(tickers: List[str] = None) -> List[Dict[str, Any]]:
+from src.data_sources.ticker_scraper import SectorTickerScraper
+
+def get_golden_mapping() -> Dict[str, Dict[str, str]]:
+    mapping = {}
+    for sector, items in SectorTickerScraper.SP500_GOLDEN_LIST.items():
+        for ticker, company in items:
+            mapping[ticker] = {"Company": company, "Sector": sector}
+    return mapping
+
+async def generate_reports(tickers: List[str] = None, report_record_id: int = None, db_session = None) -> List[Dict[str, Any]]:
     """
     Generates trading reports for the given list of tickers.
     If no tickers are provided, it fetches all tickers from the database.
@@ -17,11 +26,25 @@ async def generate_reports(tickers: List[str] = None) -> List[Dict[str, Any]]:
     
     analyzer = StockAnalyzer()
     reports = []
+    golden_mapping = get_golden_mapping()
     
     print(f"Generating reports for {len(tickers)} tickers...")
     
-    for ticker in tickers:
-        print(f"Processing {ticker}...")
+    for i, ticker in enumerate(tickers):
+        print(f"Processing {ticker} ({i+1}/{len(tickers)})...")
+        
+        # Real-time progress update
+        if report_record_id and db_session:
+            try:
+                from src.models import AutomatedReport
+                report = db_session.query(AutomatedReport).get(report_record_id)
+                if report:
+                    report.current_ticker = ticker
+                    report.progress_pct = int((i / len(tickers)) * 100)
+                    db_session.commit()
+            except Exception as e:
+                print(f"Failed to update progress: {e}")
+                
         try:
             # We use multi_analyze to get all 3 trading styles
             analysis = await analyzer.multi_analyze(ticker, verbose=False, force_refresh=True)
@@ -32,11 +55,24 @@ async def generate_reports(tickers: List[str] = None) -> List[Dict[str, Any]]:
             # 9-point Checklist Score
             score, total, details = ChecklistScorer.calculate_score(analysis)
             
+            c_name = getattr(analysis, 'company_name', None)
+            sector = getattr(analysis, 'sector', None)
+            
+            # Apply robust fallback for missing data using the DRY Golden List
+            if ticker in golden_mapping:
+                if not c_name or c_name == 'N/A' or c_name == ticker:
+                    c_name = golden_mapping[ticker]["Company"]
+                if not sector or sector == 'N/A':
+                    sector = golden_mapping[ticker]["Sector"]
+            else:
+                c_name = c_name or 'N/A'
+                sector = sector or 'N/A'
+            
             # Format the output strictly matching UI data to preserve DRY
             report_data = {
                 "Ticker": ticker,
-                "Company": getattr(analysis, 'company_name', 'N/A'),
-                "Sector": getattr(analysis, 'sector', 'N/A'),
+                "Company": c_name,
+                "Sector": sector,
                 "Industry": getattr(analysis, 'industry', 'N/A'),
                 "Current Price": analysis.current_price,
                 "Checklist Score": f"{score}/{total}",
