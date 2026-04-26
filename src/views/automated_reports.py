@@ -96,13 +96,73 @@ def render_automated_reports_page():
                             data = json.loads(report.report_data_json)
                             df = pd.DataFrame(data)
                             
+                            # Calculate numeric columns for sorting and plotting
+                            if "Checklist Score" in df.columns:
+                                df["ScoreNum"] = df["Checklist Score"].apply(lambda x: int(x.split('/')[0]) if isinstance(x, str) and '/' in x else 0)
+                            else:
+                                df["ScoreNum"] = 0
+                                
+                            if "R/R" in df.columns:
+                                df["RR_Num"] = pd.to_numeric(df["R/R"].astype(str).str.replace('x', ''), errors='coerce').fillna(0)
+                            else:
+                                df["RR_Num"] = 0
+                                
                             # Interactive charts
-                            tab1, tab2, tab3 = st.tabs(["Data Table", "Sector Breakdown", "Checklist Scores"])
+                            tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Setups", "Data Table", "Sector Breakdown", "Setup Analysis"])
                             
                             with tab1:
+                                try:
+                                    if len(df) > 0:
+                                        # Sort to find the best 5 stocks
+                                        top_stocks = df.sort_values(by=["ScoreNum", "RR_Num"], ascending=[False, False]).head(5)
+                                        
+                                        st.markdown("### 🔥 Highest Conviction Trade Setups")
+                                        st.caption("Ranked by 9-Point Fundamental Quality & Reward-to-Risk Ratio across all trading styles")
+                                        
+                                        # To handle the first item being expanded
+                                        is_first = True
+                                        
+                                        for idx, top_stock in top_stocks.iterrows():
+                                            ticker = top_stock.get('Ticker', 'N/A')
+                                            score = top_stock.get('Checklist Score', 'N/A')
+                                            best_style = top_stock.get('Best Style', 'N/A')
+                                            rr = top_stock.get('R/R', 'N/A')
+                                            
+                                            with st.expander(f"⭐ {ticker} - Score: {score} | Style: {best_style} | R/R: {rr}", expanded=is_first):
+                                                is_first = False
+                                                st.markdown(f"**Company:** {top_stock.get('Company', 'N/A')} | **Sector:** {top_stock.get('Sector', 'N/A')}")
+                                                
+                                                col1, col2, col3, col4 = st.columns(4)
+                                                col1.metric("Checklist Score", f"{score}")
+                                                col2.metric("Best Style", str(best_style))
+                                                col3.metric("R/R Ratio", f"{rr}")
+                                                
+                                                cp = top_stock.get('Current Price', 'N/A')
+                                                col4.metric("Current Price", f"${float(cp):.2f}" if pd.notna(cp) and cp != 'N/A' else "N/A")
+                                                
+                                                st.markdown("#### Trade Execution Plan")
+                                                sc1, sc2, sc3 = st.columns(3)
+                                                with sc1:
+                                                    st.info(f"**Suggested Entry:**\n\n{top_stock.get('Suggested Entry', 'N/A')}")
+                                                with sc2:
+                                                    st.error(f"**Stop Loss:**\n\n{top_stock.get('Stop Loss', 'N/A')}")
+                                                with sc3:
+                                                    st.success(f"**Target Price:**\n\n{top_stock.get('Target Price', 'N/A')}")
+                                                    
+                                                st.markdown("#### Multi-Style Algorithm Strength")
+                                                ss1, ss2, ss3 = st.columns(3)
+                                                ss1.metric("Growth Score", f"{top_stock.get('Growth Score', 0)}/100")
+                                                ss2.metric("Swing Score", f"{top_stock.get('Swing Score', 0)}/100")
+                                                ss3.metric("Trend Score", f"{top_stock.get('Trend Score', 0)}/100")
+                                    else:
+                                        st.info("No data available to determine top performers.")
+                                except Exception as e:
+                                    st.error(f"Could not calculate top performers: {e}")
+                            
+                            with tab2:
                                 st.dataframe(df, use_container_width=True)
                                 
-                            with tab2:
+                            with tab3:
                                 if "Sector" in df.columns:
                                     sector_counts = df["Sector"].value_counts().reset_index()
                                     sector_counts.columns = ["Sector", "Count"]
@@ -111,18 +171,28 @@ def render_automated_reports_page():
                                 else:
                                     st.info("Sector data missing.")
                                     
-                            with tab3:
-                                if "Checklist Score" in df.columns:
-                                    # Extract just the numerator (e.g. "8/9" -> 8)
-                                    df["ScoreNum"] = df["Checklist Score"].apply(lambda x: int(x.split('/')[0]) if isinstance(x, str) and '/' in x else 0)
-                                    score_counts = df["ScoreNum"].value_counts().reset_index()
-                                    score_counts.columns = ["Score", "Count"]
-                                    score_counts = score_counts.sort_values("Score")
-                                    fig2 = px.bar(score_counts, x="Score", y="Count", title="Fundamental Checklist Score Distribution")
-                                    fig2.update_xaxes(type='category')
-                                    st.plotly_chart(fig2, use_container_width=True)
-                                else:
-                                    st.info("Score data missing.")
+                            with tab4:
+                                st.markdown("### Risk vs Reward Landscape")
+                                st.caption("Bubble size represents Checklist Score. The top-right corner indicates the most ideal setups (High Quality, High R/R).")
+                                
+                                plot_df = df.copy()
+                                # Cap extreme R/R ratios so the chart remains readable
+                                plot_df["RR_Cap"] = plot_df["RR_Num"].clip(upper=10) 
+                                
+                                fig3 = px.scatter(
+                                    plot_df, 
+                                    x="ScoreNum", 
+                                    y="RR_Cap", 
+                                    color="Sector" if "Sector" in plot_df.columns else None,
+                                    hover_name="Ticker",
+                                    hover_data=["Company", "R/R", "Checklist Score", "Best Style"],
+                                    size="ScoreNum",
+                                    size_max=20,
+                                    title="Fundamental Quality vs Reward-to-Risk",
+                                    labels={"ScoreNum": "9-Point Checklist Score", "RR_Cap": "Reward/Risk Ratio (Capped at 10x)"}
+                                )
+                                fig3.update_xaxes(type='category', categoryorder='array', categoryarray=list(range(10)))
+                                st.plotly_chart(fig3, use_container_width=True)
                                     
                         except Exception as e:
                             st.error(f"Error rendering interactive report: {e}")
