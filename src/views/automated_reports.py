@@ -128,14 +128,23 @@ def render_automated_reports_page():
                                             best_style = top_stock.get('Best Style', 'N/A')
                                             rr = top_stock.get('R/R', 'N/A')
                                             
-                                            with st.expander(f"⭐ {ticker} - Score: {score} | Style: {best_style} | R/R: {rr}", expanded=is_first):
+                                            # Format R/R cleanly to 2 decimals
+                                            if isinstance(rr, (float, int)):
+                                                rr_formatted = f"{float(rr):.2f}"
+                                            else:
+                                                try:
+                                                    rr_formatted = f"{float(str(rr).replace('x', '')):.2f}"
+                                                except (ValueError, TypeError):
+                                                    rr_formatted = str(rr)
+                                            
+                                            with st.expander(f"⭐ {ticker} - Score: {score} | Style: {best_style} | R/R: {rr_formatted}", expanded=is_first):
                                                 is_first = False
                                                 st.markdown(f"**Company:** {top_stock.get('Company', 'N/A')} | **Sector:** {top_stock.get('Sector', 'N/A')}")
                                                 
                                                 col1, col2, col3, col4 = st.columns(4)
                                                 col1.metric("Checklist Score", f"{score}")
                                                 col2.metric("Best Style", str(best_style))
-                                                col3.metric("R/R Ratio", f"{rr}")
+                                                col3.metric("R/R Ratio", f"{rr_formatted}")
                                                 
                                                 cp = top_stock.get('Current Price', 'N/A')
                                                 col4.metric("Current Price", f"${float(cp):.2f}" if pd.notna(cp) and cp != 'N/A' else "N/A")
@@ -154,6 +163,14 @@ def render_automated_reports_page():
                                                 ss1.metric("Growth Score", f"{top_stock.get('Growth Score', 0)}/100")
                                                 ss2.metric("Swing Score", f"{top_stock.get('Swing Score', 0)}/100")
                                                 ss3.metric("Trend Score", f"{top_stock.get('Trend Score', 0)}/100")
+                                                
+                                                # Show the breakdown of the 9-point checklist
+                                                details = top_stock.get('Checklist Details')
+                                                if isinstance(details, dict):
+                                                    st.markdown("#### 9-Point Checklist Breakdown")
+                                                    for key, info in details.items():
+                                                        icon = "✅" if info.get('pass') else "❌"
+                                                        st.markdown(f"{icon} **{key}**: {info.get('label')}")
                                     else:
                                         st.info("No data available to determine top performers.")
                                 except Exception as e:

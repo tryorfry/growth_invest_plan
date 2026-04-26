@@ -91,6 +91,7 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 "Stop Loss": getattr(analysis, 'suggested_stop_loss', 'N/A'),
                 "Target Price": getattr(analysis, 'target_price', 'N/A'),
                 "R/R": getattr(analysis, 'reward_to_risk', 'N/A'),
+                "Checklist Details": details,
                 
                 # Earnings & News
                 "Next Earnings": str(analysis.next_earnings_date.date()) if getattr(analysis, 'next_earnings_date', None) else "N/A",
