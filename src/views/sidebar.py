@@ -70,8 +70,10 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
                 st.session_state['active_trading_style'] = style_param
                 
             st.session_state['go_to_page'] = "🏠 Home"
-            # Clear the params so it doesn't stick
-            st.query_params.clear()
+            # Clear the routing params so they don't stick on refresh
+            for key in ["ticker", "style", "auth_user", "auth_token"]:
+                if key in st.query_params:
+                    del st.query_params[key]
 
         # Determine the default index for navigation
         default_nav_index = 0

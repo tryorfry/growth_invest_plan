@@ -178,6 +178,45 @@ def render_ticker_header(analysis: 'StockAnalysis'):
     
     st.divider()
 
+def render_deep_dive_button(ticker: str, style: str = None, label: str = None):
+    """
+    Renders an HTML link button that opens the deep-dive analysis in a new tab
+    while preserving the session via secure auth tokens.
+    """
+    import hashlib
+    import os
+    
+    db = st.session_state.get('db')
+    user_hash = ""
+    db_user_name = ""
+    
+    if db:
+        with db.get_session() as session:
+            from src.models import User
+            current_user = session.query(User).filter(User.id == st.session_state.get('user_id')).first()
+            if current_user:
+                user_hash = current_user.password_hash
+                db_user_name = current_user.username
+    
+    if not label:
+        label = f"🔬 Deep-Dive {ticker}"
+        
+    auth_token = hashlib.sha256(f"{db_user_name}{user_hash}".encode()).hexdigest()
+    
+    # Construct base URL (handle different environments)
+    # Streamlit Cloud uses the root domain, local uses localhost
+    url = f"/?ticker={ticker}&auth_user={db_user_name}&auth_token={auth_token}"
+    if style:
+        url += f"&style={style}"
+        
+    st.markdown(f'''
+        <a href="{url}" target="_blank" style="text-decoration:none;">
+            <button style="width:100%; padding:0.6rem; background-color:#1E88E5; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:0.9rem; width:100%;">
+                {label}
+            </button>
+        </a>
+    ''', unsafe_allow_html=True)
+
 def _serialize_news_data(news_data):
     """Safely convert news articles to JSON string"""
     import json

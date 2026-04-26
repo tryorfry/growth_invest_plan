@@ -111,16 +111,16 @@ def render_watchlist_page():
                 # Display with actions
                 for idx, row in df.iterrows():
                     with st.container():
-                        col1, col2, col3, col4, col5 = st.columns([2, 3, 2, 3, 1])
+                        col1, col2, col3, col4, col5, col6 = st.columns([1, 2, 1, 2, 1, 2])
                         
                         with col1:
                             st.markdown(f"**{row['Ticker']}**")
                         with col2:
-                            st.text(row['Name'])
+                            st.text(row['Name'][:20])
                         with col3:
-                            st.text(row['Sector'])
+                            st.text(row['Sector'][:15])
                         with col4:
-                            st.caption(row['Notes'])
+                            st.caption(row['Notes'][:30])
                         
                         # Links and Actions
                         with col5:
@@ -132,6 +132,10 @@ def render_watchlist_page():
                                 wm.remove_stock_from_watchlist(selected_id, row['Ticker'])
                                 st.success(f"Removed {row['Ticker']}")
                                 st.rerun()
+                        
+                        with col6:
+                            from src.utils import render_deep_dive_button
+                            render_deep_dive_button(ticker=row['Ticker'], label="🔬 Deep-Dive")
                         
                         st.markdown("---")
                 

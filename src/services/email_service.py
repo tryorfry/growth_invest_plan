@@ -26,7 +26,13 @@ def send_report_email(filepath: str, to_email: str):
     msg['From'] = smtp_user
     msg['To'] = to_email
     
-    msg.set_content(
+    if not filepath:
+        msg.set_content("This is a test email from Growth Invest Plan.")
+    else:
+        msg.set_content("Attached is your report.")
+
+    if False: # Old logic
+        msg.set_content(
         "Hello,\n\n"
         "Attached is your latest automated trading report encompassing the 9-point checklist, "
         "3 trading style setups, news catalysts, and earnings data, organized by sector.\n\n"

@@ -332,14 +332,8 @@ def render_market_pulse_page():
             with c_ticker:
                 target_ticker = st.selectbox("Select ticker from list:", [t['ticker'] for t in top_tickers], label_visibility="collapsed")
             with c_go:
-                if st.button(f"🔬 Deep-Dive {target_ticker}", type="secondary", use_container_width=True):
-                    # Set navigation triggers
-                    st.session_state['main_dash_text'] = target_ticker
-                    st.session_state['go_to_page'] = '🏠 Home'
-                    st.session_state['mp_deep_dive_trigger'] = True
-                    st.session_state['analysis_started'] = True
-                    st.session_state['trigger_analysis'] = True # 🔥 BULLETPROOF TRIGGER
-                    st.rerun()
+                from src.utils import render_deep_dive_button
+                render_deep_dive_button(ticker=target_ticker)
 
             audit_data = st.session_state.get(f'quality_audit_{selected_sector}')
             if audit_data:

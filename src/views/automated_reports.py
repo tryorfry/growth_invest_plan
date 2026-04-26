@@ -21,10 +21,12 @@ def render_automated_reports_page():
     
     # Get current user for auth token generation
     user_hash = ""
+    db_user_name = ""
     with db.get_session() as session:
         from src.models import User
         current_user = session.query(User).filter(User.id == st.session_state.get('user_id')).first()
         user_hash = current_user.password_hash if current_user else ""
+        db_user_name = current_user.username if current_user else ""
     
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -46,6 +48,18 @@ def render_automated_reports_page():
             import os
             import importlib
             sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+            
+        if st.button("📧 Test Email", use_container_width=True):
+            from src.services.email_service import send_report_email
+            import os
+            to_email = os.getenv("ADMIN_EMAIL", os.getenv("SMTP_USER"))
+            with st.spinner(f"Sending test email to {to_email}..."):
+                # Use a dummy file or no file for test
+                success = send_report_email(None, to_email)
+                if success:
+                    st.success(f"✅ Test email sent to {to_email}! Check your inbox (and Spam).")
+                else:
+                    st.error("❌ Failed to send test email. Check your Secrets (SMTP_USER, SMTP_PASSWORD).")
             import scripts.run_daily_reports
             importlib.reload(scripts.run_daily_reports)
             from scripts.run_daily_reports import run_report
@@ -67,8 +81,16 @@ def render_automated_reports_page():
                 tickers = [r['ticker'] for r in results if r.get('ticker')]
                 report_type = "Dynamic Reversal Screener"
                 
+            # Get recipient email from secrets or DB
+            to_email = os.getenv("ADMIN_EMAIL")
+            if not to_email:
+                with db.get_session() as session:
+                    from src.models import User
+                    admin = session.query(User).filter(User.tier == 'admin').first()
+                    to_email = admin.email if admin else None
+
             def background_task():
-                asyncio.run(run_report(tickers=tickers, report_type=report_type))
+                asyncio.run(run_report(tickers=tickers, report_type=report_type, to_email=to_email))
                 
             thread = threading.Thread(target=background_task)
             thread.start()
@@ -257,9 +279,12 @@ def render_automated_reports_page():
                                                         icon = "✅" if info.get('pass') else "❌"
                                                         st.markdown(f"{icon} **{key}**: {info.get('label')}")
                                                 
-                                                import hashlib
-                                                auth_token = hashlib.sha256(f"{st.session_state.username}{user_hash}".encode()).hexdigest()
-                                                st.markdown(f'<a href="/?ticker={ticker}&style={best_style}&auth_user={st.session_state.username}&auth_token={auth_token}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
+                                                from src.utils import render_deep_dive_button
+                                                render_deep_dive_button(
+                                                    ticker=ticker, 
+                                                    style=best_style, 
+                                                    label="🔬 Open Deep Dive Analysis in New Tab"
+                                                )
                                     else:
                                         st.info("No data available to determine top performers.")
                                 except Exception as e:
@@ -311,17 +336,13 @@ def render_automated_reports_page():
                                     sel_style = point.get("customdata", [None, None])[1]
                                     
                                     if sel_ticker:
-                                        import hashlib
-                                        auth_token = hashlib.sha256(f"{st.session_state.username}{user_hash}".encode()).hexdigest()
-                                        
+                                        from src.utils import render_deep_dive_button
                                         st.success(f"🎯 Selected: **{sel_ticker}** | Best Strategy: **{sel_style}**")
-                                        st.markdown(f'''
-                                            <a href="/?ticker={sel_ticker}&style={sel_style}&auth_user={st.session_state.username}&auth_token={auth_token}" target="_blank" style="text-decoration:none;">
-                                                <button style="width:100%; padding:0.8rem; background-color:#2E7D32; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                                                    🔬 Open Deep Dive for {sel_ticker} in New Tab
-                                                </button>
-                                            </a>
-                                        ''', unsafe_allow_html=True)
+                                        render_deep_dive_button(
+                                            ticker=sel_ticker, 
+                                            style=sel_style, 
+                                            label=f"🔬 Open Deep Dive for {sel_ticker} in New Tab"
+                                        )
                                     else:
                                         st.info("Click a bubble in the chart above to open its Deep Dive analysis.")
                                 else:

@@ -219,11 +219,9 @@ def render_screener_page():
             r_cols[4].markdown(row['Passes?'])
             r_cols[5].write(row['Top Reasons'][:50] + "..." if len(row['Top Reasons']) > 50 else row['Top Reasons'])
             
-            if r_cols[6].button(f"🔬 Analyze {ticker}", key=f"btn_{ticker}", type="primary", use_container_width=True):
-                st.session_state['screener_ticker'] = ticker
-                st.session_state['go_to_page'] = "🔬 Advanced Analytics"
-                st.session_state['run_adv_anal'] = True
-                st.rerun()
+            from src.utils import render_deep_dive_button
+            with r_cols[6]:
+                render_deep_dive_button(ticker=ticker, label=f"🔬 Analyze {ticker}")
 
         # Display detailed setup notes for winners
         passing_df = df[df['Passes?'] == "✅ YES"]
@@ -247,11 +245,8 @@ def render_screener_page():
                             elif note:
                                 st.info(note)
                     with col_b:
-                        if st.button(f"🔬 Full Analytics", key=f"exp_btn_{row['Ticker']}", type="primary", use_container_width=True):
-                            st.session_state['screener_ticker'] = row['Ticker']
-                            st.session_state['go_to_page'] = "🔬 Advanced Analytics"
-                            st.session_state['run_adv_anal'] = True
-                            st.rerun()
+                        from src.utils import render_deep_dive_button
+                        render_deep_dive_button(ticker=row['Ticker'], label="🔬 Full Analytics")
             
             if st.button("🗑️ Clear Results"):
                 del st.session_state['screener_results']

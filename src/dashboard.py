@@ -76,12 +76,18 @@ def main():
 
     # --- Deep Link Auto-Auth ---
     if not st.session_state.get('authenticated'):
-        auth_user = st.query_params.get("auth_user")
-        auth_token = st.query_params.get("auth_token")
+        # Get raw params (handle lists in some Streamlit environments)
+        auth_user_raw = st.query_params.get("auth_user")
+        auth_token_raw = st.query_params.get("auth_token")
+        
+        auth_user = auth_user_raw[0] if isinstance(auth_user_raw, list) else auth_user_raw
+        auth_token = auth_token_raw[0] if isinstance(auth_token_raw, list) else auth_token_raw
+        
         if auth_user and auth_token:
             import hashlib
             with db.get_session() as session:
                 from src.models import User
+                # Use exact matching
                 user = session.query(User).filter(User.username == auth_user).first()
                 if user:
                     expected_token = hashlib.sha256(f"{user.username}{user.password_hash}".encode()).hexdigest()

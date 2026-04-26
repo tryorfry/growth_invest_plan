@@ -303,15 +303,12 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                 button_key = f"btn_dive_{analysis.ticker}_{style_name}"
                 style_analyses = getattr(analysis, 'style_analyses', {})
                 if style_analyses and style_name in style_analyses:
-                    if st.button(f"🔍 View {style_name} Details", key=button_key, use_container_width=True):
-                        st.session_state['go_to_page'] = "🏠 Home"
-                        st.session_state['active_trading_style'] = style_name
-                        st.session_state['current_analysis'] = analysis.style_analyses[style_name]
-                        st.session_state['current_ticker'] = analysis.ticker
-                        
-                        # Force Home page ticker to match
-                        st.session_state['main_dash_text'] = analysis.ticker
-                        st.session_state['main_dash_dropdown'] = ""
+                    from src.utils import render_deep_dive_button
+                    render_deep_dive_button(
+                        ticker=analysis.ticker, 
+                        style=style_name, 
+                        label=f"🔬 View {style_name} Details"
+                    )
 
                         
                         # Apply style defaults

@@ -80,9 +80,9 @@ def render_comparison_page():
                     st.markdown(f"**{analysis.ticker}**")
                     analysis_time = analysis.analysis_timestamp.strftime('%Y-%m-%d %H:%M') if analysis.analysis_timestamp else "N/A"
                     st.caption(f"🕒 Analyzed: {analysis_time}")
-                    yfin_url = f"https://finance.yahoo.com/quote/{analysis.ticker}"
-                    finviz_url = f"https://finviz.com/quote.ashx?t={analysis.ticker}"
                     st.markdown(f"[YFinance]({yfin_url}) | [Finviz]({finviz_url})")
+                    from src.utils import render_deep_dive_button
+                    render_deep_dive_button(ticker=analysis.ticker)
             
             st.divider()
             
