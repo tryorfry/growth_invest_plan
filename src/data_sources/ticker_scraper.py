@@ -313,7 +313,7 @@ class DynamicScreener(DataSource):
     def fetch_top_candidates(_self, count: int = 30, _cache_buster: float = 0) -> List[Dict[str, Any]]:
         """
         Scrapes Finviz for top reversal candidates.
-        Criteria: Mid Cap+, Rel Vol > 1.5, Price crossed above SMA50
+        Criteria: Mid Cap+, Rel Vol > 1.5, Price showing bullish momentum shift.
         """
         # v=111: Overview, o=-volume: Sort by Volume Desc
         url = "https://finviz.com/screener.ashx?v=111&f=cap_midover,sh_relvol_o1.5,ta_sma50_pa&o=-volume"

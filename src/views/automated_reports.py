@@ -37,7 +37,7 @@ def render_automated_reports_page():
             captions=[
                 "Scans all tickers saved in your portfolio and watchlist.",
                 "Scans the top 15 mega-cap companies across 11 sectors.",
-                "Scans for mid/large-cap stocks showing high relative volume and a 50-SMA crossing reversal."
+                "Scans for mid/large-cap stocks showing high relative volume and a bullish momentum shift."
             ]
         )
     
