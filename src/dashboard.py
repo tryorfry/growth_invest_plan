@@ -34,6 +34,7 @@ from src.views.login import render_login_page
 
 @st.cache_resource
 def init_database():
+    # Cache buster: v2
     db = Database("stock_analysis.db")
     db.init_db()
     with db.get_session() as session:
