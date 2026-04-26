@@ -159,15 +159,43 @@ def render_automated_reports_page():
                                                 cp = top_stock.get('Current Price', 'N/A')
                                                 col4.metric("Current Price", f"${float(cp):.2f}" if pd.notna(cp) and cp != 'N/A' else "N/A")
                                                 
+                                                # AI Conviction Summary
+                                                ai_summary = top_stock.get("AI Conviction Summary", "N/A")
+                                                if ai_summary != "N/A":
+                                                    st.markdown("#### 🧠 AI Conviction Summary")
+                                                    st.info(ai_summary)
+
                                                 st.markdown("#### Trade Execution Plan")
-                                                sc1, sc2, sc3 = st.columns(3)
+                                                sc1, sc2, sc3, sc4 = st.columns(4)
                                                 with sc1:
                                                     st.info(f"**Suggested Entry:**\n\n{top_stock.get('Suggested Entry', 'N/A')}")
                                                 with sc2:
                                                     st.error(f"**Stop Loss:**\n\n{top_stock.get('Stop Loss', 'N/A')}")
                                                 with sc3:
                                                     st.success(f"**Target Price:**\n\n{top_stock.get('Target Price', 'N/A')}")
+                                                with sc4:
+                                                    st.warning(f"**Position Size (Units):**\n\n{top_stock.get('Position Size (Units)', 'N/A')}")
                                                     
+                                                st.markdown("#### Volatility & Risk Metrics")
+                                                vr1, vr2, vr3 = st.columns(3)
+                                                atr = top_stock.get('ATR', 'N/A')
+                                                atr_str = f"{float(atr):.2f}" if isinstance(atr, (int, float)) and pd.notna(atr) else str(atr)
+                                                vr1.metric("Daily ATR", atr_str)
+                                                vr2.metric("Next Earnings", f"{top_stock.get('Next Earnings', 'N/A')}")
+                                                
+                                                ed = top_stock.get('Expected Earnings Deviation', 'N/A')
+                                                ed_str = f"{float(ed):.2f}%" if isinstance(ed, (int, float)) and pd.notna(ed) else str(ed)
+                                                vr3.metric("Expected E-Deviation", ed_str)
+
+                                                st.markdown("#### Institutional Flow & Analyst Tracking")
+                                                f1, f2, f3, f4 = st.columns(4)
+                                                f1.metric("Inst Own", top_stock.get('Inst Own', 'N/A'))
+                                                f2.metric("Inst Trans", top_stock.get('Inst Trans', 'N/A'))
+                                                f3.metric("Insider Own", top_stock.get('Insider Own', 'N/A'))
+                                                f4.metric("Insider Trans", top_stock.get('Insider Trans', 'N/A'))
+                                                
+                                                st.caption(f"**Recent Analyst Action:** {top_stock.get('Recent Action', 'N/A')}")
+
                                                 st.markdown("#### Multi-Style Algorithm Strength")
                                                 ss1, ss2, ss3 = st.columns(3)
                                                 ss1.metric("Growth Score", f"{top_stock.get('Growth Score', 0)}/100")

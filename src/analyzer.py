@@ -149,6 +149,7 @@ class StockAnalysis:
     # Historical Earnings Gaps & Risk
     earnings_history: List[Dict[str, Any]] = field(default_factory=list)
     projected_gap_risk: Optional[float] = None
+    expected_earnings_deviation_pct: Optional[float] = None
     
     def has_earnings_warning(self) -> bool:
         """Check if earnings are within 10 days"""
@@ -519,6 +520,9 @@ class StockAnalyzer:
                 t0_returns = [abs(e.get("t0_return", 0)) for e in analysis.earnings_history if "t0_return" in e]
                 if t0_returns:
                     analysis.projected_gap_risk = sum(t0_returns) / len(t0_returns)
+                    recent_4 = t0_returns[:4]
+                    if recent_4:
+                        analysis.expected_earnings_deviation_pct = sum(recent_4) / len(recent_4)
                 
                 if not analysis.last_earnings_date and analysis.earnings_history:
                     latest_event = analysis.earnings_history[0]
@@ -740,6 +744,8 @@ class StockAnalyzer:
                     main_analysis.suggested_stop_loss = best_results["stop"]
                     main_analysis.target_price = best_results["target"]
                     main_analysis.reward_to_risk = best_results["rr"]
+                    main_analysis.risk_per_unit = best_results["risk_pu"]
+                    main_analysis.position_size_units = best_results["units"]
                     main_analysis.setup_notes = best_results["notes"]
                 
             return main_analysis

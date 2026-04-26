@@ -114,3 +114,50 @@ class AIAnalyzer:
         except Exception as e:
             logger.error(f"Prompt Construction Error: {e}")
             return f"Error assembling data for analysis: {str(e)}"
+
+    def generate_conviction_summary(self, symbol: str, data: Dict[str, Any]) -> str:
+        """
+        Generates a 1-paragraph Conviction Summary (Pick vs Avoid) using institutional, insider, analyst, and news data.
+        """
+        if not self.is_available():
+            return "⚠️ AI Conviction Summary is unavailable. Please ensure your `GEMINI_API_KEY` is configured."
+            
+        try:
+            lines = [f"Generate a conviction check for {symbol} based on the following composite data:\n"]
+            
+            # Technical & Sizing
+            lines.append(f"- Trading Style: {data.get('trading_style', 'Unknown')}")
+            lines.append(f"- Reward/Risk Ratio: {data.get('reward_to_risk', 'Unknown')}")
+            lines.append(f"- ATR (Daily Volatility): {data.get('atr_daily', 'Unknown')}")
+            lines.append(f"- Expected Earnings Deviation (Last 4): {data.get('earnings_deviation', 'Unknown')}%")
+            
+            # Flow Data
+            lines.append(f"- Institutional Ownership: {data.get('inst_own', 'Unknown')}")
+            lines.append(f"- Institutional Transactions: {data.get('inst_trans', 'Unknown')}")
+            lines.append(f"- Insider Ownership: {data.get('insider_own', 'Unknown')}")
+            lines.append(f"- Insider Transactions: {data.get('insider_trans', 'Unknown')}")
+            
+            # Analyst & News
+            lines.append(f"- Recent Analyst Action: {data.get('analyst_action', 'None')}")
+            lines.append(f"- News Sentiment: {data.get('news_sentiment_label', 'Neutral')} ({data.get('news_score', 0.0)})")
+            
+            prompt = "\n".join(lines)
+            
+            response = self.client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=(
+                        "You are an elite quantitative analyst summarizing trade conviction. "
+                        "Write exactly ONE concise paragraph evaluating whether this stock is a strong 'Pick' or 'Avoid' at this moment, "
+                        "based ONLY on the provided institutional flow, insider trading, analyst actions, technical setup, and news. "
+                        "Highlight the most compelling bullish or bearish factors. Do not give financial advice. Keep it hard-hitting."
+                    ),
+                    temperature=0.3,
+                )
+            )
+            return response.text.strip()
+            
+        except Exception as e:
+            logger.error(f"Gemini API Error in generate_conviction_summary: {e}")
+            return f"❌ Failed to generate conviction summary: {str(e)}"

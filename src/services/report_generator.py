@@ -68,6 +68,29 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 c_name = c_name or 'N/A'
                 sector = sector or 'N/A'
             
+            # AI Conviction Summary
+            ai_summary = "N/A"
+            try:
+                from src.ai_analyzer import AIAnalyzer
+                ai = AIAnalyzer()
+                if ai.is_available():
+                    conviction_data = {
+                        "trading_style": analysis.best_style,
+                        "reward_to_risk": getattr(analysis, 'reward_to_risk', 'N/A'),
+                        "atr_daily": getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 'N/A')),
+                        "earnings_deviation": getattr(analysis, 'expected_earnings_deviation_pct', 'N/A'),
+                        "inst_own": analysis.finviz_data.get('Inst Own', 'N/A'),
+                        "inst_trans": analysis.finviz_data.get('Inst Trans', 'N/A'),
+                        "insider_own": analysis.finviz_data.get('Insider Own', 'N/A'),
+                        "insider_trans": analysis.finviz_data.get('Insider Trans', 'N/A'),
+                        "analyst_action": getattr(analysis, 'marketbeat_action_recent', getattr(analysis, 'recent_action', 'N/A')),
+                        "news_sentiment_label": getattr(analysis, 'news_summary', 'Neutral'),
+                        "news_score": getattr(analysis, 'news_sentiment', 0.0)
+                    }
+                    ai_summary = ai.generate_conviction_summary(ticker, conviction_data)
+            except Exception as ai_e:
+                print(f"Error generating AI conviction for {ticker}: {ai_e}")
+
             # Format the output strictly matching UI data to preserve DRY
             report_data = {
                 "Ticker": ticker,
@@ -91,18 +114,31 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 "Stop Loss": getattr(analysis, 'suggested_stop_loss', 'N/A'),
                 "Target Price": getattr(analysis, 'target_price', 'N/A'),
                 "R/R": getattr(analysis, 'reward_to_risk', 'N/A'),
+                "Risk Per Unit": getattr(analysis, 'risk_per_unit', 'N/A'),
+                "Position Size (Units)": getattr(analysis, 'position_size_units', 'N/A'),
+                "ATR": getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 'N/A')),
                 "Checklist Details": details,
                 
                 # Earnings & News
                 "Next Earnings": str(analysis.next_earnings_date.date()) if getattr(analysis, 'next_earnings_date', None) else "N/A",
                 "Days Until Earnings": getattr(analysis, 'days_until_earnings', 'N/A'),
+                "Expected Earnings Deviation": getattr(analysis, 'expected_earnings_deviation_pct', 'N/A'),
                 "News Sentiment": getattr(analysis, 'news_summary', 'N/A'),
                 "Sentiment Score": getattr(analysis, 'news_sentiment', 'N/A'),
                 
                 # Analyst
                 "Median Target": getattr(analysis, 'median_price_target', 'N/A'),
                 "Analyst Source": getattr(analysis, 'analyst_source', 'N/A'),
-                "Recent Action": getattr(analysis, 'marketbeat_action_recent', 'N/A')
+                "Recent Action": getattr(analysis, 'marketbeat_action_recent', getattr(analysis, 'recent_action', 'N/A')),
+                
+                # Flow Data
+                "Inst Own": analysis.finviz_data.get('Inst Own', 'N/A'),
+                "Inst Trans": analysis.finviz_data.get('Inst Trans', 'N/A'),
+                "Insider Own": analysis.finviz_data.get('Insider Own', 'N/A'),
+                "Insider Trans": analysis.finviz_data.get('Insider Trans', 'N/A'),
+                
+                # AI Conviction
+                "AI Conviction Summary": ai_summary
             }
             
             reports.append(report_data)
