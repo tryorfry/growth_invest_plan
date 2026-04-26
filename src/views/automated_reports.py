@@ -198,11 +198,16 @@ def render_automated_reports_page():
                                                     st.warning(f"**Position Size (Units):**\n\n{top_stock.get('Position Size (Units)', 'N/A')}")
                                                     
                                                 st.markdown("#### Volatility & Risk Metrics")
-                                                vr1, vr2, vr3 = st.columns(3)
+                                                vr1, vr2, vr3, vr4 = st.columns(4)
                                                 atr = top_stock.get('ATR', 'N/A')
+                                                atr_w = top_stock.get('Weekly ATR', 'N/A')
+                                                
                                                 atr_str = f"{float(atr):.2f}" if isinstance(atr, (int, float)) and pd.notna(atr) else str(atr)
-                                                vr1.metric("Daily ATR", atr_str)
-                                                vr2.metric("Next Earnings", f"{top_stock.get('Next Earnings', 'N/A')}")
+                                                atrw_str = f"{float(atr_w):.2f}" if isinstance(atr_w, (int, float)) and pd.notna(atr_w) else str(atr_w)
+                                                
+                                                vr1.metric("Daily ATR (14d)", atr_str)
+                                                vr2.metric("Weekly ATR (14w)", atrw_str)
+                                                vr3.metric("Next Earnings", f"{top_stock.get('Next Earnings', 'N/A')}")
                                                 
                                                 ed = top_stock.get('Expected Earnings Deviation', 'N/A')
                                                 ed_str = f"{float(ed):.2f}%" if isinstance(ed, (int, float)) and pd.notna(ed) else str(ed)
@@ -219,9 +224,14 @@ def render_automated_reports_page():
 
                                                 st.markdown("#### Multi-Style Algorithm Strength")
                                                 ss1, ss2, ss3 = st.columns(3)
-                                                ss1.metric("Growth Score", f"{top_stock.get('Growth Score', 0)}/100")
-                                                ss2.metric("Swing Score", f"{top_stock.get('Swing Score', 0)}/100")
-                                                ss3.metric("Trend Score", f"{top_stock.get('Trend Score', 0)}/100")
+                                                
+                                                def fmt_score(s):
+                                                    try: return f"{int(float(s)*100)}/100"
+                                                    except: return f"{s}/100"
+                                                    
+                                                ss1.metric("Growth Score", fmt_score(top_stock.get('Growth Score', 0)))
+                                                ss2.metric("Swing Score", fmt_score(top_stock.get('Swing Score', 0)))
+                                                ss3.metric("Trend Score", fmt_score(top_stock.get('Trend Score', 0)))
                                                 
                                                 # Show the breakdown of the 9-point checklist
                                                 details = top_stock.get('Checklist Details')
@@ -230,6 +240,12 @@ def render_automated_reports_page():
                                                     for key, info in details.items():
                                                         icon = "✅" if info.get('pass') else "❌"
                                                         st.markdown(f"{icon} **{key}**: {info.get('label')}")
+                                                
+                                                st.divider()
+                                                # New Tab / Deep Dive Router
+                                                # Streamlit natively supports st.page_link, but since we use radio buttons for routing,
+                                                # we inject an HTML link that uses query parameters. We'll update dashboard.py to handle it!
+                                                st.markdown(f'<a href="/?ticker={ticker}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
                                     else:
                                         st.info("No data available to determine top performers.")
                                 except Exception as e:

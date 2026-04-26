@@ -59,6 +59,14 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
         if tier == 'admin':
             nav_options.extend(["🌍 Market Pulse", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard", "📊 Automated Reports"])
 
+        # URL Deep-Dive Routing (from Automated Reports 'Open in New Tab')
+        if "ticker" in st.query_params:
+            st.session_state['mp_deep_dive_trigger'] = True
+            st.session_state['main_dash_text'] = st.query_params["ticker"].upper()
+            st.session_state['go_to_page'] = "🏠 Home"
+            # Clear the params so it doesn't stick
+            st.query_params.clear()
+
         # Determine the default index for navigation
         default_nav_index = 0
         if 'go_to_page' in st.session_state:

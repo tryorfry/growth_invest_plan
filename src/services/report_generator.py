@@ -117,6 +117,7 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 "Risk Per Unit": getattr(analysis, 'risk_per_unit', 'N/A'),
                 "Position Size (Units)": getattr(analysis, 'position_size_units', 'N/A'),
                 "ATR": getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 'N/A')),
+                "Weekly ATR": getattr(analysis, 'atr', 'N/A'),
                 "Checklist Details": details,
                 
                 # Earnings & News
