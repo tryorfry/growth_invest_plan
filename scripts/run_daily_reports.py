@@ -41,6 +41,17 @@ async def run_report(to_email: str = None, tickers: list = None, report_type: st
         class NpEncoder(json.JSONEncoder):
             def default(self, obj):
                 import numpy as np
+                import pandas as pd
+                
+                # Check by class name to catch numpy 2.0 / pandas weirdness
+                cls_name = getattr(type(obj), '__name__', '')
+                if 'bool' in cls_name.lower():
+                    return bool(obj)
+                if 'int' in cls_name.lower():
+                    return int(obj)
+                if 'float' in cls_name.lower():
+                    return float(obj)
+                    
                 if isinstance(obj, np.integer):
                     return int(obj)
                 if isinstance(obj, np.floating):
@@ -49,7 +60,7 @@ async def run_report(to_email: str = None, tickers: list = None, report_type: st
                     return bool(obj)
                 if isinstance(obj, np.ndarray):
                     return obj.tolist()
-                import pandas as pd
+                
                 if pd.isna(obj):
                     return None
                 return super(NpEncoder, self).default(obj)
