@@ -48,18 +48,6 @@ def render_automated_reports_page():
             import os
             import importlib
             sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-            
-        if st.button("📧 Test Email", use_container_width=True):
-            from src.services.email_service import send_report_email
-            import os
-            to_email = os.getenv("ADMIN_EMAIL", os.getenv("SMTP_USER"))
-            with st.spinner(f"Sending test email to {to_email}..."):
-                # Use a dummy file or no file for test
-                success = send_report_email(None, to_email)
-                if success:
-                    st.success(f"✅ Test email sent to {to_email}! Check your inbox (and Spam).")
-                else:
-                    st.error("❌ Failed to send test email. Check your Secrets (SMTP_USER, SMTP_PASSWORD).")
             import scripts.run_daily_reports
             importlib.reload(scripts.run_daily_reports)
             from scripts.run_daily_reports import run_report
@@ -95,6 +83,18 @@ def render_automated_reports_page():
             thread = threading.Thread(target=background_task)
             thread.start()
             st.rerun()
+            
+        if st.button("📧 Test Email", use_container_width=True):
+            from src.services.email_service import send_report_email
+            import os
+            to_email = os.getenv("ADMIN_EMAIL", os.getenv("SMTP_USER"))
+            with st.spinner(f"Sending test email to {to_email}..."):
+                # Use a dummy file or no file for test
+                success = send_report_email(None, to_email)
+                if success:
+                    st.success(f"✅ Test email sent to {to_email}! Check your inbox (and Spam).")
+                else:
+                    st.error("❌ Failed to send test email. Check your Secrets (SMTP_USER, SMTP_PASSWORD).")
             
     st.divider()
     
