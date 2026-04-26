@@ -50,6 +50,9 @@ async def run_report(to_email: str = None, tickers: list = None):
             
         print(f"[{datetime.now()}] Automated Report Run Completed Successfully.")
         
+        # Clean up old data and files (older than 14 days)
+        purge_old_reports(session)
+        
     except Exception as e:
         error_msg = f"Error during report run: {e}\n{traceback.format_exc()}"
         print(error_msg)
@@ -58,6 +61,26 @@ async def run_report(to_email: str = None, tickers: list = None):
         session.commit()
     finally:
         session.close()
+
+def purge_old_reports(session):
+    from datetime import timedelta
+    from src.models import AutomatedReport
+    
+    cutoff = datetime.utcnow() - timedelta(days=14)
+    old_reports = session.query(AutomatedReport).filter(AutomatedReport.report_date < cutoff).all()
+    
+    if old_reports:
+        count = len(old_reports)
+        for r in old_reports:
+            # Also clean up the actual Excel files if they exist
+            if r.file_path and os.path.exists(r.file_path):
+                try:
+                    os.remove(r.file_path)
+                except Exception as e:
+                    print(f"Failed to delete old Excel file {r.file_path}: {e}")
+            session.delete(r)
+        session.commit()
+        print(f"[{datetime.now()}] Purged {count} reports older than 14 days.")
 
 if __name__ == "__main__":
     # Ensure it only goes to the Admin for now
