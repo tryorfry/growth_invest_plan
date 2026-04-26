@@ -334,6 +334,7 @@ class AutomatedReport(Base):
     
     id = Column(Integer, primary_key=True)
     report_date = Column(DateTime, default=datetime.utcnow, index=True)
+    report_type = Column(String(50), default='Standard') # Standard vs Dynamic Screener
     total_stocks_analyzed = Column(Integer, default=0)
     file_path = Column(String(255), nullable=True)
     report_data_json = Column(Text, nullable=True)

@@ -1,0 +1,42 @@
+name: Dynamic Screener Scheduler
+
+on:
+  schedule:
+    # Runs once a day at 21:00 UTC (Market Close)
+    - cron: '0 21 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  run-screener:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          
+      - name: Run Dynamic Screener Reports
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
+        run: |
+          export PYTHONPATH=$(pwd)
+          python scripts/run_daily_reports.py --universe dynamic
+          
+      - name: Purge old workflow logs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 14
+          keep_minimum_runs: 3

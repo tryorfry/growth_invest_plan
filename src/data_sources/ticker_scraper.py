@@ -296,3 +296,77 @@ class SectorTickerScraper(DataSource):
             except Exception:
                 pass
         return {}
+
+class DynamicScreener(DataSource):
+    """Fetches high conviction reversal/momentum candidates from Finviz"""
+    
+    def get_source_name(self) -> str:
+        return "FinvizDynamicScreener"
+        
+    async def fetch(self, **kwargs) -> List[Dict[str, Any]]:
+        """Asynchronous wrapper for scraping"""
+        import asyncio
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.fetch_top_candidates)
+        
+    @st.cache_data(ttl=14400) # Cache for 4 hours
+    def fetch_top_candidates(_self, count: int = 30, _cache_buster: float = 0) -> List[Dict[str, Any]]:
+        """
+        Scrapes Finviz for top reversal candidates.
+        Criteria: Mid Cap+, Rel Vol > 1.5, Price crossed above SMA50
+        """
+        # v=111: Overview, o=-volume: Sort by Volume Desc
+        url = "https://finviz.com/screener.ashx?v=111&f=cap_midover,sh_relvol_o1.5,ta_sma50_pa&o=-volume"
+        
+        try:
+            import random
+            from bs4 import BeautifulSoup
+            uas = [
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            ]
+            headers = {
+                "User-Agent": random.choice(uas),
+                "Referer": "https://finviz.com/",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9"
+            }
+            
+            response = _self._get_response_sync(url, headers=headers)
+            
+            if not response or response.status_code != 200:
+                print(f"Finviz dynamic screener failed with status code {response.status_code if response else 'None'}")
+                return []
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            tickers = []
+            seen_tickers = set()
+            
+            ticker_tags = soup.find_all(lambda tag: tag.has_attr('data-boxover-ticker'))
+            
+            for tag in ticker_tags:
+                try:
+                    ticker = tag.get('data-boxover-ticker')
+                    if not ticker or ticker in seen_tickers:
+                        continue
+                    
+                    company = tag.get('data-boxover-company', "N/A")
+                    
+                    tickers.append({
+                        "ticker": ticker,
+                        "company": company
+                    })
+                    seen_tickers.add(ticker)
+                    
+                    if len(tickers) >= count:
+                        break
+                except Exception:
+                    continue
+            
+            return tickers
+
+        except Exception as e:
+            print(f"Error scraping Finviz dynamic screener: {e}")
+            return []

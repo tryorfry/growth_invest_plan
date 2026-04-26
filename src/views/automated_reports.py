@@ -17,7 +17,7 @@ def render_automated_reports_page():
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        universe = st.radio("Ticker Universe", ["Database Watchlist", "S&P Giants (Top 15 Per Sector)"], horizontal=True)
+        universe = st.radio("Ticker Universe", ["Database Watchlist", "S&P Giants (Top 15 Per Sector)", "🔥 Dynamic Reversal Screener"], horizontal=True)
     
     with col2:
         if st.button("🚀 Trigger Run Now", type="primary", use_container_width=True):
@@ -28,15 +28,24 @@ def render_automated_reports_page():
             from scripts.run_daily_reports import run_report
             
             tickers = None
+            report_type = "Watchlist"
+            
             if universe == "S&P Giants (Top 15 Per Sector)":
                 from src.data_sources.ticker_scraper import SectorTickerScraper
                 tickers = []
                 for sector, items in SectorTickerScraper.SP500_GOLDEN_LIST.items():
                     for t, _ in items[:15]:
                         tickers.append(t)
+                report_type = "S&P Giants"
+            elif universe == "🔥 Dynamic Reversal Screener":
+                from src.data_sources.ticker_scraper import DynamicScreener
+                screener = DynamicScreener()
+                results = screener.fetch_top_candidates(count=30)
+                tickers = [r['ticker'] for r in results if r.get('ticker')]
+                report_type = "Dynamic Reversal Screener"
                 
             def background_task():
-                asyncio.run(run_report(tickers=tickers))
+                asyncio.run(run_report(tickers=tickers, report_type=report_type))
                 
             thread = threading.Thread(target=background_task)
             thread.start()
@@ -62,7 +71,8 @@ def render_automated_reports_page():
                 c1, c2, c3, c4 = st.columns([2, 1, 2, 1])
                 
                 with c1:
-                    st.markdown(f"**Date:** {report.report_date.strftime('%Y-%m-%d %H:%M:%S')}")
+                    r_type = getattr(report, 'report_type', 'Standard')
+                    st.markdown(f"**[{r_type}]**\n\n{report.report_date.strftime('%Y-%m-%d %H:%M:%S')}")
                 with c2:
                     st.markdown(f"**Stocks:** {report.total_stocks_analyzed}")
                 with c3:

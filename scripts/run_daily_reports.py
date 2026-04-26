@@ -14,13 +14,13 @@ from src.services.email_service import send_report_email
 from src.database import Database
 from src.models import AutomatedReport
 
-async def run_report(to_email: str = None, tickers: list = None):
-    print(f"[{datetime.now()}] Starting Automated Report Generation...")
+async def run_report(to_email: str = None, tickers: list = None, report_type: str = 'Standard'):
+    print(f"[{datetime.now()}] Starting Automated Report Generation ({report_type})...")
     db = Database()
     
     # Initialize DB record
     session = db.SessionLocal()
-    report_record = AutomatedReport(status='running')
+    report_record = AutomatedReport(status='running', report_type=report_type)
     session.add(report_record)
     session.commit()
     
@@ -83,6 +83,11 @@ def purge_old_reports(session):
         print(f"[{datetime.now()}] Purged {count} reports older than 14 days.")
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Run Automated Reports")
+    parser.add_argument("--universe", type=str, default="sp50", choices=["sp50", "dynamic", "watchlist"], help="Which ticker universe to scan")
+    args = parser.parse_args()
+
     # Ensure it only goes to the Admin for now
     from src.database import Database
     from src.models import User
@@ -92,4 +97,15 @@ if __name__ == "__main__":
         admin_user = session.query(User).filter(User.tier == 'admin').first()
         email = admin_user.email if admin_user else "sachindangol@gmail.com"
         
-    asyncio.run(run_report(to_email=email))
+    tickers = None
+    report_type = "Standard"
+    
+    if args.universe == "dynamic":
+        from src.data_sources.ticker_scraper import DynamicScreener
+        screener = DynamicScreener()
+        # This is sync because it uses the st.cache_data wrapped function
+        results = screener.fetch_top_candidates(count=30)
+        tickers = [r['ticker'] for r in results if r.get('ticker')]
+        report_type = "Dynamic Reversal Screener"
+    
+    asyncio.run(run_report(to_email=email, tickers=tickers, report_type=report_type))
