@@ -110,14 +110,14 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 "Best Style": analysis.best_style,
                 
                 # Setup details (based on best style)
-                "Suggested Entry": getattr(analysis, 'suggested_entry', 'N/A'),
-                "Stop Loss": getattr(analysis, 'suggested_stop_loss', 'N/A'),
-                "Target Price": getattr(analysis, 'target_price', 'N/A'),
-                "R/R": getattr(analysis, 'reward_to_risk', 'N/A'),
-                "Risk Per Unit": getattr(analysis, 'risk_per_unit', 'N/A'),
-                "Position Size (Units)": getattr(analysis, 'position_size_units', 'N/A'),
-                "ATR": getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 'N/A')),
-                "Weekly ATR": getattr(analysis, 'atr', 'N/A'),
+                "Suggested Entry": round(float(getattr(analysis, 'suggested_entry', 0)), 2) if isinstance(getattr(analysis, 'suggested_entry', None), (int, float)) else 'N/A',
+                "Stop Loss": round(float(getattr(analysis, 'stop_loss', getattr(analysis, 'suggested_stop_loss', 0))), 2) if isinstance(getattr(analysis, 'suggested_stop_loss', None), (int, float)) else 'N/A',
+                "Target Price": round(float(getattr(analysis, 'target_price', 0)), 2) if isinstance(getattr(analysis, 'target_price', None), (int, float)) else 'N/A',
+                "R/R": round(float(getattr(analysis, 'reward_to_risk', 0)), 2) if isinstance(getattr(analysis, 'reward_to_risk', None), (int, float)) else 'N/A',
+                "Risk Per Unit": round(float(getattr(analysis, 'risk_per_unit', 0)), 2) if isinstance(getattr(analysis, 'risk_per_unit', None), (int, float)) else 'N/A',
+                "Position Size (Units)": int(getattr(analysis, 'position_size_units', 0)) if isinstance(getattr(analysis, 'position_size_units', None), (int, float)) else 'N/A',
+                "ATR": round(float(getattr(analysis, 'atr_daily', getattr(analysis, 'atr', 0))), 2) if isinstance(getattr(analysis, 'atr_daily', getattr(analysis, 'atr', None)), (int, float)) else 'N/A',
+                "Weekly ATR": round(float(getattr(analysis, 'atr', 0)), 2) if isinstance(getattr(analysis, 'atr', None), (int, float)) else 'N/A',
                 "Checklist Details": details,
                 
                 # Earnings & News

@@ -188,14 +188,22 @@ def render_automated_reports_page():
 
                                                 st.markdown("#### Trade Execution Plan")
                                                 sc1, sc2, sc3, sc4 = st.columns(4)
+                                                
+                                                def fmt_val(v):
+                                                    if v == 'N/A' or v is None: return 'N/A'
+                                                    try:
+                                                        f = float(v)
+                                                        return f"{int(f)}" if f % 1 == 0 else f"{f:.2f}"
+                                                    except: return str(v)
+
                                                 with sc1:
-                                                    st.info(f"**Suggested Entry:**\n\n{top_stock.get('Suggested Entry', 'N/A')}")
+                                                    st.info(f"**Suggested Entry:**\n\n{fmt_val(top_stock.get('Suggested Entry'))}")
                                                 with sc2:
-                                                    st.error(f"**Stop Loss:**\n\n{top_stock.get('Stop Loss', 'N/A')}")
+                                                    st.error(f"**Stop Loss:**\n\n{fmt_val(top_stock.get('Stop Loss'))}")
                                                 with sc3:
-                                                    st.success(f"**Target Price:**\n\n{top_stock.get('Target Price', 'N/A')}")
+                                                    st.success(f"**Target Price:**\n\n{fmt_val(top_stock.get('Target Price'))}")
                                                 with sc4:
-                                                    st.warning(f"**Position Size (Units):**\n\n{top_stock.get('Position Size (Units)', 'N/A')}")
+                                                    st.warning(f"**Position Size (Units):**\n\n{fmt_val(top_stock.get('Position Size (Units)'))}")
                                                     
                                                 st.markdown("#### Volatility & Risk Metrics")
                                                 vr1, vr2, vr3, vr4 = st.columns(4)
