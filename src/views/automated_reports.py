@@ -37,7 +37,10 @@ def render_automated_reports_page():
             st.info("Report generation started in background. Refresh the page to see progress.")
             import sys
             import os
+            import importlib
             sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+            import scripts.run_daily_reports
+            importlib.reload(scripts.run_daily_reports)
             from scripts.run_daily_reports import run_report
             
             tickers = None
