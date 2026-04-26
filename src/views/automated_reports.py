@@ -19,6 +19,13 @@ def render_automated_reports_page():
     if not db:
         db = Database()
     
+    # Get current user for auth token generation
+    user_hash = ""
+    with db.get_session() as session:
+        from src.models import User
+        current_user = session.query(User).filter(User.id == st.session_state.get('user_id')).first()
+        user_hash = current_user.password_hash if current_user else ""
+    
     col1, col2 = st.columns([3, 1])
     with col1:
         universe = st.radio(
@@ -250,11 +257,9 @@ def render_automated_reports_page():
                                                         icon = "✅" if info.get('pass') else "❌"
                                                         st.markdown(f"{icon} **{key}**: {info.get('label')}")
                                                 
-                                                st.divider()
-                                                # New Tab / Deep Dive Router
-                                                # Streamlit natively supports st.page_link, but since we use radio buttons for routing,
-                                                # we inject an HTML link that uses query parameters. We'll update dashboard.py to handle it!
-                                                st.markdown(f'<a href="/?ticker={ticker}&style={best_style}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
+                                                import hashlib
+                                                auth_token = hashlib.sha256(f"{st.session_state.username}{user_hash}".encode()).hexdigest()
+                                                st.markdown(f'<a href="/?ticker={ticker}&style={best_style}&auth_user={st.session_state.username}&auth_token={auth_token}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
                                     else:
                                         st.info("No data available to determine top performers.")
                                 except Exception as e:
@@ -280,6 +285,7 @@ def render_automated_reports_page():
                                 # Cap extreme R/R ratios so the chart remains readable
                                 plot_df["RR_Cap"] = plot_df["RR_Num"].clip(upper=10) 
                                 
+                                # Fundamental vs R/R Plot
                                 fig3 = px.scatter(
                                     plot_df, 
                                     x="ScoreNum", 
@@ -287,13 +293,39 @@ def render_automated_reports_page():
                                     color="Sector" if "Sector" in plot_df.columns else None,
                                     hover_name="Ticker",
                                     hover_data=["Company", "R/R", "Checklist Score", "Best Style"],
+                                    custom_data=["Ticker", "Best Style"],
                                     size="ScoreNum",
                                     size_max=20,
                                     title="Fundamental Quality vs Reward-to-Risk",
                                     labels={"ScoreNum": "9-Point Checklist Score", "RR_Cap": "Reward/Risk Ratio (Capped at 10x)"}
                                 )
-                                fig3.update_xaxes(type='category', categoryorder='array', categoryarray=list(range(10)))
-                                st.plotly_chart(fig3, use_container_width=True)
+                                fig3.update_xaxes(type='category', categoryorder='array', categoryarray=list(range(11)))
+                                
+                                # Capture selection events (requires Streamlit 1.35+)
+                                selection = st.plotly_chart(fig3, use_container_width=True, on_select="rerun")
+                                
+                                if selection and selection.get("selection") and selection["selection"].get("points"):
+                                    point = selection["selection"]["points"][0]
+                                    # custom_data index 0 is Ticker, index 1 is Best Style
+                                    sel_ticker = point.get("customdata", [None])[0]
+                                    sel_style = point.get("customdata", [None, None])[1]
+                                    
+                                    if sel_ticker:
+                                        import hashlib
+                                        auth_token = hashlib.sha256(f"{st.session_state.username}{user_hash}".encode()).hexdigest()
+                                        
+                                        st.success(f"🎯 Selected: **{sel_ticker}** | Best Strategy: **{sel_style}**")
+                                        st.markdown(f'''
+                                            <a href="/?ticker={sel_ticker}&style={sel_style}&auth_user={st.session_state.username}&auth_token={auth_token}" target="_blank" style="text-decoration:none;">
+                                                <button style="width:100%; padding:0.8rem; background-color:#2E7D32; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold; font-size:1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                    🔬 Open Deep Dive for {sel_ticker} in New Tab
+                                                </button>
+                                            </a>
+                                        ''', unsafe_allow_html=True)
+                                    else:
+                                        st.info("Click a bubble in the chart above to open its Deep Dive analysis.")
+                                else:
+                                    st.info("💡 **Tip:** Click any bubble in the chart above to instantly generate a Deep Dive link.")
                                     
                         except Exception as e:
                             st.error(f"Error rendering interactive report: {e}")
