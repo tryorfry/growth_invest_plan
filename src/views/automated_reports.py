@@ -99,6 +99,8 @@ def render_automated_reports_page():
                             st.caption(f"Processing: {report.current_ticker}")
                     else:
                         st.markdown(f"**Status:** :red[{report.status}]")
+                        if report.error_log:
+                            st.caption(f"Error: {report.error_log[:100]}...")
                 with c4:
                     if report.status == 'completed' and report.report_data_json:
                         try:
@@ -114,10 +116,13 @@ def render_automated_reports_page():
                             st.error(f"Data error")
                 
                 if report.status == 'completed' and report.report_data_json:
-                    with st.expander("🔍 View Interactive Report", expanded=False):
+                    with st.expander(f"🔍 View Interactive Report ({r_type})", expanded=False):
                         try:
                             data = json.loads(report.report_data_json)
                             df = pd.DataFrame(data)
+                            
+                            # Inject report type into dataframe for the Data Table tab
+                            df.insert(0, "Universe", r_type)
                             
                             # Calculate numeric columns for sorting and plotting
                             if "Checklist Score" in df.columns:
