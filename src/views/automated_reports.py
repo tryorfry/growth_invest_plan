@@ -8,6 +8,10 @@ import asyncio
 import threading
 
 def render_automated_reports_page():
+    if st.session_state.get('user_tier') != 'admin':
+        st.error("🔒 Admin Only")
+        st.stop()
+        
     st.title("📊 Automated Trading Reports")
     st.markdown("View interactive data analysis and historical automated trading reports.")
     
@@ -17,7 +21,16 @@ def render_automated_reports_page():
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        universe = st.radio("Ticker Universe", ["Database Watchlist", "S&P Giants (Top 15 Per Sector)", "🔥 Dynamic Reversal Screener"], horizontal=True)
+        universe = st.radio(
+            "Ticker Universe", 
+            ["Database Watchlist", "S&P Giants (Top 15 Per Sector)", "🔥 Dynamic Reversal Screener"], 
+            horizontal=True,
+            captions=[
+                "Scans all tickers saved in your portfolio and watchlist.",
+                "Scans the top 15 mega-cap companies across 11 sectors.",
+                "Scans for mid/large-cap stocks showing high relative volume and a 50-SMA crossing reversal."
+            ]
+        )
     
     with col2:
         if st.button("🚀 Trigger Run Now", type="primary", use_container_width=True):

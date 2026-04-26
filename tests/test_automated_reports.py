@@ -60,3 +60,93 @@ def test_send_report_email(mock_getenv, mock_smtp):
     assert result is True
     mock_server.login.assert_called_once_with("test@example.com", "secret")
     mock_server.send_message.assert_called_once()
+
+# --- New Extensive Tests ---
+
+@pytest.mark.asyncio
+async def test_generate_reports_success():
+    """Test the core report generation logic with a mocked analyzer."""
+    from src.services.report_generator import generate_reports
+    from src.analyzer import StockAnalysis
+    from datetime import datetime
+    
+    # Setup mock analysis object
+    mock_analysis = StockAnalysis(ticker="AAPL", analysis_timestamp=datetime.now())
+    mock_analysis.current_price = 150.0
+    mock_analysis.company_name = "Apple Inc."
+    mock_analysis.sector = "Technology"
+    mock_analysis.industry = "Consumer Electronics"
+    mock_analysis.best_style = "Growth Investing"
+    mock_analysis.reward_to_risk = 3.5
+    mock_analysis.suggested_entry = 150.0
+    mock_analysis.suggested_stop_loss = 140.0
+    mock_analysis.target_price = 185.0
+    mock_analysis.risk_per_unit = 10.0
+    mock_analysis.position_size_units = 10
+    mock_analysis.atr = 5.0
+    mock_analysis.style_results = {
+        "Growth Investing": {"score": 85, "trend": "Uptrend"}
+    }
+    mock_analysis.finviz_data = {
+        "Inst Own": "60%",
+        "Inst Trans": "1.2%",
+        "Insider Own": "0.5%",
+        "Insider Trans": "-0.1%"
+    }
+    
+    with patch('src.services.report_generator.StockAnalyzer') as MockAnalyzer:
+        mock_instance = MockAnalyzer.return_value
+        # Mock multi_analyze to return our mock analysis
+        async def mock_multi_analyze(ticker, **kwargs):
+            return mock_analysis
+        mock_instance.multi_analyze = mock_multi_analyze
+        
+        # Test generation for a single ticker
+        reports = await generate_reports(["AAPL"])
+        
+        assert len(reports) == 1
+        report = reports[0]
+        
+        # Assert formatting logic matches UI expectations
+        assert report["Ticker"] == "AAPL"
+        assert report["Company"] == "Apple Inc."
+        assert report["Sector"] == "Technology"
+        assert report["Current Price"] == 150.0
+        assert report["Best Style"] == "Growth Investing"
+        assert report["Growth Score"] == 85
+        assert report["Inst Own"] == "60%"
+        assert report["Position Size (Units)"] == 10
+        assert "Checklist Score" in report
+        assert "AI Conviction Summary" in report
+
+@pytest.mark.asyncio
+async def test_generate_reports_analyzer_failure():
+    """Test graceful handling when analyzer returns None for a ticker."""
+    from src.services.report_generator import generate_reports
+    
+    with patch('src.services.report_generator.StockAnalyzer') as MockAnalyzer:
+        mock_instance = MockAnalyzer.return_value
+        # Mock multi_analyze to fail
+        async def mock_multi_analyze(ticker, **kwargs):
+            return None
+        mock_instance.multi_analyze = mock_multi_analyze
+        
+        reports = await generate_reports(["INVALID"])
+        # Should gracefully return empty list, not crash
+        assert len(reports) == 0
+
+def test_automated_report_db_model():
+    """Test that the SQLAlchemy model instantiation works with the new report_type."""
+    from src.models import AutomatedReport
+    import datetime
+    
+    # Create the object
+    report = AutomatedReport(
+        report_date=datetime.datetime.now(),
+        report_type="Dynamic Reversal Screener",
+        total_stocks_analyzed=10,
+        report_data_json='[]'
+    )
+    
+    assert report.report_type == "Dynamic Reversal Screener"
+    assert report.total_stocks_analyzed == 10
