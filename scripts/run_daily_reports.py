@@ -38,9 +38,25 @@ async def run_report(to_email: str = None, tickers: list = None, report_type: st
         excel_path = export_reports_to_excel(reports)
         
         # Save to DB
+        class NpEncoder(json.JSONEncoder):
+            def default(self, obj):
+                import numpy as np
+                if isinstance(obj, np.integer):
+                    return int(obj)
+                if isinstance(obj, np.floating):
+                    return float(obj)
+                if isinstance(obj, np.bool_):
+                    return bool(obj)
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                import pandas as pd
+                if pd.isna(obj):
+                    return None
+                return super(NpEncoder, self).default(obj)
+                
         report_record.total_stocks_analyzed = len(reports)
         report_record.file_path = excel_path
-        report_record.report_data_json = json.dumps(reports)
+        report_record.report_data_json = json.dumps(reports, cls=NpEncoder)
         report_record.status = 'completed'
         session.commit()
         
