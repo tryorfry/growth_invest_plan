@@ -31,3 +31,5 @@ test_venv/
 
 # Logs
 logs/
+scratch/
+.circuit_state.json
