@@ -309,26 +309,7 @@ def _render_single_ticker_report(analysis: StockAnalysis, show_header: bool = Tr
                         style=style_name, 
                         label=f"🔬 View {style_name} Details"
                     )
-
-                        
-                        # Apply style defaults
-                        from src.trading_styles.factory import get_trading_style
-                        style_strategy = get_trading_style(style_name)
-                        defaults = style_strategy.get_chart_defaults()
-                        if 'chart_prefs' in st.session_state:
-                            st.session_state['chart_prefs'].update({
-                                'ema': defaults.get('ema', True),
-                                'atr': defaults.get('atr', True),
-                                'sr': defaults.get('sr', True),
-                                'ts': defaults.get('ts', True),
-                                'rsi': defaults.get('rsi', False),
-                                'macd': defaults.get('macd', False),
-                                'boll': defaults.get('boll', False)
-                            })
-                        st.session_state['timeframe'] = defaults.get('timeframe', 'D')
-                        st.session_state['zoom'] = defaults.get('zoom', '1Y')
-                        st.rerun()
-
+    
     # Comparison Grid (Technical Stats)
     st.divider()
     st.subheader(f"📊 Comparative Decision Matrix: {analysis.ticker}")
