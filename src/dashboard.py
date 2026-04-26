@@ -74,6 +74,21 @@ def main():
             'ema': True, 'atr': True, 'sr': True, 'ts': True, 'rsi': False, 'macd': False, 'boll': False
         }
 
+    # --- Deep Link Auto-Auth ---
+    if not st.session_state.get('authenticated'):
+        auth_user = st.query_params.get("auth_user")
+        auth_token = st.query_params.get("auth_token")
+        if auth_user and auth_token:
+            import hashlib
+            with db.get_session() as session:
+                from src.models import User
+                user = session.query(User).filter(User.username == auth_user).first()
+                if user:
+                    expected_token = hashlib.sha256(f"{user.username}{user.password_hash}".encode()).hexdigest()
+                    if auth_token == expected_token:
+                        AuthManager.login(user)
+                        st.rerun()
+        
     if not AuthManager.is_authenticated():
         render_login_page()
         return
