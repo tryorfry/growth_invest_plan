@@ -204,6 +204,7 @@ def render_automated_reports_page():
                                                     st.success(f"**Target Price:**\n\n{fmt_val(top_stock.get('Target Price'))}")
                                                 with sc4:
                                                     st.warning(f"**Position Size (Units):**\n\n{fmt_val(top_stock.get('Position Size (Units)'))}")
+                                                    st.caption("Based on $10k NLV & 1% Risk")
                                                     
                                                 st.markdown("#### Volatility & Risk Metrics")
                                                 vr1, vr2, vr3, vr4 = st.columns(4)
@@ -253,7 +254,7 @@ def render_automated_reports_page():
                                                 # New Tab / Deep Dive Router
                                                 # Streamlit natively supports st.page_link, but since we use radio buttons for routing,
                                                 # we inject an HTML link that uses query parameters. We'll update dashboard.py to handle it!
-                                                st.markdown(f'<a href="/?ticker={ticker}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
+                                                st.markdown(f'<a href="/?ticker={ticker}&style={best_style}" target="_blank" style="text-decoration:none;"><button style="width:100%; padding:0.5rem; background-color:#1E88E5; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">🔬 Open Deep Dive Analysis in New Tab</button></a>', unsafe_allow_html=True)
                                     else:
                                         st.info("No data available to determine top performers.")
                                 except Exception as e:

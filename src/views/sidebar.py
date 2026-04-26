@@ -63,6 +63,12 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
         if "ticker" in st.query_params:
             st.session_state['mp_deep_dive_trigger'] = True
             st.session_state['main_dash_text'] = st.query_params["ticker"].upper()
+            
+            # Handle Style Routing
+            style_param = st.query_params.get("style")
+            if style_param:
+                st.session_state['active_trading_style'] = style_param
+                
             st.session_state['go_to_page'] = "🏠 Home"
             # Clear the params so it doesn't stick
             st.query_params.clear()
