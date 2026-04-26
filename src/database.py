@@ -120,7 +120,12 @@ class Database:
             ("analyses", "projected_gap_risk", "FLOAT"),
             ("automated_reports", "progress_pct", "INTEGER DEFAULT 0"),
             ("automated_reports", "current_ticker", "VARCHAR(20)"),
-            ("automated_reports", "report_type", "VARCHAR(50) DEFAULT 'Standard'")
+            ("automated_reports", "report_type", "VARCHAR(50) DEFAULT 'Standard'"),
+            ("automated_reports", "total_stocks_analyzed", "INTEGER DEFAULT 0"),
+            ("automated_reports", "file_path", "VARCHAR(255)"),
+            ("automated_reports", "report_data_json", "TEXT"),
+            ("automated_reports", "status", "VARCHAR(50) DEFAULT 'completed'"),
+            ("automated_reports", "error_log", "TEXT")
         ]
         
         # Check existing columns to avoid redundant ALTER TABLE calls
