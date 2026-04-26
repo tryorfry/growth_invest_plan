@@ -28,7 +28,16 @@ graph TD
             NavRadio -->|Portfolio| PortfolioPage[Portfolio Tracker Page]
             NavRadio -->|Market Pulse| MarketPulse[Market Pulse Page]
             NavRadio -->|Watchlist| WatchlistPage[Watchlist Page]
+            NavRadio -->|Reports| AutomatedReports[Automated Reports Page]
         end
+
+        %% New Feature Flows
+        AutomatedReports -->|Trigger Background| ReportRunner[Report Runner Script]
+        ReportRunner -->|Generate Excel| ExcelExporter
+        ReportRunner -->|SMTP SSL| EmailService[Gmail SMTP Service]
+        
+        Dashboard -->|Deep Dive Link| SecureAuthLink[Secure Signed Auth Link]
+        SecureAuthLink -->|New Tab| Dashboard
 
         %% Leaderboard Actions
         Leaderboard -->|Batch Export| ExcelExporter[Excel Batch Exporter]
@@ -44,6 +53,7 @@ graph TD
             PortfolioManager --> PositionSizer["Position Sizer & Risk Math"]
             Screener --> ScreenerEngine[Screener Engine]
             ScreenerEngine --> Analyzer
+            ReportRunner --> Analyzer
         end
 
         %% Data Sources Layer
@@ -92,3 +102,5 @@ graph TD
 5. **Trading Styles & Quant Math:** Real-time generation of Support/Resistance lines, Volume Profile (HVNs/LVNs), and active trading logic across three distinct modes: Growth Investing, Swing Trading, and Trend Trading (which visually maps rolling Linear Regression Trend Channels directly onto interactive TradingView charts).
 6. **Multi-Ticker Intelligence:** A powerful bulk processing component capable of comparing custom massive ticker lists, generating Risk Correlation Heatmaps across portfolios, aggregating Sector Intelligence, and spinning up Batch Excel Exports with a single click.
 7. **Risk Management:** `PortfolioManager` tracks cash and NLV; `PositionSizer` enforces 1% trade risk per position. Multiple layers of logic refuse to process trades if Reward/Risk ratios drop below custom thresholds (e.g., 3.0x for Trend Trading).
+8. **Automated Reporting:** A background pipeline (`scripts/run_daily_reports.py`) that leverages the `StockAnalyzer` to generate sector-wide intelligence, exports it to Excel via `ExcelExporter`, and delivers it via `EmailService` (Gmail SMTP SSL).
+9. **Secure Deep-Linking:** A cryptographic signing system (`hash(username + password_hash)`) that allows users to open detailed stock analyses in new tabs while preserving their authenticated session across tab boundaries.
