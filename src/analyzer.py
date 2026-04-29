@@ -351,6 +351,16 @@ class StockAnalyzer:
         finally:
             session.close()
 
+    def _deserialize_news_data(self, news_json: Optional[str]) -> Dict[str, Any]:
+        """Safely deserialize news data from JSON string"""
+        if not news_json:
+            return {"articles": []}
+        try:
+            import json
+            return json.loads(news_json)
+        except Exception:
+            return {"articles": []}
+
     async def _fetch_fresh_analysis(self, ticker: str, trading_style_name: str = "Growth Investing", 
                                  verbose: bool = True, force_refresh: bool = False, 
                                  lite: bool = False, prefetched_mc: Optional[float] = None, **kwargs) -> Optional[StockAnalysis]:
