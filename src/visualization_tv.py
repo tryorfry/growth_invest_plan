@@ -26,7 +26,8 @@ class TVChartGenerator:
                 "close": row['Close'],
             })
             
-        candlestick_left = {
+        candlestick = {
+            "name": 'Candles',
             "type": 'Candlestick',
             "data": candles_data,
             "options": {
@@ -35,20 +36,6 @@ class TVChartGenerator:
                 "borderVisible": False,
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
-                "priceScaleId": "left",
-                "lastValueVisible": False
-            }
-        }
-        candlestick_right = {
-            "name": 'Candles',
-            "type": 'Candlestick',
-            "data": candles_data,
-            "options": {
-                "upColor": 'rgba(0,0,0,0)',
-                "downColor": 'rgba(0,0,0,0)',
-                "borderVisible": False,
-                "wickUpColor": 'rgba(0,0,0,0)',
-                "wickDownColor": 'rgba(0,0,0,0)',
                 "priceScaleId": "right"
             }
         }
@@ -184,9 +171,8 @@ class TVChartGenerator:
                     "title": title[:30] # Truncate long notes
                 })
 
-        candlestick_right["priceLines"] = price_lines
-        series.append(candlestick_left)
-        series.append(candlestick_right)
+        candlestick["priceLines"] = price_lines
+        series.append(candlestick)
 
         # 2. EMAs
         for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
@@ -198,25 +184,17 @@ class TVChartGenerator:
                     "data": ema_data,
                     "options": {"color": color, "lineWidth": width, "priceScaleId": "right", "lastValueVisible": False}
                 })
-                series.append({
-                    "type": 'Line',
-                    "data": ema_data,
-                    "options": {"color": "rgba(0,0,0,0)", "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False}
-                })
-                    
         # 2.5 BOLL
         if show_bollinger and 'Bollinger_Upper' in df.columns and 'Bollinger_Lower' in df.columns:
             for b_col, b_title in [('Bollinger_Upper', 'Upper BOLL'), ('Bollinger_Lower', 'Lower BOLL')]:
                 b_data = [{"time": row[date_col], "value": float(row[b_col])} for _, row in df.iterrows() if pd.notna(row[b_col])]
                 series.append({"name": b_title, "type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "priceScaleId": "right", "lastValueVisible": False}})
-                series.append({"type": 'Line', "data": b_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False}})
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
         if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
             for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 2), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1.5), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1.5)]:
                 t_data = [{"time": row[date_col], "value": float(row[t_col])} for _, row in df.iterrows() if pd.notna(row[t_col])]
                 series.append({"name": t_title, "type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "priceScaleId": "right", "lastValueVisible": False, "priceLineVisible": False}})
-                series.append({"type": 'Line', "data": t_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False, "priceLineVisible": False}})
 
         # 3.1 RSI
         if show_rsi and 'RSI' in df.columns:
@@ -432,7 +410,7 @@ class TVChartGenerator:
             "grid": { "vertLines": {"color": grid_color, "style": 4}, "horzLines": {"color": grid_color, "style": 4} },
             "crosshair": { "mode": 1 },
             "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
-            "leftPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
+            "leftPriceScale": { "visible": False },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 },
             "watermark": { "color": watermark_color, "visible": True, "text": analysis.ticker, "fontSize": 120, "horzAlign": 'center', "vertAlign": 'center' }
         }
@@ -485,21 +463,23 @@ class TVChartGenerator:
                     .tvc-btn:hover, .tvc-tf-btn:hover {{ background: {button_hover}; }}
                     .tvc-btn.active, .tvc-tf-btn.active {{ background: #2962FF; color: white; }}
                 </style>
-                <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
-                    <div id="tvchart-legend" style="
-                        position: absolute; top: 12px; left: 12px; z-index: 1000; 
-                        font-family: sans-serif; font-size: 13px; color: {text_color}; pointer-events: none;
-                        background-color: transparent; display: flex; flex-direction: column; gap: 4px;
-                    ">
-                        <div style="font-size: 18px; font-weight: bold; display: flex; align-items: baseline; gap: 8px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">
-                            {analysis.ticker} 
-                            <span id="legend-date" style="font-size: 13px; font-weight: normal; opacity: 0.8;"></span>
-                        </div>
-                        <div id="legend-ohlc" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
-                        <div id="legend-emas" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
-                        <div id="legend-channel" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
-                        <div id="legend-boll" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
+                <div id="tvchart-legend-bar" style="
+                    display: flex; flex-wrap: wrap; gap: 10px 20px;
+                    padding: 6px 15px;
+                    border-bottom: 1px solid {grid_color};
+                    font-family: monospace; font-size: 13px; color: {text_color};
+                    background: rgba(0,0,0,0.2);
+                    align-items: center;
+                ">
+                    <div style="font-family: sans-serif; font-weight: bold; color: #2196F3;">
+                        {analysis.ticker} <span id="legend-date" style="font-weight: normal; color: {text_color}; opacity: 0.7; margin-left: 5px;"></span>
                     </div>
+                    <div id="legend-ohlc" style="display: flex; gap: 10px;"></div>
+                    <div id="legend-emas" style="display: flex; gap: 10px;"></div>
+                    <div id="legend-channel" style="display: flex; gap: 10px;"></div>
+                    <div id="legend-boll" style="display: flex; gap: 10px;"></div>
+                </div>
+                <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
                 </div>
                 <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
@@ -654,7 +634,7 @@ class TVChartGenerator:
                                     }}
                                     
                                     if (val !== null && val !== undefined) {{
-                                        const html = `<span style="color: ${{s.color}}; opacity: 0.9;">${{s.name}}: ${{val.toFixed(2)}}</span>`;
+                                        const html = `<span style="color: ${{s.color}};">${{s.name}}: ${{val.toFixed(2)}}</span>`;
                                         if (s.name.startsWith("EMA")) emaHtml += html;
                                         else if (s.name.startsWith("Channel")) chHtml += html;
                                         else if (s.name.includes("BOLL")) bollHtml += html;
