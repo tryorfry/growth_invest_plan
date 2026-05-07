@@ -50,7 +50,7 @@ class TVChartGenerator:
                     "price": analysis.suggested_entry,
                     "color": "#00C853", # Darker Green
                     "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "E"
                 })
@@ -60,7 +60,7 @@ class TVChartGenerator:
                     "price": analysis.suggested_stop_loss,
                     "color": "#D50000", # Darker Red
                     "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "SL"
                 })
@@ -75,7 +75,7 @@ class TVChartGenerator:
                     "price": mbp,
                     "color": "#FFEB3B", # Yellow for combined
                     "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "MATP/MBP"
                 })
@@ -86,7 +86,7 @@ class TVChartGenerator:
                         "price": mbp,
                         "color": "#2196F3",
                         "lineWidth": 1,
-                        "lineStyle": 2, # Dashed
+                        "lineStyle": 0, # Solid
                         "axisLabelVisible": False,
                         "title": "MBP"
                     })
@@ -100,7 +100,7 @@ class TVChartGenerator:
                     "price": matp,
                     "color": "#FFEB3B", # Yellow for MATP
                     "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": title
                 })
@@ -112,7 +112,7 @@ class TVChartGenerator:
                     "price": target,
                     "color": "#00E5FF", # Cyan for profit target
                     "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": title
                 })
@@ -125,7 +125,7 @@ class TVChartGenerator:
                     "price": level,
                     "color": support_color, # White in Dark Mode, Black in Light Mode
                     "lineWidth": 1, 
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "S"
                 })
@@ -134,21 +134,12 @@ class TVChartGenerator:
                     "price": level,
                     "color": "#B71C1C", # Dark Red
                     "lineWidth": 1, 
-                    "lineStyle": 2, # Dashed
+                    "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "R"
                 })
                 
-        if show_hvn:
-            for hvn in getattr(analysis, 'volume_profile_hvns', []):
-                 price_lines.append({
-                    "price": hvn,
-                    "color": "rgba(156, 39, 176, 0.4)", # Subtle Purple
-                    "lineWidth": 1,
-                    "lineStyle": 2, # Dashed
-                    "axisLabelVisible": False,
-                    "title": ""
-                })
+
                 
         # Inject Custom User Annotations
         if user_annotations:
