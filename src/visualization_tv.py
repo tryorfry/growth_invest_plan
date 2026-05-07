@@ -572,7 +572,7 @@ class TVChartGenerator:
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         chart.priceScale('left').applyOptions({{
-                            scaleMargins: {{ top: 0.96, bottom: 0.0 }},
+                            scaleMargins: {{ top: 0.92, bottom: 0.03 }},
                             visible: false,
                         }});
                         
