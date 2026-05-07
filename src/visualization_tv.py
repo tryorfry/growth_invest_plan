@@ -412,7 +412,7 @@ class TVChartGenerator:
             "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
             "leftPriceScale": { "visible": False },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 },
-            "watermark": { "color": watermark_color, "visible": True, "text": analysis.ticker, "fontSize": 120, "horzAlign": 'center', "vertAlign": 'center' }
+            "watermark": { "color": watermark_color, "visible": False, "text": analysis.ticker, "fontSize": 120, "horzAlign": 'center', "vertAlign": 'center' }
         }
 
         button_bg = "#262B33" if theme == 'dark' else "#F0F2F6"
@@ -438,9 +438,6 @@ class TVChartGenerator:
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Views:</span>
                         <button class="tvc-tf-btn {'active' if timeframe == 'D' else ''}" data-tf="D">Daily</button>
                         <button class="tvc-tf-btn {'active' if timeframe == 'W' else ''}" data-tf="W">Weekly</button>
-                    </div>
-                    <div style="display: flex; gap: 5px; align-items: center; background: rgba(255, 193, 7, 0.1); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255, 193, 7, 0.3);">
-                        <span style="color: #FFC107; font-family: sans-serif; font-size: 13px; font-weight: bold;">{atr_display_label}</span>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Zoom:</span>
@@ -471,8 +468,11 @@ class TVChartGenerator:
                     background: rgba(0,0,0,0.2);
                     align-items: center;
                 ">
-                    <div style="font-family: sans-serif; font-weight: bold; color: #2196F3;">
-                        {analysis.ticker} <span id="legend-date" style="font-weight: normal; color: {text_color}; opacity: 0.7; margin-left: 5px;"></span>
+                    <div style="font-family: sans-serif; font-weight: bold; color: #2196F3; display: flex; align-items: center;">
+                        {analysis.ticker} <span id="legend-date" style="font-weight: normal; color: {text_color}; opacity: 0.7; margin-left: 8px;"></span>
+                    </div>
+                    <div style="color: #FFC107; font-weight: bold; padding: 0px 10px; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1);">
+                        {atr_display_label}
                     </div>
                     <div id="legend-ohlc" style="display: flex; gap: 10px;"></div>
                     <div id="legend-emas" style="display: flex; gap: 10px;"></div>
@@ -602,7 +602,7 @@ class TVChartGenerator:
                                 }}
                             }}
                             
-                            legendDate.innerHTML = dateStr;
+                            legendDate.innerHTML = dateStr ? `[${{dateStr}}]` : "";
                             
                             if (candleData && candleData.open !== undefined) {{
                                 const color = candleData.open <= candleData.close ? '#26a69a' : '#ef5350';
