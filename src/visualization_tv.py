@@ -474,7 +474,7 @@ class TVChartGenerator:
 
         st.components.v1.html(
             f'''
-            <div style="flex-direction: column; width: 100%; height: {height}px; display: flex; background: {bg_color}; border-radius: 8px; border: 1px solid {grid_color};">
+            <div id="chart-wrapper" style="position: relative; flex-direction: column; width: 100%; height: {height}px; display: flex; background: {bg_color}; border-radius: 8px; border: 1px solid {grid_color};">
                 <div id="tvchart-toolbar" style="
                     display: flex; 
                     gap: 10px;
@@ -531,8 +531,8 @@ class TVChartGenerator:
                     {hvn_html}
                     {events_html}
                 </div>
+                <div id="tvchart-tooltip" style="position: absolute; display: none; padding: 10px; box-sizing: border-box; font-size: 13px; text-align: left; z-index: 1000; pointer-events: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(30, 31, 34, 0.95); color: #d1d4dc; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
-                    <div id="tvchart-tooltip" style="position: absolute; display: none; padding: 10px; box-sizing: border-box; font-size: 13px; text-align: left; z-index: 1000; pointer-events: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(30, 31, 34, 0.95); color: #d1d4dc; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
                 </div>
                 <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
@@ -747,12 +747,23 @@ class TVChartGenerator:
                                 tooltip.style.display = 'block';
                                 
                                 // Position tooltip near cursor but keep it within chart bounds
+                                const wrapper = document.getElementById('chart-wrapper');
                                 const chartDiv = document.getElementById('tvchart-container');
+                                const volDiv = document.getElementById('tvchart-volume-container');
+                                
                                 let left = param.point.x + 15;
                                 let top = param.point.y + 15;
                                 
-                                if (left > chartDiv.clientWidth - 150) left = param.point.x - 160;
-                                if (top > chartDiv.clientHeight - 100) top = param.point.y - 110;
+                                // Adjust top if hovering volume chart
+                                const isVol = param.seriesData.has(seriesInstances.find(s => s.name === "Volume").inst);
+                                if (isVol) {{
+                                    top += chartDiv.offsetHeight + 40; // 40 is roughly legend height
+                                }} else {{
+                                    top += 40; // legend height
+                                }}
+                                
+                                if (left > wrapper.clientWidth - 150) left = param.point.x - 160;
+                                if (top > wrapper.clientHeight - 100) top = top - 110;
                                 
                                 tooltip.style.left = left + 'px';
                                 tooltip.style.top = top + 'px';
