@@ -49,8 +49,8 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_entry,
                     "color": "#00C853", # Darker Green
-                    "lineWidth": 2,
-                    "lineStyle": 0, # Solid
+                    "lineWidth": 1,
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": "E"
                 })
@@ -59,7 +59,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_stop_loss,
                     "color": "#D50000", # Darker Red
-                    "lineWidth": 2,
+                    "lineWidth": 1,
                     "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": "SL"
@@ -74,8 +74,8 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": mbp,
                     "color": "#FFEB3B", # Yellow for combined
-                    "lineWidth": 2,
-                    "lineStyle": 0, # Solid
+                    "lineWidth": 1,
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": "MATP/MBP"
                 })
@@ -85,8 +85,8 @@ class TVChartGenerator:
                     price_lines.append({
                         "price": mbp,
                         "color": "#2196F3",
-                        "lineWidth": 1.5,
-                        "lineStyle": 0, # Solid
+                        "lineWidth": 1,
+                        "lineStyle": 2, # Dashed
                         "axisLabelVisible": False,
                         "title": "MBP"
                     })
@@ -99,7 +99,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": matp,
                     "color": "#FFEB3B", # Yellow for MATP
-                    "lineWidth": 1.5,
+                    "lineWidth": 1,
                     "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": title
@@ -111,8 +111,8 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": target,
                     "color": "#00E5FF", # Cyan for profit target
-                    "lineWidth": 2,
-                    "lineStyle": 1, # Dotted
+                    "lineWidth": 1,
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": title
                 })
@@ -124,8 +124,8 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": support_color, # White in Dark Mode, Black in Light Mode
-                    "lineWidth": 2, # Thicker for visibility
-                    "lineStyle": 0, # Solid
+                    "lineWidth": 1, 
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": "S"
                 })
@@ -133,8 +133,8 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": "#B71C1C", # Dark Red
-                    "lineWidth": 2, # Thicker for visibility
-                    "lineStyle": 0, # Solid
+                    "lineWidth": 1, 
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
                     "title": "R"
                 })
@@ -176,24 +176,24 @@ class TVChartGenerator:
         series.append(candlestick)
 
         # 2. EMAs
-        for ema, color, width in [('EMA20', '#FF5252', 1.5), ('EMA50', '#00E676', 1.5), ('EMA200', '#D500F9', 1.5)]:
+        for ema, color, width in [('EMA20', '#FF5252', 1), ('EMA50', '#00E676', 1), ('EMA200', '#D500F9', 1)]:
             if show_ema and ema in df.columns:
                 ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
                 series.append({
                     "name": ema,
                     "type": 'Line',
                     "data": ema_data,
-                    "options": {"color": color, "lineWidth": width, "priceScaleId": "right", "lastValueVisible": False}
+                    "options": {"color": color, "lineWidth": width, "lineStyle": 0, "priceScaleId": "right", "lastValueVisible": False}
                 })
         # 2.5 BOLL
         if show_bollinger and 'Bollinger_Upper' in df.columns and 'Bollinger_Lower' in df.columns:
             for b_col, b_title in [('Bollinger_Upper', 'Upper BOLL'), ('Bollinger_Lower', 'Lower BOLL')]:
                 b_data = [{"time": row[date_col], "value": float(row[b_col])} for _, row in df.iterrows() if pd.notna(row[b_col])]
-                series.append({"name": b_title, "type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "priceScaleId": "right", "lastValueVisible": False}})
+                series.append({"name": b_title, "type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1, "lineStyle": 2, "priceScaleId": "right", "lastValueVisible": False}})
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
         if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
-            for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 2), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1.5), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1.5)]:
+            for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 1), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1)]:
                 t_data = [{"time": row[date_col], "value": float(row[t_col])} for _, row in df.iterrows() if pd.notna(row[t_col])]
                 series.append({"name": t_title, "type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "priceScaleId": "right", "lastValueVisible": False, "priceLineVisible": False}})
 
@@ -575,6 +575,11 @@ class TVChartGenerator:
                                 }} else if (s.type === 'Line') {{
                                     inst = tChart.addLineSeries(s.options);
                                     if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
+                                    
+                                    // Prevent EMAs/Channels from flattening the candlesticks
+                                    if (s.options.priceScaleId === "right") {{
+                                        inst.applyOptions({{ autoscaleInfoProvider: () => null }});
+                                    }}
                                 }} else if (s.type === 'Histogram') {{
                                     inst = tChart.addHistogramSeries(s.options);
                                 }}
