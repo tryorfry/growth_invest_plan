@@ -258,13 +258,13 @@ class TVChartGenerator:
                 if closest_date:
                     exact_date_str = pd.to_datetime(past_date).strftime('%m/%d')
                     # check if already in markers to avoid duplicates
-                    if not any(m['time'] == closest_date and m['text'].startswith('E') for m in markers):
+                    if not any(m['time'] == closest_date and m['text'] == 'E' for m in markers):
                         markers.append({
                             "time": closest_date,
                             "position": 'belowBar',
                             "color": '#2196F3',
-                            "shape": 'arrowUp',
-                            "text": f'E ({exact_date_str})'
+                            "shape": 'circle',
+                            "text": 'E'
                         })
                 
         if getattr(analysis, 'next_earnings_date', None):
@@ -277,8 +277,8 @@ class TVChartGenerator:
                     "time": next_str,
                     "position": 'belowBar',
                     "color": '#FF9800',
-                    "shape": 'arrowUp',
-                    "text": f'E ({pd.to_datetime(analysis.next_earnings_date).strftime("%m/%d")})'
+                    "shape": 'circle',
+                    "text": 'E'
                 })
             else:
                 closest_date = get_closest_past_trading_day(analysis.next_earnings_date)
@@ -287,17 +287,16 @@ class TVChartGenerator:
                         "time": closest_date,
                         "position": 'belowBar',
                         "color": '#FF9800',
-                        "shape": 'arrowUp',
-                        "text": f'E ({pd.to_datetime(analysis.next_earnings_date).strftime("%m/%d")})'
+                        "shape": 'circle',
+                        "text": 'E'
                     })
             
         if getattr(analysis, 'dividend_dates', []):
             for d_date in analysis.dividend_dates:
                 closest_date = get_closest_past_trading_day(d_date)
-                exact_d_str = pd.to_datetime(d_date).strftime('%m/%d')
-                if closest_date and not any(m['time'] == closest_date and m['text'].startswith('D') for m in markers):
+                if closest_date and not any(m['time'] == closest_date and m['text'] == 'D' for m in markers):
                     markers.append({
-                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": f'D ({exact_d_str})'
+                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": 'D'
                     })
 
         if getattr(analysis, 'insider_buy_dates', []):
@@ -318,10 +317,15 @@ class TVChartGenerator:
                     
         if markers:
             for m in markers:
-                m["position"] = "inBar" # draw directly on the dummy line
-                m["shape"] = "arrowUp" # ensures the text points down to the axis
+                m["position"] = "inBar" # draw directly on the dummy line at the bottom
                 
             dummy_data = [{"time": row[date_col], "value": 0} for _, row in df.iterrows()]
+            # Ensure future dates for next earnings are included in the dummy data
+            dummy_times = [d['time'] for d in dummy_data]
+            for m in markers:
+                if m['time'] not in dummy_times:
+                    dummy_data.append({"time": m['time'], "value": 0})
+            dummy_data.sort(key=lambda x: x['time'])
             dummy_series = {
                 "name": 'MarkerAxis',
                 "type": 'Line',
@@ -449,6 +453,22 @@ class TVChartGenerator:
             if hvn_levels:
                 hvn_html = f"<div id='legend-hvn' style='display: flex; gap: 8px; font-weight: bold; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;'><span style='color: #9C27B0; padding: 2px 6px; border-radius: 4px; background: rgba(156,39,176,0.1);'>HVNs: {', '.join(hvn_levels)}</span></div>"
         
+        # Build Events Static Legend
+        events_html = ""
+        event_items = []
+        if getattr(analysis, 'next_earnings_date', None):
+            e_date = pd.to_datetime(analysis.next_earnings_date).strftime('%Y-%m-%d')
+            event_items.append(f"<span style='color: #FF9800; padding: 2px 6px; border-radius: 4px; background: rgba(255,152,0,0.1);'>Next E: {e_date}</span>")
+        if getattr(analysis, 'dividend_dates', []):
+            # Show only the next/most recent dividend
+            future_divs = [d for d in analysis.dividend_dates if pd.to_datetime(d) >= datetime.now()]
+            if future_divs:
+                d_date = pd.to_datetime(min(future_divs)).strftime('%Y-%m-%d')
+                event_items.append(f"<span style='color: #9C27B0; padding: 2px 6px; border-radius: 4px; background: rgba(156,39,176,0.1);'>Next D: {d_date}</span>")
+        
+        if event_items:
+            events_html = f"<div id='legend-events' style='display: flex; gap: 8px; font-weight: bold; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;'>{''.join(event_items)}</div>"
+
         st.components.v1.html(
             f'''
             <div style="flex-direction: column; width: 100%; height: {height}px; display: flex; background: {bg_color}; border-radius: 8px; border: 1px solid {grid_color};">
@@ -506,6 +526,7 @@ class TVChartGenerator:
                     <div id="legend-boll" style="display: flex; gap: 10px;"></div>
                     {trade_setup_html}
                     {hvn_html}
+                    {events_html}
                 </div>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
                 </div>
@@ -551,7 +572,7 @@ class TVChartGenerator:
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         chart.priceScale('markerScale').applyOptions({{
-                            scaleMargins: {{ top: 0.95, bottom: 0.0 }},
+                            scaleMargins: {{ top: 0.98, bottom: 0.0 }},
                             visible: false,
                         }});
                         
