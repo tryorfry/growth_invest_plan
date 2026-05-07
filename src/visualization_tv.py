@@ -605,10 +605,10 @@ class TVChartGenerator:
                         function applyData(tf) {{
                             datasets[tf].forEach((s, idx) => {{
                                 seriesInstances[idx].inst.setData(s.data);
-                                if (s.type === 'Candlestick' || s.type === 'Histogram') {{
+                                if (s.type === 'Candlestick' || s.type === 'Histogram' || s.type === 'Line') {
                                     if (s.markers) seriesInstances[idx].inst.setMarkers(s.markers);
                                     else seriesInstances[idx].inst.setMarkers([]); // clear explicit empty markers
-                                }}
+                                }
                             }});
                         }}
                         
