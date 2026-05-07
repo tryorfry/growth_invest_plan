@@ -317,14 +317,10 @@ class TVChartGenerator:
                     })
                     
         if markers:
-            # Find the candlestick series and attach markers to it
-            for s in series:
-                if s["type"] == 'Candlestick':
-                    if "markers" not in s:
-                        s["markers"] = markers
-                    else:
-                        s["markers"].extend(markers)
-                    break
+            if "markers" not in vol_series:
+                vol_series["markers"] = markers
+            else:
+                vol_series["markers"].extend(markers)
             
         series.append(vol_series)
         
@@ -401,7 +397,7 @@ class TVChartGenerator:
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
             "grid": { "vertLines": {"color": grid_color, "style": 4}, "horzLines": {"color": grid_color, "style": 4} },
             "crosshair": { "mode": 1 },
-            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
+            "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25}, "minimumWidth": 80 },
             "leftPriceScale": { "visible": False },
             "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 },
             "watermark": { "color": watermark_color, "visible": False, "text": analysis.ticker, "fontSize": 120, "horzAlign": 'center', "vertAlign": 'center' }
