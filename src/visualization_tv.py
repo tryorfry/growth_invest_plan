@@ -653,7 +653,14 @@ class TVChartGenerator:
                             if (param && param.time) {{
                                 dateStr = typeof param.time === 'string' ? param.time : new Date(param.time * 1000).toLocaleDateString({{ month: 'short', day: 'numeric', year: 'numeric' }});
                                 const candleSeries = seriesInstances.find(s => s.name === "Candles");
-                                if (candleSeries) candleData = param.seriesData.get(candleSeries.inst);
+                                if (candleSeries) {{
+                                    candleData = param.seriesData.get(candleSeries.inst);
+                                    // If hovering volume chart, candleData from param will be empty, so look it up in the dataset
+                                    if (!candleData) {{
+                                        const candleSet = datasets[currentTF].find(s => s.name === "Candles");
+                                        if (candleSet) candleData = candleSet.data.find(d => d.time === param.time);
+                                    }}
+                                }}
                             }} else {{
                                 const currentData = datasets[currentTF];
                                 const candleSet = currentData.find(s => s.name === "Candles");
@@ -687,6 +694,15 @@ class TVChartGenerator:
                                     if (param && param.time) {{
                                         let v = param.seriesData.get(s.inst);
                                         if (v && v.value !== undefined) val = v.value;
+                                        
+                                        // If hovering volume chart, indicator data from param will be empty, look it up
+                                        if (val === null || val === undefined) {{
+                                            const sourceSet = datasets[currentTF].find(ds => ds.name === s.name);
+                                            if (sourceSet) {{
+                                                const d = sourceSet.data.find(dat => dat.time === param.time);
+                                                if (d) val = d.value;
+                                            }}
+                                        }}
                                     }} else {{
                                         const sourceSet = datasets[currentTF].find(ds => ds.name === s.name);
                                         if (sourceSet && sourceSet.data && sourceSet.data.length > 0) {{
@@ -709,16 +725,30 @@ class TVChartGenerator:
                         }}
                         
                         chart.subscribeCrosshairMove(param => {{
-                            if (
-                                param.point === undefined ||
-                                !param.time ||
-                                param.point.x < 0 ||
-                                param.point.x > document.getElementById('tvchart-container').clientWidth ||
-                                param.point.y < 0 ||
-                                param.point.y > document.getElementById('tvchart-container').clientHeight
-                            ) {{
-                                updateLegend(null);
-                                return;
+                            if (param.time) {{
+                                const volSeries = seriesInstances.find(s => s.name === "Volume");
+                                if (volSeries) {{
+                                    const vData = param.seriesData.get(volSeries.inst);
+                                    const vPrice = vData ? vData.value : 0;
+                                    volChart.setCrosshairPosition(vPrice, param.time, volSeries.inst);
+                                }}
+                            }} else {{
+                                volChart.clearCrosshairPosition();
+                            }}
+                            updateLegend(param);
+                        }});
+                        
+                        volChart.subscribeCrosshairMove(param => {{
+                            if (param.time) {{
+                                const candleSeries = seriesInstances.find(s => s.name === "Candles");
+                                if (candleSeries) {{
+                                    const candleSet = datasets[currentTF].find(s => s.name === "Candles");
+                                    const d = candleSet ? candleSet.data.find(dat => dat.time === param.time) : null;
+                                    const price = d ? d.close : 0;
+                                    chart.setCrosshairPosition(price, param.time, candleSeries.inst);
+                                }}
+                            }} else {{
+                                chart.clearCrosshairPosition();
                             }}
                             updateLegend(param);
                         }});
