@@ -40,6 +40,7 @@ class TVChartGenerator:
             }
         }
         candlestick_right = {
+            "name": 'Candles',
             "type": 'Candlestick',
             "data": candles_data,
             "options": {
@@ -137,7 +138,7 @@ class TVChartGenerator:
                     "color": support_color, # White in Dark Mode, Black in Light Mode
                     "lineWidth": 2, # Thicker for visibility
                     "lineStyle": 0, # Solid
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "S"
                 })
             for i, level in enumerate(getattr(analysis, 'resistance_levels', [])):
@@ -146,7 +147,7 @@ class TVChartGenerator:
                     "color": "#B71C1C", # Dark Red
                     "lineWidth": 2, # Thicker for visibility
                     "lineStyle": 0, # Solid
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "R"
                 })
                 
@@ -157,7 +158,7 @@ class TVChartGenerator:
                     "color": "rgba(91, 33, 182, 0.7)", # Purple
                     "lineWidth": 1.5,
                     "lineStyle": 0,
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "HVN"
                 })
                 
@@ -192,9 +193,10 @@ class TVChartGenerator:
             if show_ema and ema in df.columns:
                 ema_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[ema]) and (val := float(row[ema]))]
                 series.append({
+                    "name": ema,
                     "type": 'Line',
                     "data": ema_data,
-                    "options": {"color": color, "lineWidth": width, "title": ema, "priceScaleId": "right"}
+                    "options": {"color": color, "lineWidth": width, "priceScaleId": "right", "lastValueVisible": False}
                 })
                 series.append({
                     "type": 'Line',
@@ -206,14 +208,14 @@ class TVChartGenerator:
         if show_bollinger and 'Bollinger_Upper' in df.columns and 'Bollinger_Lower' in df.columns:
             for b_col, b_title in [('Bollinger_Upper', 'Upper BOLL'), ('Bollinger_Lower', 'Lower BOLL')]:
                 b_data = [{"time": row[date_col], "value": float(row[b_col])} for _, row in df.iterrows() if pd.notna(row[b_col])]
-                series.append({"type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "title": b_title, "priceScaleId": "right"}})
+                series.append({"name": b_title, "type": 'Line', "data": b_data, "options": {"color": 'rgba(33, 150, 243, 0.4)', "lineWidth": 1.5, "lineStyle": 2, "priceScaleId": "right", "lastValueVisible": False}})
                 series.append({"type": 'Line', "data": b_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False}})
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
         if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
             for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 2), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1.5), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1.5)]:
                 t_data = [{"time": row[date_col], "value": float(row[t_col])} for _, row in df.iterrows() if pd.notna(row[t_col])]
-                series.append({"type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "title": t_title, "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}})
+                series.append({"name": t_title, "type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "priceScaleId": "right", "lastValueVisible": False, "priceLineVisible": False}})
                 series.append({"type": 'Line', "data": t_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False, "priceLineVisible": False}})
 
         # 3.1 RSI
@@ -484,7 +486,20 @@ class TVChartGenerator:
                     .tvc-btn.active, .tvc-tf-btn.active {{ background: #2962FF; color: white; }}
                 </style>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
-                    <div id="tvc-tooltip" style="position: absolute; display: none; padding: 10px; box-sizing: border-box; font-size: 13px; font-family: sans-serif; color: {text_color}; background-color: {bg_color}E6; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; top: 12px; left: 12px; pointer-events: none; border-radius: 6px; border: 1px solid {grid_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>
+                    <div id="tvchart-legend" style="
+                        position: absolute; top: 12px; left: 12px; z-index: 1000; 
+                        font-family: sans-serif; font-size: 13px; color: {text_color}; pointer-events: none;
+                        background-color: transparent; display: flex; flex-direction: column; gap: 4px;
+                    ">
+                        <div style="font-size: 18px; font-weight: bold; display: flex; align-items: baseline; gap: 8px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);">
+                            {analysis.ticker} 
+                            <span id="legend-date" style="font-size: 13px; font-weight: normal; opacity: 0.8;"></span>
+                        </div>
+                        <div id="legend-ohlc" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
+                        <div id="legend-emas" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
+                        <div id="legend-channel" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
+                        <div id="legend-boll" style="display: flex; gap: 10px; text-shadow: 0px 1px 2px rgba(0,0,0,0.5);"></div>
+                    </div>
                 </div>
                 <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
@@ -566,7 +581,7 @@ class TVChartGenerator:
                                 }} else if (s.type === 'Histogram') {{
                                     inst = tChart.addHistogramSeries(s.options);
                                 }}
-                                seriesInstances.push({{ inst: inst, parent: tChart }});
+                                seriesInstances.push({{ inst: inst, parent: tChart, name: s.name, color: s.options ? s.options.color : null }});
                             }});
                         }}
                         
@@ -583,8 +598,74 @@ class TVChartGenerator:
                         initSeries();
                         applyData(currentTF);
                         
-                        // Interactive Tooltip
-                        const tooltip = document.getElementById('tvc-tooltip');
+                        // Interactive Legend Overlay
+                        const legendDate = document.getElementById('legend-date');
+                        const legendOhlc = document.getElementById('legend-ohlc');
+                        const legendEmas = document.getElementById('legend-emas');
+                        const legendChannel = document.getElementById('legend-channel');
+                        const legendBoll = document.getElementById('legend-boll');
+                        
+                        function updateLegend(param) {{
+                            let candleData = null;
+                            let dateStr = "";
+                            
+                            if (param && param.time) {{
+                                dateStr = typeof param.time === 'string' ? param.time : new Date(param.time * 1000).toLocaleDateString({{ month: 'short', day: 'numeric', year: 'numeric' }});
+                                const candleSeries = seriesInstances.find(s => s.name === "Candles");
+                                if (candleSeries) candleData = param.seriesData.get(candleSeries.inst);
+                            }} else {{
+                                const currentData = datasets[currentTF];
+                                const candleSet = currentData.find(s => s.name === "Candles");
+                                if (candleSet && candleSet.data && candleSet.data.length > 0) {{
+                                    candleData = candleSet.data[candleSet.data.length - 1];
+                                    dateStr = typeof candleData.time === 'string' ? candleData.time : new Date(candleData.time * 1000).toLocaleDateString({{ month: 'short', day: 'numeric', year: 'numeric' }});
+                                }}
+                            }}
+                            
+                            legendDate.innerHTML = dateStr;
+                            
+                            if (candleData && candleData.open !== undefined) {{
+                                const color = candleData.open <= candleData.close ? '#26a69a' : '#ef5350';
+                                legendOhlc.innerHTML = `
+                                    <span>O: <span style="color: ${{color}}">${{candleData.open.toFixed(2)}}</span></span>
+                                    <span>H: <span style="color: ${{color}}">${{candleData.high.toFixed(2)}}</span></span>
+                                    <span>L: <span style="color: ${{color}}">${{candleData.low.toFixed(2)}}</span></span>
+                                    <span>C: <span style="color: ${{color}}">${{candleData.close.toFixed(2)}}</span></span>
+                                `;
+                            }} else {{
+                                legendOhlc.innerHTML = "";
+                            }}
+                            
+                            let emaHtml = "";
+                            let chHtml = "";
+                            let bollHtml = "";
+                            
+                            seriesInstances.forEach(s => {{
+                                if (s.name && (s.name.startsWith("EMA") || s.name.startsWith("Channel") || s.name.includes("BOLL"))) {{
+                                    let val = null;
+                                    if (param && param.time) {{
+                                        let v = param.seriesData.get(s.inst);
+                                        if (v && v.value !== undefined) val = v.value;
+                                    }} else {{
+                                        const sourceSet = datasets[currentTF].find(ds => ds.name === s.name);
+                                        if (sourceSet && sourceSet.data && sourceSet.data.length > 0) {{
+                                            val = sourceSet.data[sourceSet.data.length - 1].value;
+                                        }}
+                                    }}
+                                    
+                                    if (val !== null && val !== undefined) {{
+                                        const html = \`<span style="color: ${{s.color}}; opacity: 0.9;">\${{s.name}}: \${{val.toFixed(2)}}</span>\`;
+                                        if (s.name.startsWith("EMA")) emaHtml += html;
+                                        else if (s.name.startsWith("Channel")) chHtml += html;
+                                        else if (s.name.includes("BOLL")) bollHtml += html;
+                                    }}
+                                }}
+                            }});
+                            
+                            legendEmas.innerHTML = emaHtml;
+                            legendChannel.innerHTML = chHtml;
+                            if (legendBoll) legendBoll.innerHTML = bollHtml;
+                        }}
                         
                         chart.subscribeCrosshairMove(param => {{
                             if (
@@ -595,46 +676,14 @@ class TVChartGenerator:
                                 param.point.y < 0 ||
                                 param.point.y > document.getElementById('tvchart-container').clientHeight
                             ) {{
-                                tooltip.style.display = 'none';
+                                updateLegend(null);
                                 return;
                             }}
-                            
-                            // Get candle data
-                            const data = param.seriesData.get(seriesInstances[0].inst);
-                            if (!data) {{
-                                tooltip.style.display = 'none';
-                                return;
-                            }}
-                            
-                            // Format date
-                            const dateStr = typeof param.time === 'string' ? param.time : new Date(param.time * 1000).toLocaleDateString({{ month: 'short', day: 'numeric', year: 'numeric' }});
-                            
-                            // Set tooltip content
-                            tooltip.innerHTML = `
-                                <div style="font-weight: bold; margin-bottom: 4px;">${{dateStr}}</div>
-                                <div>O: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.open.toFixed(2)}}</span></div>
-                                <div>H: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.high.toFixed(2)}}</span></div>
-                                <div>L: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.low.toFixed(2)}}</span></div>
-                                <div>C: <span style="color: ${{data.open < data.close ? '#26a69a' : '#ef5350'}}">${{data.close.toFixed(2)}}</span></div>
-                            `;
-                            
-                            // Position tooltip dynamically
-                            const y = param.point.y;
-                            
-                            let left = param.point.x + 15;
-                            if (left > document.getElementById('tvchart-container').clientWidth - 100) {{
-                                left = param.point.x - 105;
-                            }}
-                            
-                            let top = y + 15;
-                            if (top > document.getElementById('tvchart-container').clientHeight - 100) {{
-                                top = y - 105;
-                            }}
-                            
-                            tooltip.style.left = left + 'px';
-                            tooltip.style.top = top + 'px';
-                            tooltip.style.display = 'block';
+                            updateLegend(param);
                         }});
+                        
+                        // Initial render
+                        setTimeout(() => updateLegend(null), 100);
                         
                         // Set active toggle visually based on python prop
                         document.querySelectorAll('.tvc-tf-btn').forEach(btn => {{
