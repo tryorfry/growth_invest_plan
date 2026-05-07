@@ -18,13 +18,14 @@ class TVChartGenerator:
         # 1. Candlestick Series
         candles_data = []
         for _, row in df.iterrows():
-            candles_data.append({
-                "time": row[date_col],
-                "open": row['Open'],
-                "high": row['High'],
-                "low": row['Low'],
-                "close": row['Close'],
-            })
+            if pd.notna(row['Open']) and pd.notna(row['Close']):
+                candles_data.append({
+                    "time": row[date_col],
+                    "open": float(row['Open']),
+                    "high": float(row['High']),
+                    "low": float(row['Low']),
+                    "close": float(row['Close']),
+                })
             
         candlestick = {
             "name": 'Candles',
