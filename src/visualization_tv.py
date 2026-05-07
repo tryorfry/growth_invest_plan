@@ -317,10 +317,26 @@ class TVChartGenerator:
                     })
                     
         if markers:
-            if "markers" not in vol_series:
-                vol_series["markers"] = markers
-            else:
-                vol_series["markers"].extend(markers)
+            for m in markers:
+                m["position"] = "inBar" # draw directly on the dummy line
+                m["shape"] = "arrowUp" # ensures the text points down to the axis
+                
+            dummy_data = [{"time": row[date_col], "value": 0} for _, row in df.iterrows()]
+            dummy_series = {
+                "name": 'MarkerAxis',
+                "type": 'Line',
+                "data": dummy_data,
+                "options": {
+                    "color": 'rgba(0,0,0,0)', # Invisible
+                    "lineWidth": 0,
+                    "priceScaleId": "markerScale",
+                    "crosshairMarkerVisible": False,
+                    "lastValueVisible": False,
+                    "priceLineVisible": False
+                },
+                "markers": markers
+            }
+            series.append(dummy_series)
             
         series.append(vol_series)
         
@@ -533,6 +549,10 @@ class TVChartGenerator:
                         }});
                         chart.priceScale('left').applyOptions({{
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
+                        }});
+                        chart.priceScale('markerScale').applyOptions({{
+                            scaleMargins: {{ top: 0.95, bottom: 0.0 }},
+                            visible: false,
                         }});
                         
                         // Volume has its own native chart space now
