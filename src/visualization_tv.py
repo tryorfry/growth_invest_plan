@@ -532,6 +532,7 @@ class TVChartGenerator:
                     {events_html}
                 </div>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
+                    <div id="tvchart-tooltip" style="position: absolute; display: none; padding: 10px; box-sizing: border-box; font-size: 13px; text-align: left; z-index: 1000; pointer-events: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(30, 31, 34, 0.95); color: #d1d4dc; box-shadow: 0 4px 12px rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
                 </div>
                 <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
@@ -645,6 +646,7 @@ class TVChartGenerator:
                         const legendEmas = document.getElementById('legend-emas');
                         const legendChannel = document.getElementById('legend-channel');
                         const legendBoll = document.getElementById('legend-boll');
+                        const tooltip = document.getElementById('tvchart-tooltip');
                         
                         function updateLegend(param) {{
                             let candleData = null;
@@ -722,6 +724,41 @@ class TVChartGenerator:
                             legendEmas.innerHTML = emaHtml;
                             legendChannel.innerHTML = chHtml;
                             if (legendBoll) legendBoll.innerHTML = bollHtml;
+                            
+                            // Update Floating Tooltip
+                            if (param && param.time && param.point) {{
+                                const toolHtml = `
+                                    <div style="font-weight: bold; color: #848e9c; margin-bottom: 4px;">${{dateStr}}</div>
+                                    ${{candleData ? `
+                                        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                                            <span>O: ${{candleData.open.toFixed(2)}}</span>
+                                            <span>C: ${{candleData.close.toFixed(2)}}</span>
+                                        </div>
+                                        <div style="display: flex; gap: 8px; margin-bottom: 6px;">
+                                            <span>H: ${{candleData.high.toFixed(2)}}</span>
+                                            <span>L: ${{candleData.low.toFixed(2)}}</span>
+                                        </div>
+                                    ` : ''}}
+                                    <div style="font-size: 11px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 4px;">
+                                        ${{emaHtml.replace(/<span/g, '<div').replace(/<\/span>/g, '</div>')}}
+                                    </div>
+                                `;
+                                tooltip.innerHTML = toolHtml;
+                                tooltip.style.display = 'block';
+                                
+                                // Position tooltip near cursor but keep it within chart bounds
+                                const chartDiv = document.getElementById('tvchart-container');
+                                let left = param.point.x + 15;
+                                let top = param.point.y + 15;
+                                
+                                if (left > chartDiv.clientWidth - 150) left = param.point.x - 160;
+                                if (top > chartDiv.clientHeight - 100) top = param.point.y - 110;
+                                
+                                tooltip.style.left = left + 'px';
+                                tooltip.style.top = top + 'px';
+                            }} else {{
+                                tooltip.style.display = 'none';
+                            }}
                         }}
                         
                         chart.subscribeCrosshairMove(param => {{
