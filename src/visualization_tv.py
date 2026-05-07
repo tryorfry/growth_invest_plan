@@ -654,7 +654,7 @@ class TVChartGenerator:
                                     }}
                                     
                                     if (val !== null && val !== undefined) {{
-                                        const html = \`<span style="color: ${{s.color}}; opacity: 0.9;">\${{s.name}}: \${{val.toFixed(2)}}</span>\`;
+                                        const html = `<span style="color: ${{s.color}}; opacity: 0.9;">${{s.name}}: ${{val.toFixed(2)}}</span>`;
                                         if (s.name.startsWith("EMA")) emaHtml += html;
                                         else if (s.name.startsWith("Channel")) chHtml += html;
                                         else if (s.name.includes("BOLL")) bollHtml += html;
