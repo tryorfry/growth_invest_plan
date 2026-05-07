@@ -331,11 +331,13 @@ class TVChartGenerator:
             
             dummy_series = {
                 "name": 'MarkerAxis',
-                "type": 'Histogram',
+                "type": 'Line',
                 "data": dummy_data,
                 "options": {
                     "color": 'rgba(0,0,0,0)', # Invisible
-                    "priceScaleId": "markerScale",
+                    "lineWidth": 0,
+                    "priceScaleId": "left",
+                    "crosshairMarkerVisible": False,
                     "lastValueVisible": False,
                     "priceLineVisible": False
                 },
@@ -570,13 +572,12 @@ class TVChartGenerator:
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
                         }});
                         chart.priceScale('left').applyOptions({{
-                            scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
-                        }});
-                        
-                        chart.priceScale('markerScale').applyOptions({{
-                            scaleMargins: {{ top: 0.95, bottom: 0.0 }},
+                            scaleMargins: {{ top: 0.96, bottom: 0.0 }},
                             visible: false,
                         }});
+                        
+                        // Marker scale logic removed - now using left scale
+                        
                         
                         // Volume has its own native chart space now
                         volChart.priceScale('volScale').applyOptions({{
