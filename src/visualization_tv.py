@@ -264,7 +264,7 @@ class TVChartGenerator:
                             "time": closest_date,
                             "position": 'belowBar',
                             "color": '#2196F3',
-                            "shape": 'circle',
+                            "shape": 'arrowUp',
                             "text": 'E'
                         })
                 
@@ -278,7 +278,7 @@ class TVChartGenerator:
                     "time": next_str,
                     "position": 'belowBar',
                     "color": '#FF9800',
-                    "shape": 'circle',
+                    "shape": 'arrowUp',
                     "text": 'E'
                 })
             else:
@@ -288,7 +288,7 @@ class TVChartGenerator:
                         "time": closest_date,
                         "position": 'belowBar',
                         "color": '#FF9800',
-                        "shape": 'circle',
+                        "shape": 'arrowUp',
                         "text": 'E'
                     })
             
@@ -297,7 +297,7 @@ class TVChartGenerator:
                 closest_date = get_closest_past_trading_day(d_date)
                 if closest_date and not any(m['time'] == closest_date and m['text'] == 'D' for m in markers):
                     markers.append({
-                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'circle', "text": 'D'
+                        "time": closest_date, "position": 'belowBar', "color": '#9C27B0', "shape": 'arrowUp', "text": 'D'
                     })
 
         if getattr(analysis, 'insider_buy_dates', []):
@@ -317,31 +317,10 @@ class TVChartGenerator:
                     })
                     
         if markers:
-            for m in markers:
-                m["position"] = "inBar" # draw directly on the dummy line at the bottom
-                
-            dummy_data = [{"time": row[date_col], "value": 0} for _, row in df.iterrows()]
-            # Ensure future dates for next earnings are included in the dummy data
-            dummy_times = [d['time'] for d in dummy_data]
-            for m in markers:
-                if m['time'] not in dummy_times:
-                    dummy_data.append({"time": m['time'], "value": 0})
-            dummy_data.sort(key=lambda x: x['time'])
-            dummy_series = {
-                "name": 'MarkerAxis',
-                "type": 'Line',
-                "data": dummy_data,
-                "options": {
-                    "color": 'rgba(0,0,0,0)', # Invisible
-                    "lineWidth": 0,
-                    "priceScaleId": "markerScale",
-                    "crosshairMarkerVisible": False,
-                    "lastValueVisible": False,
-                    "priceLineVisible": False
-                },
-                "markers": markers
-            }
-            series.append(dummy_series)
+            if "markers" not in vol_series:
+                vol_series["markers"] = markers
+            else:
+                vol_series["markers"].extend(markers)
             
         series.append(vol_series)
         
@@ -571,10 +550,6 @@ class TVChartGenerator:
                         }});
                         chart.priceScale('left').applyOptions({{
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
-                        }});
-                        chart.priceScale('markerScale').applyOptions({{
-                            scaleMargins: {{ top: 0.98, bottom: 0.0 }},
-                            visible: false,
                         }});
                         
                         // Volume has its own native chart space now
