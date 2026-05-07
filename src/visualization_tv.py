@@ -331,13 +331,11 @@ class TVChartGenerator:
             
             dummy_series = {
                 "name": 'MarkerAxis',
-                "type": 'Line',
+                "type": 'Histogram',
                 "data": dummy_data,
                 "options": {
                     "color": 'rgba(0,0,0,0)', # Invisible
-                    "lineWidth": 0,
                     "priceScaleId": "markerScale",
-                    "crosshairMarkerVisible": False,
                     "lastValueVisible": False,
                     "priceLineVisible": False
                 },
@@ -576,7 +574,7 @@ class TVChartGenerator:
                         }});
                         
                         chart.priceScale('markerScale').applyOptions({{
-                            scaleMargins: {{ top: 0.98, bottom: 0.0 }},
+                            scaleMargins: {{ top: 0.92, bottom: 0.02 }},
                             visible: false,
                         }});
                         
