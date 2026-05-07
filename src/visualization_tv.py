@@ -49,7 +49,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_entry,
                     "color": "#00C853", # Darker Green
-                    "lineWidth": 1,
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "E"
@@ -59,7 +59,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": analysis.suggested_stop_loss,
                     "color": "#D50000", # Darker Red
-                    "lineWidth": 1,
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "SL"
@@ -74,7 +74,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": mbp,
                     "color": "#FFEB3B", # Yellow for combined
-                    "lineWidth": 1,
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "MATP/MBP"
@@ -85,7 +85,7 @@ class TVChartGenerator:
                     price_lines.append({
                         "price": mbp,
                         "color": "#2196F3",
-                        "lineWidth": 1,
+                        "lineWidth": 2,
                         "lineStyle": 0, # Solid
                         "axisLabelVisible": False,
                         "title": "MBP"
@@ -99,7 +99,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": matp,
                     "color": "#FFEB3B", # Yellow for MATP
-                    "lineWidth": 1,
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": title
@@ -111,7 +111,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": target,
                     "color": "#00E5FF", # Cyan for profit target
-                    "lineWidth": 1,
+                    "lineWidth": 2,
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": title
@@ -124,7 +124,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": support_color, # White in Dark Mode, Black in Light Mode
-                    "lineWidth": 1, 
+                    "lineWidth": 2, 
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "S"
@@ -133,7 +133,7 @@ class TVChartGenerator:
                 price_lines.append({
                     "price": level,
                     "color": "#B71C1C", # Dark Red
-                    "lineWidth": 1, 
+                    "lineWidth": 2, 
                     "lineStyle": 0, # Solid
                     "axisLabelVisible": False,
                     "title": "R"
@@ -184,7 +184,7 @@ class TVChartGenerator:
 
         # 2.7 Trend Channel (parallel High/Low regression bands)
         if show_channel and getattr(analysis, 'trading_style', '') == 'Trend Trading' and 'Trend_Center' in df.columns:
-            for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 1), ('Trend_Upper', 'Channel Top', '#FF5722', 2, 1), ('Trend_Lower', 'Channel Bot', '#4CAF50', 2, 1)]:
+            for t_col, t_title, t_color, t_line, t_width in [('Trend_Center', 'Channel Mid', '#FF9800', 0, 1), ('Trend_Upper', 'Channel Top', '#FF5722', 0, 1), ('Trend_Lower', 'Channel Bot', '#4CAF50', 0, 1)]:
                 t_data = [{"time": row[date_col], "value": float(row[t_col])} for _, row in df.iterrows() if pd.notna(row[t_col])]
                 series.append({"name": t_title, "type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "priceScaleId": "right", "lastValueVisible": False, "priceLineVisible": False}})
 
