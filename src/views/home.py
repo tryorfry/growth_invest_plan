@@ -324,7 +324,6 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 c1, c2, c3 = st.columns(3)
                 with c1:
                     st.session_state['chart_prefs']['ema'] = st.checkbox("Show EMAs (20, 50, 200)", value=st.session_state['chart_prefs'].get('ema', True))
-                    st.session_state['chart_prefs']['atr'] = st.checkbox("Show ATR Volatility", value=st.session_state['chart_prefs'].get('atr', True))
                     st.session_state['chart_prefs']['sr'] = st.checkbox("Show S/R Levels", value=st.session_state['chart_prefs'].get('sr', True))
                 with c2:
                     st.session_state['chart_prefs']['rsi'] = st.checkbox("Show RSI (Oscillator)", value=st.session_state['chart_prefs'].get('rsi', False))
@@ -341,7 +340,6 @@ def render_home_page(db: Database, analyzer: StockAnalyzer, chart_gen: TVChartGe
                 timeframe=st.session_state.get('timeframe', 'D'),
                 default_range=st.session_state.get('zoom', '1y'),
                 show_ema=prefs.get('ema', True),
-                show_atr=prefs.get('atr', True),
                 show_rsi=prefs.get('rsi', False),
                 show_macd=prefs.get('macd', False),
                 show_bollinger=prefs.get('boll', False),

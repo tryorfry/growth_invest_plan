@@ -12,7 +12,7 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_atr: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True, user_annotations: list = None) -> List[Dict[str, Any]]:
+    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True, user_annotations: list = None) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -216,27 +216,6 @@ class TVChartGenerator:
                 series.append({"type": 'Line', "data": t_data, "options": {"color": t_color, "lineWidth": t_width, "lineStyle": t_line, "title": t_title, "priceScaleId": "right", "lastValueVisible": True, "priceLineVisible": False}})
                 series.append({"type": 'Line', "data": t_data, "options": {"color": 'rgba(0,0,0,0)', "lineWidth": 1, "priceScaleId": "left", "crosshairMarkerVisible": False, "lastValueVisible": False, "priceLineVisible": False}})
 
-        # 3. ATR
-        atr_data = []
-        is_daily_style = getattr(analysis, 'trading_style', '') in ['Swing Trading', 'Trend Trading']
-        atr_col = 'ATR_Daily' if is_daily_style else 'ATR'
-        atr_label = 'ATR (14d)' if is_daily_style else 'ATR (14w)'
-        
-        if show_atr and atr_col in df.columns:
-             atr_data = [{"time": row[date_col], "value": val} for _, row in df.iterrows() if pd.notna(row[atr_col]) and (val := float(row[atr_col]))]
-             
-        series.append({
-            "type": 'Line',
-            "data": atr_data,
-            "options": {
-                "color": "#FFC107", 
-                "lineWidth": 1.5, 
-                "lineStyle": 2, 
-                "title": atr_label,
-                "priceScaleId": 'atrScale',
-            }
-        })
-
         # 3.1 RSI
         if show_rsi and 'RSI' in df.columns:
             series.append({
@@ -385,7 +364,6 @@ class TVChartGenerator:
         timeframe: str = "W",
         default_range: str = "5Y",
         show_ema: bool = True,
-        show_atr: bool = False,
         show_rsi: bool = True,
         show_macd: bool = True,
         show_bollinger: bool = False,
@@ -425,7 +403,7 @@ class TVChartGenerator:
         # Determine Daily Series
         daily_df = df.copy()
         daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
         
         # Determine Weekly Series
         weekly_df = df.copy()
@@ -439,25 +417,31 @@ class TVChartGenerator:
                 
         weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
         weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_atr, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
 
         theme = st.session_state.get('theme_preference', 'dark')
         bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'
         text_color = '#FFFFFF' if theme == 'dark' else '#1E1E1E'
         grid_color = '#1E2229' if theme == 'dark' else '#E0E0E0'
+        watermark_color = 'rgba(255, 255, 255, 0.05)' if theme == 'dark' else 'rgba(0, 0, 0, 0.05)'
 
         chartOptions = {
             "layout": { "textColor": text_color, "background": {"type": "solid", "color": bg_color} },
-            "grid": { "vertLines": {"color": grid_color, "style": 1}, "horzLines": {"color": grid_color, "style": 1} },
+            "grid": { "vertLines": {"color": grid_color, "style": 4}, "horzLines": {"color": grid_color, "style": 4} },
             "crosshair": { "mode": 1 },
             "rightPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
             "leftPriceScale": { "borderColor": grid_color, "visible": True, "autoScale": True, "scaleMargins": {"top": 0.10, "bottom": 0.25} },
-            "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 }
+            "timeScale": { "borderColor": grid_color, "timeVisible": True, "rightOffset": 60 },
+            "watermark": { "color": watermark_color, "visible": True, "text": analysis.ticker, "fontSize": 120, "horzAlign": 'center', "vertAlign": 'center' }
         }
 
         button_bg = "#262B33" if theme == 'dark' else "#F0F2F6"
         button_hover = "#3A414A" if theme == 'dark' else "#E0E4EB"
         button_text = "#FFFFFF" if theme == 'dark' else "#1E1E1E"
+        
+        is_daily_style = getattr(analysis, 'trading_style', '') in ['Swing Trading', 'Trend Trading']
+        current_atr = getattr(analysis, 'atr_daily', 0.0) if is_daily_style else getattr(analysis, 'atr', 0.0)
+        atr_display_label = f"ATR (14d): {current_atr:.2f}" if is_daily_style else f"ATR (14w): {current_atr:.2f}"
         
         st.components.v1.html(
             f'''
@@ -474,6 +458,9 @@ class TVChartGenerator:
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Views:</span>
                         <button class="tvc-tf-btn {'active' if timeframe == 'D' else ''}" data-tf="D">Daily</button>
                         <button class="tvc-tf-btn {'active' if timeframe == 'W' else ''}" data-tf="W">Weekly</button>
+                    </div>
+                    <div style="display: flex; gap: 5px; align-items: center; background: rgba(255, 193, 7, 0.1); padding: 4px 10px; border-radius: 4px; border: 1px solid rgba(255, 193, 7, 0.3);">
+                        <span style="color: #FFC107; font-family: sans-serif; font-size: 13px; font-weight: bold;">{atr_display_label}</span>
                     </div>
                     <div style="display: flex; gap: 5px; align-items: center;">
                         <span style="color: {text_color}; font-family: sans-serif; font-size: 13px; font-weight: bold; margin-right: 5px;">Zoom:</span>
@@ -497,7 +484,7 @@ class TVChartGenerator:
                     .tvc-btn.active, .tvc-tf-btn.active {{ background: #2962FF; color: white; }}
                 </style>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
-                    <div id="tvc-tooltip" style="position: absolute; display: none; padding: 8px; box-sizing: border-box; font-size: 13px; font-family: sans-serif; color: {text_color}; background-color: {bg_color}; opacity: 0.9; z-index: 1000; top: 12px; left: 12px; pointer-events: none; border-radius: 4px; border: 1px solid {grid_color}; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+                    <div id="tvc-tooltip" style="position: absolute; display: none; padding: 10px; box-sizing: border-box; font-size: 13px; font-family: sans-serif; color: {text_color}; background-color: {bg_color}E6; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; top: 12px; left: 12px; pointer-events: none; border-radius: 6px; border: 1px solid {grid_color}; box-shadow: 0 4px 12px rgba(0,0,0,0.3);"></div>
                 </div>
                 <div id="tvchart-volume-container" style="height: 140px; width: 100%; border-top: 2px solid {grid_color}; overflow: hidden;"></div>
             </div>
@@ -521,12 +508,10 @@ class TVChartGenerator:
                         }});
                         
                         // Distinct Panes Setup using Scale Margins
-                        const hasAtr = {str(show_atr).lower()};
                         const hasRsi = {str(show_rsi).lower()};
                         const hasMacd = {str(show_macd).lower()};
                         
                         const activeSubpanes = [];
-                        if (hasAtr) activeSubpanes.push('atrScale');
                         if (hasRsi) activeSubpanes.push('rsiScale');
                         if (hasMacd) activeSubpanes.push('macdScale');
                         

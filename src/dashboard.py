@@ -71,7 +71,7 @@ def main():
         
     if 'chart_prefs' not in st.session_state:
         st.session_state['chart_prefs'] = {
-            'ema': True, 'atr': True, 'sr': True, 'ts': True, 'rsi': False, 'macd': False, 'boll': False
+            'ema': True, 'sr': True, 'ts': True, 'rsi': False, 'macd': False, 'boll': False
         }
 
     # --- Deep Link Auto-Auth ---
