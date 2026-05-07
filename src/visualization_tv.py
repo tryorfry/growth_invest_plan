@@ -143,11 +143,11 @@ class TVChartGenerator:
             for hvn in getattr(analysis, 'volume_profile_hvns', []):
                  price_lines.append({
                     "price": hvn,
-                    "color": "rgba(91, 33, 182, 0.7)", # Purple
-                    "lineWidth": 1.5,
-                    "lineStyle": 0,
+                    "color": "rgba(156, 39, 176, 0.4)", # Subtle Purple
+                    "lineWidth": 1,
+                    "lineStyle": 2, # Dashed
                     "axisLabelVisible": False,
-                    "title": "HVN"
+                    "title": ""
                 })
                 
         # Inject Custom User Annotations
@@ -438,6 +438,13 @@ class TVChartGenerator:
             
             if ts_items:
                 trade_setup_html = f"<div id='legend-trade-setups' style='display: flex; gap: 8px; font-weight: bold; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;'>{''.join(ts_items)}</div>"
+                
+        # Build HVN Static Legend
+        hvn_html = ""
+        if show_hvn:
+            hvn_levels = [f"{l:.2f}" for l in getattr(analysis, 'volume_profile_hvns', [])]
+            if hvn_levels:
+                hvn_html = f"<div id='legend-hvn' style='display: flex; gap: 8px; font-weight: bold; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;'><span style='color: #9C27B0; padding: 2px 6px; border-radius: 4px; background: rgba(156,39,176,0.1);'>HVNs: {', '.join(hvn_levels)}</span></div>"
         
         st.components.v1.html(
             f'''
@@ -495,6 +502,7 @@ class TVChartGenerator:
                     <div id="legend-channel" style="display: flex; gap: 10px;"></div>
                     <div id="legend-boll" style="display: flex; gap: 10px;"></div>
                     {trade_setup_html}
+                    {hvn_html}
                 </div>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
                 </div>
