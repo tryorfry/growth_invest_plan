@@ -51,7 +51,7 @@ class TVChartGenerator:
                     "color": "#00C853", # Darker Green
                     "lineWidth": 2,
                     "lineStyle": 0, # Solid
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "E"
                 })
             
@@ -61,7 +61,7 @@ class TVChartGenerator:
                     "color": "#D50000", # Darker Red
                     "lineWidth": 2,
                     "lineStyle": 2, # Dashed
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "SL"
                 })
                 
@@ -76,7 +76,7 @@ class TVChartGenerator:
                     "color": "#FFEB3B", # Yellow for combined
                     "lineWidth": 2,
                     "lineStyle": 0, # Solid
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": "MATP/MBP"
                 })
             else:
@@ -87,7 +87,7 @@ class TVChartGenerator:
                         "color": "#2196F3",
                         "lineWidth": 1.5,
                         "lineStyle": 0, # Solid
-                        "axisLabelVisible": True,
+                        "axisLabelVisible": False,
                         "title": "MBP"
                     })
             if matp:
@@ -101,7 +101,7 @@ class TVChartGenerator:
                     "color": "#FFEB3B", # Yellow for MATP
                     "lineWidth": 1.5,
                     "lineStyle": 2, # Dashed
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": title
                 })
             
@@ -113,7 +113,7 @@ class TVChartGenerator:
                     "color": "#00E5FF", # Cyan for profit target
                     "lineWidth": 2,
                     "lineStyle": 1, # Dotted
-                    "axisLabelVisible": True,
+                    "axisLabelVisible": False,
                     "title": title
                 })
 
@@ -424,6 +424,21 @@ class TVChartGenerator:
         current_atr = getattr(analysis, 'atr_daily', 0.0) if is_daily_style else getattr(analysis, 'atr', 0.0)
         atr_display_label = f"ATR (14d): {current_atr:.2f}" if is_daily_style else f"ATR (14w): {current_atr:.2f}"
         
+        # Build Trade Setup Static Legend
+        trade_setup_html = ""
+        if show_trade_setup:
+            ts_items = []
+            if getattr(analysis, 'suggested_entry', None): ts_items.append(f"<span style='color: #00C853; padding: 2px 6px; border-radius: 4px; background: rgba(0,200,83,0.1);'>E: {analysis.suggested_entry:.2f}</span>")
+            if getattr(analysis, 'max_buy_price', None): ts_items.append(f"<span style='color: #2196F3; padding: 2px 6px; border-radius: 4px; background: rgba(33,150,243,0.1);'>MBP: {analysis.max_buy_price:.2f}</span>")
+            if getattr(analysis, 'median_price_target', None): ts_items.append(f"<span style='color: #FFEB3B; padding: 2px 6px; border-radius: 4px; background: rgba(255,235,59,0.1);'>MATP: {analysis.median_price_target:.2f}</span>")
+            if getattr(analysis, 'target_price', None): 
+                t_lbl = "PT" if is_daily_style else "T"
+                ts_items.append(f"<span style='color: #00E5FF; padding: 2px 6px; border-radius: 4px; background: rgba(0,229,255,0.1);'>{t_lbl}: {analysis.target_price:.2f}</span>")
+            if getattr(analysis, 'suggested_stop_loss', None): ts_items.append(f"<span style='color: #D50000; padding: 2px 6px; border-radius: 4px; background: rgba(213,0,0,0.1);'>SL: {analysis.suggested_stop_loss:.2f}</span>")
+            
+            if ts_items:
+                trade_setup_html = f"<div id='legend-trade-setups' style='display: flex; gap: 8px; font-weight: bold; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 10px;'>{''.join(ts_items)}</div>"
+        
         st.components.v1.html(
             f'''
             <div style="flex-direction: column; width: 100%; height: {height}px; display: flex; background: {bg_color}; border-radius: 8px; border: 1px solid {grid_color};">
@@ -479,6 +494,7 @@ class TVChartGenerator:
                     <div id="legend-emas" style="display: flex; gap: 10px;"></div>
                     <div id="legend-channel" style="display: flex; gap: 10px;"></div>
                     <div id="legend-boll" style="display: flex; gap: 10px;"></div>
+                    {trade_setup_html}
                 </div>
                 <div id="tvchart-container" style="position: relative; flex: 1; width: 100%; overflow: hidden;">
                 </div>
