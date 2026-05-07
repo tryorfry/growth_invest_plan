@@ -331,11 +331,13 @@ class TVChartGenerator:
             
             dummy_series = {
                 "name": 'MarkerAxis',
-                "type": 'Histogram',
+                "type": 'Line',
                 "data": dummy_data,
                 "options": {
                     "color": 'rgba(0,0,0,0)', # Invisible
+                    "lineWidth": 0,
                     "priceScaleId": "markerScale",
+                    "crosshairMarkerVisible": False,
                     "lastValueVisible": False,
                     "priceLineVisible": False
                 },
@@ -614,8 +616,17 @@ class TVChartGenerator:
                                     inst = tChart.addLineSeries(s.options);
                                     if (s.priceLines) s.priceLines.forEach(pl => inst.createPriceLine(pl));
                                     
-                                    // Prevent EMAs/Channels from flattening the candlesticks
-                                    if (s.options.priceScaleId === "right") {{
+                                    if (s.options.priceScaleId === "markerScale") {{
+                                        // Force the marker scale to a fixed range so 0 is always at the bottom
+                                        inst.applyOptions({{ 
+                                            autoscaleInfoProvider: () => ({{
+                                                priceRange: {{
+                                                    min: 0,
+                                                    max: 10
+                                                }},
+                                            }}),
+                                        }});
+                                    }} else if (s.options.priceScaleId === "right") {{
                                         inst.applyOptions({{ autoscaleInfoProvider: () => null }});
                                     }}
                                 }} else if (s.type === 'Histogram') {{
