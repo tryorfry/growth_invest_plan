@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any, List
 from streamlit_lightweight_charts import renderLightweightCharts
 import json
 
+from datetime import datetime
 from .analyzer import StockAnalysis
 
 class TVChartGenerator:
