@@ -317,10 +317,33 @@ class TVChartGenerator:
                     })
                     
         if markers:
-            if "markers" not in vol_series:
-                vol_series["markers"] = markers
-            else:
-                vol_series["markers"].extend(markers)
+            for m in markers:
+                m["position"] = "inBar" # draw directly on the dummy line at the bottom
+                m["shape"] = "arrowUp" 
+                
+            dummy_data = [{"time": row[date_col], "value": 0} for _, row in df.iterrows()]
+            # Ensure future dates for next earnings are included in the dummy data
+            dummy_times = [d['time'] for d in dummy_data]
+            for m in markers:
+                if m['time'] not in dummy_times:
+                    dummy_data.append({"time": m['time'], "value": 0})
+            dummy_data.sort(key=lambda x: x['time'])
+            
+            dummy_series = {
+                "name": 'MarkerAxis',
+                "type": 'Line',
+                "data": dummy_data,
+                "options": {
+                    "color": 'rgba(0,0,0,0)', # Invisible
+                    "lineWidth": 0,
+                    "priceScaleId": "markerScale",
+                    "crosshairMarkerVisible": False,
+                    "lastValueVisible": False,
+                    "priceLineVisible": False
+                },
+                "markers": markers
+            }
+            series.append(dummy_series)
             
         series.append(vol_series)
         
@@ -550,6 +573,11 @@ class TVChartGenerator:
                         }});
                         chart.priceScale('left').applyOptions({{
                             scaleMargins: {{ top: 0.10, bottom: mainBottomMargin }},
+                        }});
+                        
+                        chart.priceScale('markerScale').applyOptions({{
+                            scaleMargins: {{ top: 0.98, bottom: 0.0 }},
+                            visible: false,
                         }});
                         
                         // Volume has its own native chart space now
