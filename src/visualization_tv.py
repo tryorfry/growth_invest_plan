@@ -13,7 +13,22 @@ from .analyzer import StockAnalysis
 class TVChartGenerator:
     """Generates ultra-interactive TradingView Lightweight Charts"""
 
-    def _build_series(self, df: pd.DataFrame, date_col: str, analysis: StockAnalysis, show_ema: bool, show_rsi: bool, show_macd: bool, show_bollinger: bool, show_support_resistance: bool, show_hvn: bool, show_trade_setup: bool, show_channel: bool = True, user_annotations: list = None) -> List[Dict[str, Any]]:
+    def _build_series(
+        self, 
+        df: pd.DataFrame, 
+        date_col: str, 
+        analysis: StockAnalysis, 
+        show_ema: bool, 
+        show_rsi: bool, 
+        show_macd: bool, 
+        show_bollinger: bool, 
+        show_support_resistance: bool, 
+        show_hvn: bool, 
+        show_trade_setup: bool, 
+        show_channel: bool = True, 
+        user_annotations: list = None,
+        backtest_trades: list = None
+    ) -> List[Dict[str, Any]]:
         series = []
 
         # 1. Candlestick Series
@@ -39,8 +54,28 @@ class TVChartGenerator:
                 "wickUpColor": '#26a69a',
                 "wickDownColor": '#ef5350',
                 "priceScaleId": "right"
-            }
+            },
+            "markers": []
         }
+
+        # Inject Backtest Trade Markers onto Candlesticks
+        if backtest_trades:
+            for trade in backtest_trades:
+                # Ensure date format matches (Y-M-D)
+                try:
+                    t_date = pd.to_datetime(trade['date']).strftime('%Y-%m-%d')
+                    if t_date in df[date_col].values:
+                        is_buy = trade['type'].lower() == 'buy'
+                        candlestick["markers"].append({
+                            "time": t_date,
+                            "position": 'belowBar' if is_buy else 'aboveBar',
+                            "color": '#00E676' if is_buy else '#FF5252',
+                            "shape": 'arrowUp' if is_buy else 'arrowDown',
+                            "text": f"{trade['type'].upper()} @ {trade['price']:.2f}",
+                            "size": 1.5
+                        })
+                except Exception:
+                    continue
 
         # Price lines (Horizontal markers) for candlestick overlay
         price_lines = []
@@ -363,6 +398,7 @@ class TVChartGenerator:
         show_trade_setup: bool = True,
         show_channel: bool = True,
         user_annotations: list = None,
+        backtest_trades: list = None,
         height: int = 600
     ) -> None:
         """
@@ -394,7 +430,7 @@ class TVChartGenerator:
         # Determine Daily Series
         daily_df = df.copy()
         daily_df[date_col] = pd.to_datetime(daily_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
+        series_daily = self._build_series(daily_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations, backtest_trades)
         
         # Determine Weekly Series
         weekly_df = df.copy()
@@ -408,7 +444,7 @@ class TVChartGenerator:
                 
         weekly_df = weekly_df.resample('W-FRI').agg(agg_dict).dropna(subset=['Open', 'High', 'Low', 'Close']).reset_index()
         weekly_df[date_col] = pd.to_datetime(weekly_df[date_col]).dt.strftime('%Y-%m-%d')
-        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations)
+        series_weekly = self._build_series(weekly_df, date_col, analysis, show_ema, show_rsi, show_macd, show_bollinger, show_support_resistance, show_hvn, show_trade_setup, show_channel, user_annotations, backtest_trades)
 
         theme = st.session_state.get('theme_preference', 'dark')
         bg_color = '#0E1117' if theme == 'dark' else '#FFFFFF'

@@ -104,6 +104,33 @@ def render_backtesting_page():
         
         st.plotly_chart(fig, use_container_width=True)
         
+        # --- NEW: Interactive Signal Visualization ---
+        st.divider()
+        st.subheader(f"🕯️ Interactive Signal Analysis: {ticker}")
+        st.markdown("Zoom and hover to inspect entry/exit precision on the candlestick chart.")
+        
+        # Create a StockAnalysis object to satisfy the generator
+        from src.analyzer import StockAnalysis
+        mock_analysis = StockAnalysis(ticker=ticker)
+        mock_analysis.history = df
+        
+        # Determine indicators to show based on strategy
+        show_ema = True if strategy == "EMA Crossover" or strategy == "Combined Alpha (EMA+RSI)" else False
+        show_rsi = True if strategy == "RSI Mean Reversion" or strategy == "Combined Alpha (EMA+RSI)" else False
+        
+        from src.visualization_tv import TVChartGenerator
+        chart_gen = TVChartGenerator()
+        chart_gen.generate_candlestick_chart(
+            mock_analysis,
+            timeframe="D",
+            default_range="1Y" if timeframe != "max" else "ALL",
+            show_ema=show_ema,
+            show_rsi=show_rsi,
+            show_macd=False,
+            backtest_trades=results['trades'],
+            height=600
+        )
+        
         # Trade Log
         with st.expander("📝 View Trade Log"):
             if results['trades']:

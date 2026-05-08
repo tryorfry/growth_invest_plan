@@ -57,7 +57,7 @@ def render_sidebar(db) -> Tuple[str, str, bool, str]:
             nav_options.extend(["🔬 Advanced Analytics"])
             
         if tier == 'admin':
-            nav_options.extend(["🌍 Market Pulse", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard", "📊 Automated Reports"])
+            nav_options.extend(["🌍 Market Pulse", "🔄 Sector Rotation", "🏁 Multi-Style", "🔍 Screener", "🛡️ Admin Dashboard", "📊 Automated Reports"])
 
         # URL Deep-Dive Routing (from Automated Reports 'Open in New Tab')
         if "ticker" in st.query_params:

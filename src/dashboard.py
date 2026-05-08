@@ -151,6 +151,13 @@ def main():
         from src.views.comparison import render_comparison_page
         render_comparison_page()
         
+    elif page == "🔄 Sector Rotation":
+        if st.session_state.get('user_tier') != 'admin':
+            st.error("🔒 Admin Only")
+        else:
+            from src.views.sector_rotation import render_sector_rotation_page
+            render_sector_rotation_page()
+        
     elif page == "🛡️ Admin Dashboard":
         from src.views.admin_dashboard import show_admin_dashboard
         with db.get_session() as session:
