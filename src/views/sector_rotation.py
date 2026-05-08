@@ -79,15 +79,24 @@ def render_sector_rotation_page():
         color = '#00C853' if val > 0 else '#D50000'
         return f'color: {color}'
 
+    styler = display_df.style.format({
+        '1W Return': '{:+.2f}%',
+        '1M Return': '{:+.2f}%',
+        '3M Return': '{:+.2f}%',
+        '6M Return': '{:+.2f}%',
+        '1Y Return': '{:+.2f}%',
+        'RS Score': '{:.1f}'
+    })
+    
+    # Handle both old and new pandas versions (applymap deprecated in favor of map in 2.1.0)
+    subset_cols = ['1W Return', '1M Return', '3M Return', '6M Return', '1Y Return']
+    if hasattr(styler, 'map'):
+        styler = styler.map(color_returns, subset=subset_cols)
+    else:
+        styler = styler.applymap(color_returns, subset=subset_cols)
+
     st.dataframe(
-        display_df.style.format({
-            '1W Return': '{:+.2f}%',
-            '1M Return': '{:+.2f}%',
-            '3M Return': '{:+.2f}%',
-            '6M Return': '{:+.2f}%',
-            '1Y Return': '{:+.2f}%',
-            'RS Score': '{:.1f}'
-        }).applymap(color_returns, subset=['1W Return', '1M Return', '3M Return', '6M Return', '1Y Return']),
+        styler,
         use_container_width=True,
         hide_index=True
     )
