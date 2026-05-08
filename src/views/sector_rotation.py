@@ -133,7 +133,7 @@ def render_sector_rotation_page():
         for i, stock in enumerate(sector_leaders):
             if cols[i].button(stock, key=f"btn_{stock}"):
                 st.session_state['main_dash_text'] = stock
-                st.session_state['nav_radio'] = "🏠 Home"
+                st.session_state['go_to_page'] = "🏠 Home"
                 st.session_state['mp_deep_dive_trigger'] = True # Force auto-analyze
                 st.rerun()
     
