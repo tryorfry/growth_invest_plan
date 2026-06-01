@@ -2,8 +2,8 @@ name: Dynamic Screener Scheduler
 
 on:
   schedule:
-    # Runs once a day at 21:00 UTC (Market Close)
-    - cron: '0 21 * * *'
+    # Runs every 6 hours (03:00, 09:00, 15:00, 21:00 UTC)
+    - cron: '0 */6 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
           cache: 'pip'
           
       - name: Install Dependencies
