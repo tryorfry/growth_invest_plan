@@ -120,6 +120,7 @@ if __name__ == "__main__":
     from src.models import User
     
     db = Database()
+    db.init_db()  # Ensure tables are created in fresh CI environment
     with db.get_session() as session:
         admin_user = session.query(User).filter(User.tier == 'admin').first()
         email = admin_user.email if admin_user else "sachindangol@gmail.com"
