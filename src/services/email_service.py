@@ -3,7 +3,7 @@ from email.message import EmailMessage
 import os
 import mimetypes
 
-def send_report_email(filepath: str, to_email: str):
+def send_report_email(filepath: str, to_email: str, report_type: str = "Standard"):
     """
     Sends the generated Excel report via Gmail SMTP.
     Uses environment variables for credentials.
@@ -22,7 +22,7 @@ def send_report_email(filepath: str, to_email: str):
         return False
 
     msg = EmailMessage()
-    msg['Subject'] = 'Automated Trading Report (Growth Invest Plan)'
+    msg['Subject'] = f'{report_type} - Automated Trading Report (Growth Invest Plan)'
     msg['From'] = smtp_user
     msg['To'] = to_email
     

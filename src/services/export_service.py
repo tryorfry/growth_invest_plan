@@ -3,7 +3,7 @@ import os
 import datetime
 from typing import List, Dict, Any
 
-def export_reports_to_excel(reports: List[Dict[str, Any]], output_dir: str = "data/reports") -> str:
+def export_reports_to_excel(reports: List[Dict[str, Any]], output_dir: str = "data/reports", report_type: str = "Standard") -> str:
     """
     Exports a list of report dictionaries to a timestamped Excel spreadsheet.
     Returns the absolute path to the generated file.
@@ -14,7 +14,8 @@ def export_reports_to_excel(reports: List[Dict[str, Any]], output_dir: str = "da
     os.makedirs(output_dir, exist_ok=True)
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"automated_report_{timestamp}.xlsx"
+    safe_type = report_type.replace(" ", "_").lower()
+    filename = f"{safe_type}_report_{timestamp}.xlsx"
     filepath = os.path.abspath(os.path.join(output_dir, filename))
     
     df = pd.DataFrame(reports)

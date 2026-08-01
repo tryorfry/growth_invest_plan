@@ -35,7 +35,7 @@ async def run_report(to_email: str = None, tickers: list = None, report_type: st
             return
             
         print(f"Generated {len(reports)} reports. Exporting to Excel...")
-        excel_path = export_reports_to_excel(reports)
+        excel_path = export_reports_to_excel(reports, report_type=report_type)
         
         # Save to DB
         class NpEncoder(json.JSONEncoder):
@@ -73,7 +73,7 @@ async def run_report(to_email: str = None, tickers: list = None, report_type: st
         
         if to_email:
             print(f"Sending email to {to_email}...")
-            send_report_email(excel_path, to_email)
+            send_report_email(excel_path, to_email, report_type=report_type)
             
         print(f"[{datetime.now()}] Automated Report Run Completed Successfully.")
         
