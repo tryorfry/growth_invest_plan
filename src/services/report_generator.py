@@ -108,6 +108,7 @@ async def generate_reports(tickers: List[str] = None, report_record_id: int = No
                 "Trend Score": analysis.style_results.get('Trend Trading', {}).get('score', 0),
                 "Trend Trend": analysis.style_results.get('Trend Trading', {}).get('trend', 'N/A'),
                 "Best Style": analysis.best_style,
+                "Best Trend": analysis.style_results.get(analysis.best_style, {}).get('trend', 'N/A') if getattr(analysis, 'best_style', None) else 'N/A',
                 
                 # Setup details (based on best style)
                 "Suggested Entry": round(float(getattr(analysis, 'suggested_entry', 0)), 2) if isinstance(getattr(analysis, 'suggested_entry', None), (int, float)) else 'N/A',

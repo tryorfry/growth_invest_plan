@@ -126,16 +126,22 @@ class GrowthStyle(TradingStyleStrategy):
         reward_risk_ratio = self._calculate_rr(entry, stop_loss, target)
         analysis.reward_to_risk = reward_risk_ratio
         
+        # Apply quality filters
+        if not self.apply_quality_filters(analysis, entry, stop_loss, target):
+            analysis.reward_to_risk = 0.0
+            reward_risk_ratio = 0.0
+        
         # Maximum buy ceiling
         analysis.max_buy_price = self.calculate_max_buy_price(analysis)
         # 4. Ceiling Check
         if nearest_resistance:
             if (nearest_resistance - price) / price < 0.015:
                 notes.append(f"❌ Rejected: Current price is squeezed against resistance ceiling (${nearest_resistance:.2f}). Waiting for Breakout.")
-            else:
+            elif reward_risk_ratio > 0:
                 notes.append(f"✅ Setup Valid: Clear room before next resistance target (${nearest_resistance:.2f})")
         else:
-            notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
+            if reward_risk_ratio > 0:
+                notes.append("✅ Setup Valid: Blue Sky (No immediate resistance ceilings detected).")
             
         analysis.setup_notes = notes
         

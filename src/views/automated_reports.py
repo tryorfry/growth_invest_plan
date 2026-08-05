@@ -155,14 +155,25 @@ def render_automated_reports_page():
                             else:
                                 df["RR_Num"] = 0
                                 
+                            if "Best Trend" in df.columns:
+                                def trend_to_num(t):
+                                    t = str(t).lower()
+                                    if 'uptrend' in t: return 3
+                                    if 'sideways' in t: return 2
+                                    if 'downtrend' in t: return 1
+                                    return 0
+                                df["Trend_Num"] = df["Best Trend"].apply(trend_to_num)
+                            else:
+                                df["Trend_Num"] = 0
+                                
                             # Interactive charts
                             tab1, tab2, tab3, tab4 = st.tabs(["🏆 Top Setups", "Data Table", "Sector Breakdown", "Setup Analysis"])
                             
                             with tab1:
                                 try:
                                     if len(df) > 0:
-                                        # Sort to find the best 5 stocks
-                                        top_stocks = df.sort_values(by=["ScoreNum", "RR_Num"], ascending=[False, False]).head(5)
+                                        # Sort to find the best 5 stocks based on Score, R/R and Trend
+                                        top_stocks = df.sort_values(by=["ScoreNum", "RR_Num", "Trend_Num"], ascending=[False, False, False]).head(5)
                                         
                                         st.markdown("### 🔥 Highest Conviction Trade Setups")
                                         st.caption("Ranked by 9-Point Fundamental Quality & Reward-to-Risk Ratio across all trading styles")

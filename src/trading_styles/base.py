@@ -138,3 +138,49 @@ class TradingStyleStrategy(ABC):
         effective_risk = max(risk, min_risk)
         
         return float(reward / effective_risk)
+
+    def apply_quality_filters(self, analysis: Any, entry: float, stop: float, target: float, direction: str = "long") -> bool:
+        """
+        Applies quality filters to avoid inflated R/R values.
+        Returns True if setup passes quality filters, False otherwise.
+        """
+        notes = getattr(analysis, 'setup_notes', [])
+        
+        # Get daily ATR or fallback
+        atr_daily = getattr(analysis, 'atr_daily', 0.0)
+        if atr_daily <= 0:
+            atr_daily = getattr(analysis, 'atr', 0.0)
+            
+        if direction.lower() == "long":
+            stop_distance = entry - stop
+        else:
+            stop_distance = stop - entry
+            
+        # 1. Minimum stop distance: >= 1.5 * ATR(14)
+        if stop_distance < (1.5 * atr_daily) and atr_daily > 0:
+            notes.append(f"❌ Rejected: Stop distance ({stop_distance:.2f}) is less than 1.5x ATR ({1.5 * atr_daily:.2f}). Too tight.")
+            analysis.setup_notes = notes
+            return False
+            
+        # 3. Reject trades where stop is less than 1% of entry price.
+        if stop_distance < (0.01 * entry):
+            notes.append(f"❌ Rejected: Stop loss ({stop_distance:.2f}) is less than 1% of entry price. Risk of normal market noise.")
+            analysis.setup_notes = notes
+            return False
+            
+        # 4. Reject setups that have already moved more than 8-10% above the breakout point.
+        current_price = getattr(analysis, 'current_price', entry)
+        if direction.lower() == "long":
+            if current_price > (entry * 1.08):
+                notes.append(f"❌ Rejected: Setup has already moved more than 8% above the breakout point (Price: {current_price:.2f}, Entry: {entry:.2f}). Avoid chasing.")
+                analysis.setup_notes = notes
+                return False
+        else:
+            if current_price < (entry * 0.92):
+                notes.append(f"❌ Rejected: Setup has already moved more than 8% below the breakdown point (Price: {current_price:.2f}, Entry: {entry:.2f}). Avoid chasing.")
+                analysis.setup_notes = notes
+                return False
+                
+        analysis.setup_notes = notes
+        return True
+

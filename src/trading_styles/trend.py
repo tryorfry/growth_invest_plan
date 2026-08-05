@@ -200,10 +200,15 @@ class TrendStyle(TradingStyleStrategy):
         analysis.target_price = target
         analysis.reward_to_risk = reward_risk_ratio
         analysis.max_buy_price = self.calculate_max_buy_price(analysis)
+        
+        # Apply quality filters
+        if not self.apply_quality_filters(analysis, entry, stop_loss, target):
+            analysis.reward_to_risk = 0.0
+            reward_risk_ratio = 0.0
 
         if reward_risk_ratio >= 3.0:
             notes.append(f"✅ Setup Valid: Excellent Reward/Risk ratio ({reward_risk_ratio:.1f}x)")
-        else:
+        elif reward_risk_ratio > 0:
             notes.append(f"❌ Rejected: Reward/Risk ratio ({reward_risk_ratio:.1f}x) is below 3.0.")
 
         analysis.setup_notes = notes

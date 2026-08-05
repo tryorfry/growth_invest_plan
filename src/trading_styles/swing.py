@@ -212,9 +212,14 @@ class SwingStyle(TradingStyleStrategy):
         reward_risk_ratio = self._calculate_rr(entry, stop_loss, target, direction=direction)
         analysis.reward_to_risk = reward_risk_ratio
         
+        # Apply quality filters
+        if not self.apply_quality_filters(analysis, entry, stop_loss, target, direction=direction):
+            analysis.reward_to_risk = 0.0
+            reward_risk_ratio = 0.0
+        
         if reward_risk_ratio >= 2.0:
             notes.append(f"✅ Setup Valid: Excellent Reward/Risk ratio ({reward_risk_ratio:.1f}x)")
-        else:
+        elif reward_risk_ratio > 0:
             notes.append(f"❌ Rejected: Poor Reward/Risk ratio ({reward_risk_ratio:.1f}x). Must be >= 2.0x.")
             
         analysis.setup_notes = notes
